@@ -26,6 +26,14 @@ if (!JWT_SECRET) {
 
 const allowedOrigins = [FRONTEND_URL].filter(Boolean);
 
+// ─── CORS ───────────────────────────────────────────────────────
+app.use(cors({
+  origin: allowedOrigins,
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+}));
+
 // ─── Middleware ──────────────────────────────────────────────────
 app.use(helmet({
   contentSecurityPolicy: false, // disabled — SPA loads CDN scripts
