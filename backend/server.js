@@ -238,7 +238,7 @@ wss.on('connection', (clientWs, req) => {
 async function start() {
   await initDb();
 
-  server.listen(PORT, () => {
+  server.listen(PORT, '0.0.0.0', () => {
     console.log('');
     console.log('  ╔═══════════════════════════════════════╗');
     console.log('  ║   DIALIX API Server                   ║');
