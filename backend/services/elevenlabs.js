@@ -4,7 +4,11 @@
  * The API key stays server-side only.
  */
 
+const { isValidUrl } = require('../middleware/web-security');
+
 const BASE_URL = 'https://api.elevenlabs.io';
+const ALLOWED_DOMAINS = ['api.elevenlabs.io', 'elevenlabs.io'];
+const REQUEST_TIMEOUT = 30000; // 30 seconds
 
 // ─── In-memory caches with TTLs ──────────────────────────────────
 let voiceCache = null;
@@ -16,33 +20,64 @@ let modelCacheTime = 0;
 const MODEL_CACHE_TTL = 30 * 60 * 1000; // 30 minutes (models rarely change)
 
 /**
- * Helper: Make authenticated request to ElevenLabs API
+ * Helper: Make authenticated request to ElevenLabs API with security checks
  */
 async function elevenLabsFetch(path, options = {}) {
-  const url = `${BASE_URL}${path}`;
-  const res = await fetch(url, {
-    ...options,
-    headers: {
-      'xi-api-key': process.env.ELEVENLABS_API_KEY,
-      'Content-Type': 'application/json',
-      ...(options.headers || {}),
-    },
-  });
+  // Validate the URL to prevent SSRF
+  const fullUrl = `${BASE_URL}${path}`;
+  if (!isValidUrl(fullUrl)) {
+    throw new Error('Invalid URL for ElevenLabs API call');
+  }
 
-  if (!res.ok) {
-    const body = await res.text();
-    const error = new Error(`ElevenLabs API error: ${res.status} ${res.statusText}`);
-    error.statusCode = res.status;
-    error.body = body;
+  // Additional domain validation
+  try {
+    const url = new URL(fullUrl);
+    if (!ALLOWED_DOMAINS.includes(url.hostname)) {
+      throw new Error('Domain not allowed for ElevenLabs API calls');
+    }
+  } catch (error) {
+    throw new Error('Invalid URL format for ElevenLabs API call');
+  }
+
+  // Create AbortController for timeout
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
+
+  try {
+    const res = await fetch(fullUrl, {
+      ...options,
+      signal: controller.signal,
+      headers: {
+        'xi-api-key': process.env.ELEVENLABS_API_KEY,
+        'Content-Type': 'application/json',
+        'User-Agent': 'Dialix-Server/1.0',
+        ...(options.headers || {}),
+      },
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!res.ok) {
+      const body = await res.text();
+      const error = new Error(`ElevenLabs API error: ${res.status} ${res.statusText}`);
+      error.statusCode = res.status;
+      error.body = body;
+      throw error;
+    }
+
+    // DELETE requests may return empty body
+    if (res.status === 204 || res.headers.get('content-length') === '0') {
+      return null;
+    }
+
+    return res.json();
+  } catch (error) {
+    clearTimeout(timeoutId);
+    if (error.name === 'AbortError') {
+      throw new Error('ElevenLabs API request timeout');
+    }
     throw error;
   }
-
-  // DELETE requests may return empty body
-  if (res.status === 204 || res.headers.get('content-length') === '0') {
-    return null;
-  }
-
-  return res.json();
 }
 
 // ─── Agent endpoints ─────────────────────────────────────────────

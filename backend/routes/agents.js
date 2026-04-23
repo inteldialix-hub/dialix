@@ -1,6 +1,9 @@
 const express = require('express');
+const { Readable } = require('stream');
 const { all, get, run } = require('../db');
 const { authenticate, requireAdmin } = require('../middleware/auth');
+const { validateSchema } = require('../middleware/validate');
+const { addSharedVoiceSchema } = require('../lib/schemas');
 const elevenlabs = require('../services/elevenlabs');
 
 const router = express.Router();
@@ -11,7 +14,7 @@ const router = express.Router();
  */
 router.get('/', authenticate, async (req, res) => {
   try {
-    const assignments = all(
+    const assignments = await all(
       'SELECT agent_id, agent_name, can_edit FROM client_agents WHERE client_id = ?',
       [req.client.id]
     );
@@ -126,12 +129,9 @@ router.post('/voices/refresh', authenticate, async (req, res) => {
  * Required before assigning a community voice to an agent.
  * Body: { public_owner_id, voice_id, name }
  */
-router.post('/voices/add-shared', authenticate, async (req, res) => {
+router.post('/voices/add-shared', authenticate, validateSchema(addSharedVoiceSchema), async (req, res) => {
   try {
     const { public_owner_id, voice_id, name } = req.body;
-    if (!public_owner_id || !voice_id || !name) {
-      return res.status(400).json({ error: 'public_owner_id, voice_id, and name are required' });
-    }
     const result = await elevenlabs.addSharedVoice(public_owner_id, voice_id, name);
     res.json({ success: true, voice_id, ...result });
   } catch (err) {
@@ -165,20 +165,47 @@ router.get('/models', authenticate, async (req, res) => {
   try {
     const rawModels = await elevenlabs.getModels();
 
+    // Only these TTS model IDs are valid for conversational AI agents
+    const VALID_CONV_TTS = new Set([
+      'eleven_turbo_v2',
+      'eleven_flash_v2',
+      'eleven_v3_conversational',
+    ]);
+
+    // Voice parameter support per model family
+    const MODEL_CAPABILITIES = {
+      'eleven_turbo_v2':          { supports_speed: false, supports_style: false, supports_speaker_boost: true,  latency_ms: 300 },
+      'eleven_flash_v2':          { supports_speed: true,  supports_style: false, supports_speaker_boost: true,  latency_ms: 150 },
+      'eleven_v3_conversational': { supports_speed: false, supports_style: false, supports_speaker_boost: false, latency_ms: 250 },
+    };
+
     // Shape models into a clean format for the frontend
-    const models = rawModels.map(m => ({
-      model_id: m.model_id,
-      name: m.name,
-      description: m.description || '',
-      can_do_text_to_speech: m.can_do_text_to_speech || false,
-      can_do_voice_conversion: m.can_do_voice_conversion || false,
-      can_be_finetuned: m.can_be_finetuned || false,
-      languages: (m.languages || []).map(l => ({
-        language_id: l.language_id,
-        name: l.name,
-      })),
-      max_characters_request: m.max_characters_request_free_user || 0,
-    }));
+    // Filter to only valid conversational models and include parameter support info
+    const models = rawModels
+      .filter(m => VALID_CONV_TTS.has(m.model_id))
+      .map(m => {
+        const caps = MODEL_CAPABILITIES[m.model_id] || {};
+        return {
+          model_id: m.model_id,
+          name: m.name,
+          description: m.description || '',
+          can_do_text_to_speech: m.can_do_text_to_speech || false,
+          can_do_voice_conversion: m.can_do_voice_conversion || false,
+          can_be_finetuned: m.can_be_finetuned || false,
+          language_count: (m.languages || []).length,
+          supported_language_ids: (m.languages || []).map(l => l.language_id),
+          languages: (m.languages || []).map(l => ({
+            language_id: l.language_id,
+            name: l.name,
+          })),
+          max_characters_request: m.max_characters_request_free_user || 0,
+          // Voice parameter support flags
+          supports_speed: caps.supports_speed || false,
+          supports_style: caps.supports_style || false,
+          supports_speaker_boost: caps.supports_speaker_boost || false,
+          latency_ms: caps.latency_ms || null,
+        };
+      });
 
     // Extract a deduplicated list of ALL supported languages across all models
     const langMap = new Map();
@@ -199,16 +226,52 @@ router.get('/models', authenticate, async (req, res) => {
       const rawLLMs = await elevenlabs.getLLMs();
       llmModels = rawLLMs
         .filter(l => {
-          // Skip deprecated models
           if (l.deprecation_info && l.deprecation_info.is_deprecated) return false;
-          // Skip checkpoint/dated versions (e.g. gpt-4o-2024-08-06) to keep list clean
           if (l.is_checkpoint) return false;
           return true;
         })
         .map(l => {
           const id = l.llm || '';
-          // Create a human-friendly label from the model ID
-          // e.g. "gpt-4o-mini" → "GPT-4o Mini", "claude-3-5-sonnet-v2" → "Claude 3.5 Sonnet v2"
+          // Derive provider from ID prefix
+          let provider = 'Other';
+          if (/^gpt-/i.test(id)) provider = 'OpenAI';
+          else if (/^claude/i.test(id)) provider = 'Anthropic';
+          else if (/^gemini/i.test(id)) provider = 'Google';
+          else if (/^qwen/i.test(id)) provider = 'ElevenLabs';
+          else if (/^glm-/i.test(id)) provider = 'ElevenLabs';
+          else if (/^gpt-oss/i.test(id)) provider = 'ElevenLabs';
+          else if (/^deepseek/i.test(id)) provider = 'DeepSeek';
+
+          // Estimate first-token latency in ms based on known benchmarks
+          const lo = id.toLowerCase();
+          let latency_ms = 500; // default for unknown models
+          // ElevenLabs hosted — optimized infra, lowest latency
+          if (lo.includes('glm-')) latency_ms = 150;
+          else if (lo.includes('qwen')) latency_ms = 180;
+          else if (lo.includes('gpt-oss')) latency_ms = 200;
+          // OpenAI
+          else if (lo.includes('gpt-4o-mini') || lo.includes('gpt-4.1-nano')) latency_ms = 200;
+          else if (lo.includes('gpt-4.1-mini') || lo.includes('gpt-5-nano')) latency_ms = 250;
+          else if (lo.includes('gpt-3.5')) latency_ms = 220;
+          else if (lo.includes('gpt-4o') && !lo.includes('mini')) latency_ms = 350;
+          else if (lo.includes('gpt-4.1') && !lo.includes('mini') && !lo.includes('nano')) latency_ms = 400;
+          else if (lo.includes('gpt-4-turbo')) latency_ms = 500;
+          else if (lo.includes('gpt-5-mini')) latency_ms = 300;
+          else if (lo.includes('gpt-5') && !lo.includes('mini') && !lo.includes('nano')) latency_ms = 600;
+          // Anthropic
+          else if (lo.includes('haiku')) latency_ms = 200;
+          else if (lo.includes('sonnet') && lo.includes('3.5')) latency_ms = 400;
+          else if (lo.includes('sonnet') && (lo.includes('3.7') || lo.includes('4'))) latency_ms = 450;
+          else if (lo.includes('sonnet-4.5')) latency_ms = 500;
+          else if (lo.includes('opus')) latency_ms = 900;
+          // Google
+          else if (lo.includes('flash-lite') || lo.includes('flash_lite')) latency_ms = 150;
+          else if (lo.includes('flash')) latency_ms = 180;
+          else if (lo.includes('pro')) latency_ms = 600;
+          // DeepSeek
+          else if (lo.includes('deepseek')) latency_ms = 350;
+
+          // Human-friendly label
           const label = id
             .replace(/^gpt-/i, 'GPT-')
             .replace(/^claude-/i, 'Claude ')
@@ -217,11 +280,22 @@ router.get('/models', authenticate, async (req, res) => {
             .replace(/^glm-/i, 'GLM ')
             .replace(/^deepseek-/i, 'DeepSeek ')
             .replace(/-/g, ' ')
-            .replace(/\b\w/g, c => c.toUpperCase()) // capitalize words
+            .replace(/\b\w/g, c => c.toUpperCase())
             || id;
-          return { value: id, label };
+
+          return {
+            value: id,
+            label,
+            provider,
+            latency_ms,
+            max_tokens: l.max_tokens_limit || null,
+            context_window: l.max_context_limit || null,
+            supports_image: l.supports_image_input || false,
+            supports_document: l.supports_document_input || false,
+            supports_parallel_tools: l.supports_parallel_tool_calls || false,
+          };
         })
-        .filter(l => l.value); // Remove any with empty ID
+        .filter(l => l.value);
     } catch (llmErr) {
       console.warn('Failed to fetch LLMs, using empty list:', llmErr.message);
     }
@@ -273,7 +347,6 @@ router.get('/voices/:voice_id/preview', authenticate, async (req, res) => {
       'Cache-Control': 'public, max-age=3600',
     });
 
-    const { Readable } = require('stream');
     const readable = Readable.fromWeb(ttsRes.body);
     readable.pipe(res);
   } catch (err) {
@@ -361,7 +434,7 @@ router.delete('/:agent_id', authenticate, async (req, res) => {
     await elevenlabs.deleteAgent(agent_id);
 
     // Remove all DB assignments for this agent
-    const result = run('DELETE FROM client_agents WHERE agent_id = ?', [agent_id]);
+    const result = await run('DELETE FROM client_agents WHERE agent_id = ?', [agent_id]);
     console.log(`Deleted agent ${agent_id}, removed ${result.changes} DB assignments`);
 
     res.json({ success: true, assignments_removed: result.changes });
@@ -381,21 +454,21 @@ router.get('/:agent_id', authenticate, async (req, res) => {
     const { agent_id } = req.params;
 
     // Admin can access any agent; regular clients need assignment
+    let clientCanEdit = 1;
+    let allowedFeatures = null;
+
     if (req.client.is_admin !== 1) {
-      const assignment = get(
+      const assignment = await get(
         'SELECT id, can_edit, allowed_features FROM client_agents WHERE client_id = ? AND agent_id = ?',
         [req.client.id, agent_id]
       );
       if (!assignment) {
         return res.status(403).json({ error: 'Agent not assigned to your account' });
       }
-      var clientCanEdit = assignment.can_edit ?? 1;
-      var allowedFeatures = null;
+      clientCanEdit = assignment.can_edit ?? 1;
       try { allowedFeatures = assignment.allowed_features ? JSON.parse(assignment.allowed_features) : null; } catch(e) {}
-    } else {
-      var clientCanEdit = 1;
-      var allowedFeatures = null; // null = all features (admin)
     }
+    // Admin: clientCanEdit=1, allowedFeatures=null (all features) — already defaults
 
     const raw = await elevenlabs.getAgent(agent_id);
 
@@ -429,8 +502,12 @@ router.get('/:agent_id', authenticate, async (req, res) => {
       speed: raw.conversation_config?.tts?.speed ?? 1.0,
       similarity_boost: raw.conversation_config?.tts?.similarity_boost ?? 0.75,
       optimize_streaming_latency: raw.conversation_config?.tts?.optimize_streaming_latency ?? 0,
-      expressive_mode: raw.conversation_config?.tts?.expressive_mode ?? false,
+      agent_output_audio_format: raw.conversation_config?.tts?.agent_output_audio_format || 'pcm_16000',
       text_normalisation_type: raw.conversation_config?.tts?.text_normalisation_type || 'auto',
+
+      // V3 Conversational config (read from ElevenLabs — set via their dashboard)
+      expressive_mode: raw.tts_conversational_config?.expressive_mode ?? true,
+      suggested_audio_tags: raw.tts_conversational_config?.suggested_audio_tags || [],
 
       // ASR (Speech Recognition)
       asr_quality: raw.conversation_config?.asr?.quality || 'high',
@@ -487,7 +564,7 @@ router.patch('/:agent_id', authenticate, async (req, res) => {
 
     // Admin can update any agent; regular clients need assignment + edit permission
     if (req.client.is_admin !== 1) {
-      const assignment = get(
+      const assignment = await get(
         'SELECT id, can_edit FROM client_agents WHERE client_id = ? AND agent_id = ?',
         [req.client.id, agent_id]
       );
@@ -526,9 +603,21 @@ router.patch('/:agent_id', authenticate, async (req, res) => {
 
     // ── conversation_config.agent.prompt ──
     const promptPatch = {};
-    if (body.prompt !== undefined) promptPatch.prompt = body.prompt;
+    if (body.prompt !== undefined) {
+      // Basic prompt length guard (100KB max)
+      if (typeof body.prompt === 'string' && body.prompt.length > 100000) {
+        return res.status(400).json({ error: 'Prompt text exceeds maximum length (100KB)' });
+      }
+      promptPatch.prompt = body.prompt;
+    }
     if (body.llm !== undefined) promptPatch.llm = body.llm;
-    if (body.temperature !== undefined) promptPatch.temperature = parseFloat(body.temperature);
+    if (body.temperature !== undefined) {
+      const temp = parseFloat(body.temperature);
+      if (isNaN(temp) || temp < 0 || temp > 2) {
+        return res.status(400).json({ error: 'Temperature must be between 0 and 2' });
+      }
+      promptPatch.temperature = temp;
+    }
     if (body.max_tokens !== undefined) promptPatch.max_tokens = parseInt(body.max_tokens, 10);
     if (body.ignore_default_personality !== undefined) {
       promptPatch.ignore_default_personality = body.ignore_default_personality;
@@ -546,19 +635,53 @@ router.patch('/:agent_id', authenticate, async (req, res) => {
     // ── conversation_config.tts ──
     const ttsPatch = {};
     if (body.voice_id !== undefined) ttsPatch.voice_id = body.voice_id;
-    if (body.tts_model_id !== undefined) ttsPatch.model_id = body.tts_model_id;
-    if (body.stability !== undefined) ttsPatch.stability = parseFloat(body.stability);
-    if (body.speed !== undefined) ttsPatch.speed = parseFloat(body.speed);
-    if (body.similarity_boost !== undefined) ttsPatch.similarity_boost = parseFloat(body.similarity_boost);
+
+    // ALWAYS include model_id so ElevenLabs updates it atomically with other settings.
+    // This prevents "English Agents must use turbo or flash v2" when the existing
+    // saved model is multilingual_v2 but language is English.
+    const requestedModel = body.tts_model_id || 'eleven_flash_v2';
+    const agentLang = body.language || '';
+
+    // Auto-correct: English agents can't use multilingual_v2
+    if (agentLang === 'en' && requestedModel === 'eleven_multilingual_v2') {
+      ttsPatch.model_id = 'eleven_flash_v2'; // force to a valid model
+    } else {
+      ttsPatch.model_id = requestedModel;
+    }
+
+    // V3 models do NOT support custom voice settings
+    const isV3 = ttsPatch.model_id.startsWith('eleven_v3');
+
+    if (!isV3) {
+      if (body.stability !== undefined) ttsPatch.stability = parseFloat(body.stability);
+      if (body.speed !== undefined) ttsPatch.speed = Math.min(1.2, Math.max(0.7, parseFloat(body.speed)));
+      if (body.similarity_boost !== undefined) ttsPatch.similarity_boost = parseFloat(body.similarity_boost);
+    }
+
     if (body.optimize_streaming_latency !== undefined) {
       ttsPatch.optimize_streaming_latency = parseInt(body.optimize_streaming_latency, 10);
     }
-    if (body.expressive_mode !== undefined) ttsPatch.expressive_mode = body.expressive_mode;
+    if (body.agent_output_audio_format !== undefined) {
+      ttsPatch.agent_output_audio_format = body.agent_output_audio_format;
+    }
     if (body.text_normalisation_type !== undefined) ttsPatch.text_normalisation_type = body.text_normalisation_type;
 
     if (Object.keys(ttsPatch).length > 0) {
       patchBody.conversation_config = patchBody.conversation_config || {};
       patchBody.conversation_config.tts = ttsPatch;
+    }
+
+    // ── V3 expressive mode + audio tags (try API, skip if plan-gated) ──
+    if (isV3 && (body.expressive_mode !== undefined || body.suggested_audio_tags !== undefined)) {
+      const ttsConvConfig = {};
+      if (body.expressive_mode !== undefined) ttsConvConfig.expressive_mode = !!body.expressive_mode;
+      if (body.suggested_audio_tags !== undefined) {
+        ttsConvConfig.suggested_audio_tags = Array.isArray(body.suggested_audio_tags)
+          ? body.suggested_audio_tags.slice(0, 20) : [];
+      }
+      if (Object.keys(ttsConvConfig).length > 0) {
+        patchBody.tts_conversational_config = ttsConvConfig;
+      }
     }
 
     // ── conversation_config.asr ──
@@ -663,7 +786,23 @@ router.patch('/:agent_id', authenticate, async (req, res) => {
     }
 
     console.log(`PATCH agent ${agent_id}:`, JSON.stringify(patchBody, null, 2));
-    await elevenlabs.updateAgent(agent_id, patchBody);
+
+    try {
+      await elevenlabs.updateAgent(agent_id, patchBody);
+    } catch (apiErr) {
+      // If expressive TTS is plan-gated, strip it and retry with everything else
+      const errBody = typeof apiErr.body === 'string' ? apiErr.body : '';
+      if (errBody.includes('expressive_tts_not_allowed') && patchBody.tts_conversational_config) {
+        console.log('[ElevenLabs] Expressive TTS not available on this plan — saving without it');
+        delete patchBody.tts_conversational_config;
+        if (Object.keys(patchBody).length > 0) {
+          await elevenlabs.updateAgent(agent_id, patchBody);
+        }
+      } else {
+        throw apiErr; // re-throw other errors
+      }
+    }
+
     res.json({ success: true });
   } catch (err) {
     console.error('PATCH /api/agents/:id error:', err);
@@ -685,7 +824,7 @@ router.patch('/:agent_id/voice', authenticate, async (req, res) => {
 
     // Admin bypass or assignment check
     if (req.client.is_admin !== 1) {
-      const assignment = get(
+      const assignment = await get(
         'SELECT id FROM client_agents WHERE client_id = ? AND agent_id = ?',
         [req.client.id, agent_id]
       );

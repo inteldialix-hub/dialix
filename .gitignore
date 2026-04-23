@@ -1,0 +1,34 @@
+# Dependencies
+node_modules/
+
+# Environment variables (secrets!)
+.env
+.env.*
+!.env.example
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+logs/
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Build output
+dist/
+build/
+
+# Agent/skill files (not needed in repo)
+.agents/
+skills-lock.json
+agent_full_config.json
+ai/

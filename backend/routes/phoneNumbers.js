@@ -1,6 +1,12 @@
 const express = require('express');
 const { all, get, run } = require('../db');
 const { authenticate } = require('../middleware/auth');
+const { validateSchema } = require('../middleware/validate');
+const {
+  twilioPhoneNumberSchema,
+  sipPhoneNumberSchema,
+  phoneNumberAssignSchema,
+} = require('../lib/schemas');
 const elevenlabs = require('../services/elevenlabs');
 
 const router = express.Router();
@@ -11,7 +17,7 @@ const router = express.Router();
  */
 router.get('/', authenticate, async (req, res) => {
   try {
-    const localNumbers = all(
+    const localNumbers = await all(
       'SELECT * FROM phone_numbers WHERE client_id = ? ORDER BY created_at DESC',
       [req.client.id]
     );
@@ -48,14 +54,9 @@ router.get('/', authenticate, async (req, res) => {
 /**
  * POST /api/phone-numbers/twilio
  */
-router.post('/twilio', authenticate, async (req, res) => {
+router.post('/twilio', authenticate, validateSchema(twilioPhoneNumberSchema), async (req, res) => {
   try {
-    const { label, phone_number, account_sid, auth_token } = req.body;
-    let { phone_number_sid } = req.body;
-
-    if (!label || !phone_number || !account_sid || !auth_token) {
-      return res.status(400).json({ error: 'Label, phone number, Account SID, and Auth Token are required' });
-    }
+    const { label, phone_number, account_sid, auth_token, phone_number_sid } = req.body;
 
     // Auto-fetch Phone Number SID from Twilio if not provided
     if (!phone_number_sid) {
@@ -93,13 +94,13 @@ router.post('/twilio', authenticate, async (req, res) => {
     });
 
     const elevenlabsPhoneId = result.phone_number_id || result.id;
-    run(
+    await run(
       `INSERT INTO phone_numbers (client_id, elevenlabs_phone_number_id, phone_number, label, provider)
-       VALUES (?, ?, ?, ?, 'twilio')`,
+       VALUES (?, ?, ?, ?, 'twilio') RETURNING id`,
       [req.client.id, elevenlabsPhoneId, phone_number, label]
     );
 
-    const inserted = get(
+    const inserted = await get(
       'SELECT * FROM phone_numbers WHERE elevenlabs_phone_number_id = ?',
       [elevenlabsPhoneId]
     );
@@ -114,13 +115,9 @@ router.post('/twilio', authenticate, async (req, res) => {
 /**
  * POST /api/phone-numbers/sip
  */
-router.post('/sip', authenticate, async (req, res) => {
+router.post('/sip', authenticate, validateSchema(sipPhoneNumberSchema), async (req, res) => {
   try {
     const { label, phone_number, termination_uri, username, password, transport } = req.body;
-
-    if (!label || !phone_number || !termination_uri) {
-      return res.status(400).json({ error: 'Label, phone number, and termination URI are required' });
-    }
 
     const result = await elevenlabs.createPhoneNumber({
       provider: 'sip_trunk',
@@ -133,13 +130,13 @@ router.post('/sip', authenticate, async (req, res) => {
     });
 
     const elevenlabsPhoneId = result.phone_number_id || result.id;
-    run(
+    await run(
       `INSERT INTO phone_numbers (client_id, elevenlabs_phone_number_id, phone_number, label, provider)
-       VALUES (?, ?, ?, ?, 'sip_trunk')`,
+       VALUES (?, ?, ?, ?, 'sip_trunk') RETURNING id`,
       [req.client.id, elevenlabsPhoneId, phone_number, label]
     );
 
-    const inserted = get(
+    const inserted = await get(
       'SELECT * FROM phone_numbers WHERE elevenlabs_phone_number_id = ?',
       [elevenlabsPhoneId]
     );
@@ -154,16 +151,12 @@ router.post('/sip', authenticate, async (req, res) => {
 /**
  * POST /api/phone-numbers/:id/assign
  */
-router.post('/:id/assign', authenticate, async (req, res) => {
+router.post('/:id/assign', authenticate, validateSchema(phoneNumberAssignSchema), async (req, res) => {
   try {
     const { id } = req.params;
     const { agent_id } = req.body;
 
-    if (!agent_id) {
-      return res.status(400).json({ error: 'agent_id is required' });
-    }
-
-    const phoneNum = get(
+    const phoneNum = await get(
       'SELECT * FROM phone_numbers WHERE id = ? AND client_id = ?',
       [id, req.client.id]
     );
@@ -171,7 +164,7 @@ router.post('/:id/assign', authenticate, async (req, res) => {
       return res.status(404).json({ error: 'Phone number not found' });
     }
 
-    const agent = get(
+    const agent = await get(
       'SELECT id FROM client_agents WHERE client_id = ? AND agent_id = ?',
       [req.client.id, agent_id]
     );
@@ -180,7 +173,7 @@ router.post('/:id/assign', authenticate, async (req, res) => {
     }
 
     await elevenlabs.assignPhoneNumber(phoneNum.elevenlabs_phone_number_id, agent_id);
-    run('UPDATE phone_numbers SET assigned_agent_id = ? WHERE id = ?', [agent_id, id]);
+    await run('UPDATE phone_numbers SET assigned_agent_id = ? WHERE id = ?', [agent_id, id]);
 
     res.json({ success: true });
   } catch (err) {
@@ -196,16 +189,17 @@ router.delete('/:id', authenticate, async (req, res) => {
   try {
     const { id } = req.params;
 
-    const phoneNum = get(
-      'SELECT * FROM phone_numbers WHERE id = ? AND client_id = ?',
-      [id, req.client.id]
-    );
+    // Admins can delete any phone number; regular users only their own
+    const phoneNum = req.client.is_admin === 1
+      ? await get('SELECT * FROM phone_numbers WHERE id = ?', [id])
+      : await get('SELECT * FROM phone_numbers WHERE id = ? AND client_id = ?', [id, req.client.id]);
+
     if (!phoneNum) {
       return res.status(404).json({ error: 'Phone number not found' });
     }
 
     await elevenlabs.deletePhoneNumber(phoneNum.elevenlabs_phone_number_id);
-    run('DELETE FROM phone_numbers WHERE id = ?', [id]);
+    await run('DELETE FROM phone_numbers WHERE id = ?', [id]);
 
     res.json({ success: true });
   } catch (err) {
