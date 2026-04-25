@@ -13,12 +13,18 @@ if (!JWT_SECRET) {
  */
 async function authenticate(req, res, next) {
   const header = req.headers.authorization;
-  if (!header || !header.startsWith('Bearer ')) {
+  let token;
+  
+  if (header && header.startsWith('Bearer ')) {
+    token = header.slice(7);
+  } else if (req.query.token) {
+    // Fallback: accept token as query param (needed for audio streaming via <audio src>)
+    token = req.query.token;
+  } else {
     securityLogger.logInvalidToken('missing_bearer_header', req);
     return res.status(401).json({ error: 'Missing or invalid authorization header' });
   }
 
-  const token = header.slice(7);
   try {
     const payload = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] });
     if (!payload || !payload.clientId) {

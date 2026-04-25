@@ -343,6 +343,23 @@ async function deleteConversation(conversationId) {
   });
 }
 
+/**
+ * Get conversation audio recording
+ * Returns raw audio buffer from ElevenLabs
+ */
+async function getConversationAudio(conversationId) {
+  const ELEVEN_API = 'https://api.elevenlabs.io';
+  const resp = await fetch(`${ELEVEN_API}/v1/convai/conversations/${conversationId}/audio`, {
+    headers: { 'xi-api-key': process.env.ELEVENLABS_API_KEY },
+  });
+  if (!resp.ok) {
+    const err = new Error(`ElevenLabs audio fetch failed: ${resp.status}`);
+    err.statusCode = resp.status;
+    throw err;
+  }
+  return resp;
+}
+
 // ─── Monitoring ──────────────────────────────────────────────────
 
 /**
@@ -374,6 +391,7 @@ module.exports = {
   getConversations,
   getConversation,
   deleteConversation,
+  getConversationAudio,
   getMonitoringUrl,
   getSignedUrl,
 };

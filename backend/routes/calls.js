@@ -144,6 +144,35 @@ router.get('/conversation/:conversation_id', authenticate, async (req, res) => {
 });
 
 /**
+ * GET /api/calls/conversation/:conversation_id/audio
+ * Stream the conversation audio recording
+ */
+router.get('/conversation/:conversation_id/audio', authenticate, async (req, res) => {
+  try {
+    const { conversation_id } = req.params;
+    const audioResp = await elevenlabs.getConversationAudio(conversation_id);
+    
+    // Forward content type
+    const contentType = audioResp.headers.get('content-type') || 'audio/mpeg';
+    res.setHeader('Content-Type', contentType);
+    
+    const contentLength = audioResp.headers.get('content-length');
+    if (contentLength) res.setHeader('Content-Length', contentLength);
+    
+    // Pipe the audio stream
+    const { Readable } = require('stream');
+    const readable = Readable.fromWeb(audioResp.body);
+    readable.pipe(res);
+  } catch (err) {
+    console.error('GET /api/calls/conversation/audio error:', err);
+    if (err.statusCode === 404) {
+      return res.status(404).json({ error: 'Audio not found' });
+    }
+    res.status(500).json({ error: 'Failed to fetch audio' });
+  }
+});
+
+/**
  * GET /api/calls/analytics
  * Get comprehensive call analytics for the client
  */
