@@ -126,6 +126,24 @@ router.get('/history/:agent_id', authenticate, async (req, res) => {
 });
 
 /**
+ * GET /api/calls/conversation/:conversation_id
+ * Get full conversation detail including transcript, analysis, and metadata
+ */
+router.get('/conversation/:conversation_id', authenticate, async (req, res) => {
+  try {
+    const { conversation_id } = req.params;
+    const data = await elevenlabs.getConversation(conversation_id);
+    res.json(data);
+  } catch (err) {
+    console.error('GET /api/calls/conversation error:', err);
+    if (err.statusCode === 404) {
+      return res.status(404).json({ error: 'Conversation not found' });
+    }
+    res.status(500).json({ error: 'Failed to fetch conversation detail' });
+  }
+});
+
+/**
  * GET /api/calls/analytics
  * Get comprehensive call analytics for the client
  */

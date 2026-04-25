@@ -323,7 +323,7 @@ async function makeOutboundCall(provider, payload) {
 
 // ─── Conversation history ────────────────────────────────────────
 
-async function getConversations(agentId, pageSize = 10) {
+async function getConversations(agentId, pageSize = 100) {
   return elevenLabsFetch(`/v1/convai/conversations?agent_id=${agentId}&page_size=${pageSize}`);
 }
 
