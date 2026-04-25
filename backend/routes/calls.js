@@ -152,21 +152,22 @@ router.get('/conversation/:conversation_id/audio', authenticate, async (req, res
     const { conversation_id } = req.params;
     const audioResp = await elevenlabs.getConversationAudio(conversation_id);
     
-    // Forward content type
+    // Read the full audio into a buffer
+    const arrayBuf = await audioResp.arrayBuffer();
+    const buffer = Buffer.from(arrayBuf);
+    
+    // Forward headers
     const contentType = audioResp.headers.get('content-type') || 'audio/mpeg';
     res.setHeader('Content-Type', contentType);
+    res.setHeader('Content-Length', buffer.length);
+    res.setHeader('Accept-Ranges', 'bytes');
+    res.setHeader('Cache-Control', 'private, max-age=3600');
     
-    const contentLength = audioResp.headers.get('content-length');
-    if (contentLength) res.setHeader('Content-Length', contentLength);
-    
-    // Pipe the audio stream
-    const { Readable } = require('stream');
-    const readable = Readable.fromWeb(audioResp.body);
-    readable.pipe(res);
+    res.send(buffer);
   } catch (err) {
     console.error('GET /api/calls/conversation/audio error:', err);
-    if (err.statusCode === 404) {
-      return res.status(404).json({ error: 'Audio not found' });
+    if (err.statusCode === 404 || err.statusCode === 422) {
+      return res.status(404).json({ error: 'Audio not available for this conversation' });
     }
     res.status(500).json({ error: 'Failed to fetch audio' });
   }
