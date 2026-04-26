@@ -150,11 +150,20 @@ router.get('/conversation/:conversation_id', authenticate, async (req, res) => {
 router.get('/conversation/:conversation_id/audio', authenticate, async (req, res) => {
   try {
     const { conversation_id } = req.params;
+    console.log(`[Audio] Fetching audio for conversation: ${conversation_id}`);
+    
     const audioResp = await elevenlabs.getConversationAudio(conversation_id);
+    console.log(`[Audio] ElevenLabs response status: ${audioResp.status}, content-type: ${audioResp.headers.get('content-type')}, content-length: ${audioResp.headers.get('content-length')}`);
     
     // Read the full audio into a buffer
     const arrayBuf = await audioResp.arrayBuffer();
     const buffer = Buffer.from(arrayBuf);
+    console.log(`[Audio] Buffer size: ${buffer.length} bytes`);
+    
+    if (buffer.length === 0) {
+      console.log('[Audio] Empty buffer — no recording available');
+      return res.status(404).json({ error: 'No audio recording available' });
+    }
     
     // Forward headers
     const contentType = audioResp.headers.get('content-type') || 'audio/mpeg';
@@ -163,11 +172,12 @@ router.get('/conversation/:conversation_id/audio', authenticate, async (req, res
     res.setHeader('Accept-Ranges', 'bytes');
     res.setHeader('Cache-Control', 'private, max-age=3600');
     
+    console.log(`[Audio] Sending ${buffer.length} bytes as ${contentType}`);
     res.send(buffer);
   } catch (err) {
-    console.error('GET /api/calls/conversation/audio error:', err);
+    console.error('[Audio] Error fetching audio:', err.message, 'statusCode:', err.statusCode);
     if (err.statusCode === 404 || err.statusCode === 422) {
-      return res.status(404).json({ error: 'Audio not available for this conversation' });
+      return res.status(404).json({ error: 'Audio not available — recording may be disabled for this agent' });
     }
     res.status(500).json({ error: 'Failed to fetch audio' });
   }

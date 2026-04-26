@@ -24,7 +24,11 @@ if (!JWT_SECRET) {
   throw new Error('JWT_SECRET is required and must be set in the environment');
 }
 
-const allowedOrigins = [FRONTEND_URL].filter(Boolean);
+const allowedOrigins = [
+  FRONTEND_URL,
+  'https://dialix-frontend.fly.dev',
+  'http://localhost:3000',
+].filter(Boolean);
 
 // ─── CORS ───────────────────────────────────────────────────────
 app.use(cors({
@@ -38,6 +42,7 @@ app.use(cors({
 app.use(helmet({
   contentSecurityPolicy: false, // disabled — SPA loads CDN scripts
   crossOriginEmbedderPolicy: false,
+  crossOriginResourcePolicy: false, // allow cross-origin audio/media loading
 }));
 app.use(helmet.hsts({
   maxAge: 31536000,
