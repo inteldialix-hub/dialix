@@ -73,6 +73,7 @@ const adminAssignAgentSchema = z.object({
   agent_id: z.string().trim().min(1, { message: 'agent_id is required' }),
   agent_name: z.string().trim().min(1, { message: 'agent_name is required' }).max(100, { message: 'agent_name is too long' }),
   can_edit: z.union([z.boolean(), z.number().int().min(0).max(1)]).optional(),
+  provider: z.enum(['elevenlabs', 'vapi']).optional(),
 });
 
 const adminUpdateAgentAssignmentSchema = z.object({

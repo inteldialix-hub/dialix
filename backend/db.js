@@ -5,7 +5,11 @@ const fs = require('fs');
 const path = require('path');
 const { Pool } = require('pg');
 
-const DB_PATH = path.join(__dirname, 'dialix.db');
+// On Fly.io, store the DB on the persistent volume at /data/
+// Locally, keep it in the project directory
+const DB_PATH = process.env.FLY_APP_NAME
+  ? '/data/dialix.db'
+  : path.join(__dirname, 'dialix.db');
 const DB_PROVIDER = process.env.DB_PROVIDER || 'sqlite';
 
 let db = null;
@@ -95,6 +99,13 @@ async function initSqliteDb() {
     db.run('ALTER TABLE client_agents ADD COLUMN allowed_features TEXT DEFAULT NULL');
     persist();
     console.log('✓ Migrated: added allowed_features column to client_agents');
+  } catch (e) {}
+
+  // Vapi provider support: track which provider each agent uses
+  try {
+    db.run("ALTER TABLE client_agents ADD COLUMN provider TEXT DEFAULT 'elevenlabs'");
+    persist();
+    console.log('✓ Migrated: added provider column to client_agents');
   } catch (e) {}
 
   db.run(`
@@ -188,6 +199,17 @@ async function initSqliteDb() {
   } catch (e) {
     console.log('⚠ Database: Indexes may already exist');
   }
+  // ─── Seed default admin account if none exists ─────────────────
+  const adminEmail = process.env.ADMIN_EMAIL || 'admin@dialix.ai';
+  const adminPassword = process.env.ADMIN_PASSWORD || 'dialix2024';
+  const existingAdmin = db.exec(`SELECT id FROM clients WHERE email = '${adminEmail}'`);
+  if (!existingAdmin.length || !existingAdmin[0].values.length) {
+    const hash = bcrypt.hashSync(adminPassword, 12);
+    db.run(
+      `INSERT INTO clients (name, email, password_hash, is_admin) VALUES ('Admin', '${adminEmail}', '${hash}', 1)`
+    );
+    console.log(`✓ Seeded admin account: ${adminEmail}`);
+  }
 
   persist();
 }
@@ -236,6 +258,11 @@ async function initPostgresDb() {
   `);
   await pool.query(`
     ALTER TABLE client_agents ADD COLUMN IF NOT EXISTS allowed_features TEXT DEFAULT NULL
+  `);
+
+  // Vapi provider support
+  await pool.query(`
+    ALTER TABLE client_agents ADD COLUMN IF NOT EXISTS provider TEXT DEFAULT 'elevenlabs'
   `);
 
   await pool.query(`

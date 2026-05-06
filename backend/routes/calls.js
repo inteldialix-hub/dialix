@@ -4,9 +4,17 @@ const { authenticate } = require('../middleware/auth');
 const { validateSchema } = require('../middleware/validate');
 const { callOutboundSchema } = require('../lib/schemas');
 const elevenlabs = require('../services/elevenlabs');
+const vapi = require('../services/vapi');
 const callMonitor = require('../lib/call-monitoring');
 const { Parser } = require('json2csv');
 const PDFDocument = require('pdfkit');
+
+/** Determine provider for an agent: checks DB first, falls back to ID pattern */
+function detectProvider(agentId, dbRow) {
+  if (dbRow?.provider) return dbRow.provider;
+  // ElevenLabs agent IDs start with "agent_"
+  return agentId.startsWith('agent_') ? 'elevenlabs' : 'vapi';
+}
 
 const router = express.Router();
 
@@ -95,25 +103,50 @@ router.post('/outbound', authenticate, async (req, res) => {
 
 /**
  * GET /api/calls/history/:agent_id
- * Gracefully handles 404 when agent has no conversations yet
+ * Gracefully handles 404 when agent has no conversations yet.
+ * Works with both ElevenLabs and Vapi agents.
  */
 router.get('/history/:agent_id', authenticate, async (req, res) => {
   try {
     const { agent_id } = req.params;
 
-    const agent = get(
-      'SELECT id FROM client_agents WHERE client_id = ? AND agent_id = ?',
+    const agentRow = get(
+      "SELECT id, COALESCE(provider, 'elevenlabs') as provider FROM client_agents WHERE client_id = ? AND agent_id = ?",
       [req.client.id, agent_id]
     );
-    if (!agent) {
+    if (!agentRow) {
       return res.status(403).json({ error: 'Agent not assigned to your account' });
     }
 
+    const provider = detectProvider(agent_id, agentRow);
+
+    if (provider === 'vapi') {
+      // Fetch from Vapi API
+      try {
+        const calls = await vapi.listCalls({ assistantId: agent_id, limit: 100 });
+        // Map Vapi calls to the same shape the frontend expects
+        const conversations = (calls || []).map(c => ({
+          conversation_id: c.id,
+          agent_id: agent_id,
+          status: c.status === 'ended' ? 'done' : c.status,
+          call_successful: c.endedReason === 'assistant-ended-call' || c.endedReason === 'customer-ended-call' ? 'success' : (c.endedReason === 'assistant-error' ? 'failure' : c.endedReason || 'unknown'),
+          start_time_unix_secs: c.startedAt ? Math.floor(new Date(c.startedAt).getTime() / 1000) : undefined,
+          call_duration_secs: c.startedAt && c.endedAt ? Math.round((new Date(c.endedAt) - new Date(c.startedAt)) / 1000) : 0,
+          message_count: c.messages?.length || 0,
+          metadata: { cost: c.cost, type: c.type, endedReason: c.endedReason },
+        }));
+        return res.json({ conversations });
+      } catch (vapiErr) {
+        console.error('Vapi listCalls error:', vapiErr);
+        return res.json({ conversations: [] });
+      }
+    }
+
+    // ElevenLabs flow
     try {
       const data = await elevenlabs.getConversations(agent_id);
       res.json({ conversations: data.conversations || [] });
     } catch (elErr) {
-      // If ElevenLabs returns 404 (agent not found or no conversations), return empty
       if (elErr.statusCode === 404) {
         return res.json({ conversations: [] });
       }
@@ -127,11 +160,94 @@ router.get('/history/:agent_id', authenticate, async (req, res) => {
 
 /**
  * GET /api/calls/conversation/:conversation_id
- * Get full conversation detail including transcript, analysis, and metadata
+ * Get full conversation detail including transcript, analysis, and metadata.
+ * Detects provider via ?provider= query param or falls back to ElevenLabs.
  */
 router.get('/conversation/:conversation_id', authenticate, async (req, res) => {
   try {
     const { conversation_id } = req.params;
+    // Auto-detect provider: if explicitly set use that, otherwise infer from ID format
+    // Vapi conversation IDs are UUIDs (contain hyphens, don't start with "agent_")
+    const explicitProvider = req.query.provider;
+    const provider = explicitProvider || (conversation_id.includes('-') && !conversation_id.startsWith('agent_') ? 'vapi' : 'elevenlabs');
+
+    if (provider === 'vapi') {
+      // Fetch from Vapi
+      const call = await vapi.getCall(conversation_id);
+      // Extract messages with latency
+      const allMessages = call.artifact?.messages || call.messages || [];
+      const transcript = allMessages
+        .filter(m => m.role === 'assistant' || m.role === 'user' || m.role === 'bot')
+        .map(m => ({
+          role: m.role === 'assistant' || m.role === 'bot' ? 'agent' : 'user',
+          message: m.message || m.content || '',
+          time_in_call_secs: m.secondsFromStart || undefined,
+          // Latency data from Vapi message objects
+          latency: m.duration ? Math.round(m.duration * 1000) : undefined,
+          llm_latency: m.llmProcessingDuration ? Math.round(m.llmProcessingDuration * 1000) : undefined,
+          tts_latency: m.voiceProcessingDuration ? Math.round(m.voiceProcessingDuration * 1000) : undefined,
+          asr_latency: m.transcriptionDuration ? Math.round(m.transcriptionDuration * 1000) : undefined,
+        }));
+
+      // Determine call duration
+      const callDuration = call.startedAt && call.endedAt
+        ? Math.round((new Date(call.endedAt) - new Date(call.startedAt)) / 1000) : 0;
+
+      // Model/voice/transcriber config from the call
+      const modelConfig = call.assistant?.model || call.model || null;
+      const voiceConfig = call.assistant?.voice || call.voice || null;
+      const transcriberConfig = call.assistant?.transcriber || call.transcriber || null;
+
+      // Map to the shape the frontend expects
+      const mapped = {
+        conversation_id: call.id,
+        agent_id: call.assistantId || '',
+        status: call.status === 'ended' ? 'done' : call.status,
+        provider: 'vapi',
+        transcript,
+        metadata: {
+          start_time_unix_secs: call.startedAt ? Math.floor(new Date(call.startedAt).getTime() / 1000) : undefined,
+          call_duration_secs: callDuration,
+          cost: call.cost || 0,
+          costBreakdown: call.costBreakdown || null,
+          authorization_method: 'vapi',
+          endedReason: call.endedReason || null,
+          type: call.type || null,
+          // Recording URLs
+          recordingUrl: call.artifact?.recordingUrl || call.recordingUrl || null,
+          stereoRecordingUrl: call.artifact?.stereoRecordingUrl || null,
+          videoRecordingUrl: call.artifact?.videoRecordingUrl || null,
+          // Config used for this call
+          model: modelConfig ? {
+            provider: modelConfig.provider || null,
+            model: modelConfig.model || null,
+            temperature: modelConfig.temperature ?? null,
+          } : null,
+          voice: voiceConfig ? {
+            provider: voiceConfig.provider || null,
+            voiceId: voiceConfig.voiceId || null,
+          } : null,
+          transcriber: transcriberConfig ? {
+            provider: transcriberConfig.provider || null,
+            model: transcriberConfig.model || null,
+            language: transcriberConfig.language || null,
+          } : null,
+        },
+        analysis: {
+          call_successful: call.endedReason === 'assistant-ended-call' || call.endedReason === 'customer-ended-call' ? 'success' : 'unknown',
+          transcript_summary: call.analysis?.summary || null,
+          successEvaluation: call.analysis?.successEvaluation || null,
+          structuredData: call.analysis?.structuredData || null,
+        },
+        conversation_initiation_client_data: {
+          dynamic_variables: {},
+          conversation_config_override: {},
+        },
+      };
+      return res.json(mapped);
+    }
+
+    // ElevenLabs flow
     const data = await elevenlabs.getConversation(conversation_id);
     res.json(data);
   } catch (err) {
@@ -145,12 +261,49 @@ router.get('/conversation/:conversation_id', authenticate, async (req, res) => {
 
 /**
  * GET /api/calls/conversation/:conversation_id/audio
- * Stream the conversation audio recording
+ * Stream the conversation audio recording.
+ * For Vapi calls, attempts to return the recording URL if available.
  */
 router.get('/conversation/:conversation_id/audio', authenticate, async (req, res) => {
   try {
     const { conversation_id } = req.params;
-    console.log(`[Audio] Fetching audio for conversation: ${conversation_id}`);
+    // Auto-detect provider: if explicitly set use that, otherwise infer from ID format
+    const explicitProvider = req.query.provider;
+    const provider = explicitProvider || (conversation_id.includes('-') && !conversation_id.startsWith('agent_') ? 'vapi' : 'elevenlabs');
+    console.log(`[Audio] Fetching audio for conversation: ${conversation_id} (provider: ${provider})`);
+
+    if (provider === 'vapi') {
+      // Vapi stores recordings differently — try to get the recording URL
+      try {
+        const call = await vapi.getCall(conversation_id);
+        const recordingUrl = call.artifact?.recordingUrl || call.recordingUrl;
+        if (recordingUrl) {
+          // Proxy the recording to avoid CORS/CSP issues on the frontend
+          const vapiAudioResp = await fetch(recordingUrl);
+          if (!vapiAudioResp.ok) {
+            throw new Error(`Vapi storage responded with ${vapiAudioResp.status}`);
+          }
+          
+          const arrayBuf = await vapiAudioResp.arrayBuffer();
+          const buffer = Buffer.from(arrayBuf);
+          
+          if (buffer.length === 0) {
+            return res.status(404).json({ error: 'Empty recording from Vapi' });
+          }
+          
+          const contentType = vapiAudioResp.headers.get('content-type') || 'audio/wav';
+          res.setHeader('Content-Type', contentType);
+          res.setHeader('Content-Length', buffer.length);
+          res.setHeader('Accept-Ranges', 'bytes');
+          res.setHeader('Cache-Control', 'private, max-age=3600');
+          
+          return res.send(buffer);
+        }
+      } catch (e) {
+        console.error('[Audio] Vapi audio proxy error:', e);
+      }
+      return res.status(404).json({ error: 'No audio recording available for this Vapi call' });
+    }
     
     const audioResp = await elevenlabs.getConversationAudio(conversation_id);
     console.log(`[Audio] ElevenLabs response status: ${audioResp.status}, content-type: ${audioResp.headers.get('content-type')}, content-length: ${audioResp.headers.get('content-length')}`);

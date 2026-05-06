@@ -5,6 +5,7 @@ const { authenticate, requireAdmin } = require('../middleware/auth');
 const { validateSchema } = require('../middleware/validate');
 const { addSharedVoiceSchema } = require('../lib/schemas');
 const elevenlabs = require('../services/elevenlabs');
+const vapi = require('../services/vapi');
 
 const router = express.Router();
 
@@ -15,7 +16,7 @@ const router = express.Router();
 router.get('/', authenticate, async (req, res) => {
   try {
     const assignments = await all(
-      'SELECT agent_id, agent_name, can_edit FROM client_agents WHERE client_id = ?',
+      "SELECT agent_id, agent_name, can_edit, COALESCE(provider, 'elevenlabs') as provider FROM client_agents WHERE client_id = ?",
       [req.client.id]
     );
 
@@ -25,7 +26,28 @@ router.get('/', authenticate, async (req, res) => {
 
     const agents = await Promise.all(
       assignments.map(async (a) => {
+        // Auto-detect: if agent_id is NOT ElevenLabs format but DB says elevenlabs, fix it
+        let effectiveProvider = a.provider;
+        if (effectiveProvider === 'elevenlabs' && !a.agent_id.startsWith('agent_')) {
+          effectiveProvider = 'vapi';
+          run("UPDATE client_agents SET provider = 'vapi' WHERE agent_id = ?", [a.agent_id]).catch(() => {});
+        }
+
         try {
+          if (effectiveProvider === 'vapi') {
+            const liveData = await vapi.getAssistant(a.agent_id);
+            return {
+              agent_id: a.agent_id,
+              name: liveData.name || a.agent_name,
+              voice_id: liveData.voice?.voiceId || null,
+              language: liveData.transcriber?.language || 'en',
+              llm: liveData.model?.model || null,
+              status: 'active',
+              can_edit: a.can_edit ?? 1,
+              provider: 'vapi',
+            };
+          }
+          // ElevenLabs (default)
           const liveData = await elevenlabs.getAgent(a.agent_id);
           return {
             agent_id: a.agent_id,
@@ -35,6 +57,7 @@ router.get('/', authenticate, async (req, res) => {
             llm: liveData.conversation_config?.agent?.prompt?.llm || null,
             status: 'active',
             can_edit: a.can_edit ?? 1,
+            provider: 'elevenlabs',
           };
         } catch (err) {
           return {
@@ -45,6 +68,7 @@ router.get('/', authenticate, async (req, res) => {
             llm: null,
             status: 'unavailable',
             can_edit: a.can_edit ?? 1,
+            provider: effectiveProvider,
           };
         }
       })
@@ -65,13 +89,35 @@ router.get('/all', authenticate, async (req, res) => {
     if (req.client.is_admin !== 1) {
       return res.status(403).json({ error: 'Admin access required' });
     }
-    const agents = await elevenlabs.getAgents();
-    const mapped = agents.map(a => ({
-      agent_id: a.agent_id,
-      name: a.name || 'Unnamed Agent',
-      tags: a.tags || [],
-      last_call: a.last_call_time_unix_secs ? new Date(a.last_call_time_unix_secs * 1000).toISOString() : null,
-    }));
+
+    // Fetch from both providers in parallel
+    const [elAgents, vapiAgents] = await Promise.all([
+      elevenlabs.getAgents().catch(err => {
+        console.warn('Failed to fetch ElevenLabs agents:', err.message);
+        return [];
+      }),
+      (process.env.VAPI_API_KEY ? vapi.listAssistants() : Promise.resolve([])).catch(err => {
+        console.warn('Failed to fetch Vapi agents:', err.message);
+        return [];
+      }),
+    ]);
+
+    const mapped = [
+      ...elAgents.map(a => ({
+        agent_id: a.agent_id,
+        name: a.name || 'Unnamed Agent',
+        tags: a.tags || [],
+        last_call: a.last_call_time_unix_secs ? new Date(a.last_call_time_unix_secs * 1000).toISOString() : null,
+        provider: 'elevenlabs',
+      })),
+      ...vapiAgents.map(a => ({
+        agent_id: a.id,
+        name: a.name || 'Unnamed Agent',
+        tags: [],
+        last_call: a.updatedAt || null,
+        provider: 'vapi',
+      })),
+    ];
     res.json({ agents: mapped });
   } catch (err) {
     console.error('GET /api/agents/all error:', err);
@@ -144,14 +190,45 @@ router.post('/voices/add-shared', authenticate, validateSchema(addSharedVoiceSch
  * GET /api/agents/:agent_id/test-call/signed-url
  * Generate a signed WebSocket URL for test-calling an agent
  * directly from the browser. The URL is temporary (15 min).
+ *
+ * For ElevenLabs agents: returns { signed_url }
+ * For Vapi agents: returns { provider: 'vapi', web_call_url, call_id }
  */
 router.get('/:agent_id/test-call/signed-url', authenticate, async (req, res) => {
   try {
-    const signedUrl = await elevenlabs.getSignedUrl(req.params.agent_id);
+    const { agent_id } = req.params;
+
+    // Check provider — ElevenLabs vs Vapi
+    let provider = 'elevenlabs';
+    const assignment = await get(
+      "SELECT COALESCE(provider, 'elevenlabs') as provider FROM client_agents WHERE agent_id = ? LIMIT 1",
+      [agent_id]
+    );
+    if (assignment) provider = assignment.provider || 'elevenlabs';
+    if (provider === 'elevenlabs' && !agent_id.startsWith('agent_')) provider = 'vapi';
+
+    if (provider === 'vapi') {
+      // Vapi web calls are initiated client-side via @vapi-ai/web SDK.
+      // The server-side /call endpoint only supports phone calls.
+      // Return the assistant ID + public key so the frontend can start the call.
+      const publicKey = process.env.VAPI_PUBLIC_KEY;
+      if (!publicKey) {
+        return res.status(500).json({ error: 'VAPI_PUBLIC_KEY not configured on the server' });
+      }
+      return res.json({
+        provider: 'vapi',
+        assistant_id: agent_id,
+        public_key: publicKey,
+      });
+    }
+
+    const signedUrl = await elevenlabs.getSignedUrl(agent_id);
     res.json({ signed_url: signedUrl });
   } catch (err) {
-    console.error('GET test-call/signed-url error:', err);
-    res.status(500).json({ error: err.message || 'Failed to get signed URL' });
+    console.error('GET test-call/signed-url error:', err.message);
+    if (err.body) console.error('  Vapi error body:', err.body);
+    const status = err.statusCode || 500;
+    res.status(status).json({ error: err.message || 'Failed to get test call URL', details: err.body || null });
   }
 });
 
@@ -356,7 +433,8 @@ router.get('/voices/:voice_id/preview', authenticate, async (req, res) => {
 });
 
 /**
- * POST /api/agents  (Admin only — create a new agent on ElevenLabs)
+ * POST /api/agents  (Admin only — create a new agent)
+ * Accepts a `provider` field: 'elevenlabs' (default) or 'vapi'
  */
 router.post('/', authenticate, async (req, res) => {
   try {
@@ -374,13 +452,62 @@ router.post('/', authenticate, async (req, res) => {
       temperature = 0.7,
       prompt = '',
       max_duration_seconds = 300,
+      provider = 'elevenlabs',
+      // Vapi-specific fields
+      voice_provider,
+      model_provider,
     } = req.body;
 
     if (!name) {
       return res.status(400).json({ error: 'Agent name is required' });
     }
 
-    // Build the ElevenLabs agent creation body
+    // ── Vapi creation ──
+    if (provider === 'vapi') {
+      const vapiBody = {
+        name,
+        firstMessage: first_message || `Hello! I'm ${name}. How can I help you today?`,
+        model: {
+          provider: model_provider || 'openai',
+          model: llm || 'gpt-4o-mini',
+          messages: [
+            {
+              role: 'system',
+              content: prompt || `You are ${name}, a helpful AI assistant.`,
+            },
+          ],
+          temperature: parseFloat(temperature),
+        },
+        transcriber: {
+          provider: 'deepgram',
+          model: 'nova-2',
+          language: language || 'en',
+        },
+        maxDurationSeconds: parseInt(max_duration_seconds, 10),
+      };
+
+      // Add voice if provided
+      if (voice_id) {
+        vapiBody.voice = {
+          provider: voice_provider || '11labs',
+          voiceId: voice_id,
+        };
+      }
+
+      console.log('Creating Vapi agent:', JSON.stringify(vapiBody, null, 2));
+      const created = await vapi.createAssistant(vapiBody);
+
+      // Auto-assign to admin's account in DB
+      await run(
+        'INSERT OR IGNORE INTO client_agents (client_id, agent_id, agent_name, can_edit, provider) VALUES (?, ?, ?, 1, ?)',
+        [req.client.id, created.id, name, 'vapi']
+      );
+
+      res.status(201).json({ agent: { agent_id: created.id, ...created, provider: 'vapi' } });
+      return;
+    }
+
+    // ── ElevenLabs creation (default) ──
     const agentBody = {
       name,
       conversation_config: {
@@ -410,9 +537,16 @@ router.post('/', authenticate, async (req, res) => {
       },
     };
 
-    console.log('Creating agent:', JSON.stringify(agentBody, null, 2));
+    console.log('Creating ElevenLabs agent:', JSON.stringify(agentBody, null, 2));
     const created = await elevenlabs.createAgent(agentBody);
-    res.status(201).json({ agent: created });
+
+    // Auto-assign to admin's account in DB
+    await run(
+      'INSERT OR IGNORE INTO client_agents (client_id, agent_id, agent_name, can_edit, provider) VALUES (?, ?, ?, 1, ?)',
+      [req.client.id, created.agent_id, name, 'elevenlabs']
+    );
+
+    res.status(201).json({ agent: { ...created, provider: 'elevenlabs' } });
   } catch (err) {
     console.error('POST /api/agents error:', err);
     res.status(500).json({ error: err.body || 'Failed to create agent' });
@@ -420,7 +554,7 @@ router.post('/', authenticate, async (req, res) => {
 });
 
 /**
- * DELETE /api/agents/:agent_id  (Admin only — delete from ElevenLabs + cleanup DB)
+ * DELETE /api/agents/:agent_id  (Admin only — delete from provider + cleanup DB)
  */
 router.delete('/:agent_id', authenticate, async (req, res) => {
   try {
@@ -430,12 +564,28 @@ router.delete('/:agent_id', authenticate, async (req, res) => {
 
     const { agent_id } = req.params;
 
-    // Delete from ElevenLabs first
-    await elevenlabs.deleteAgent(agent_id);
+    // Check which provider this agent belongs to
+    const assignment = await get(
+      "SELECT COALESCE(provider, 'elevenlabs') as provider FROM client_agents WHERE agent_id = ? LIMIT 1",
+      [agent_id]
+    );
+    let provider = assignment?.provider || 'elevenlabs';
+
+    // Auto-detect: if agent_id is NOT ElevenLabs format, assume Vapi
+    if (provider === 'elevenlabs' && !agent_id.startsWith('agent_')) {
+      provider = 'vapi';
+    }
+
+    // Delete from the correct provider
+    if (provider === 'vapi') {
+      await vapi.deleteAssistant(agent_id);
+    } else {
+      await elevenlabs.deleteAgent(agent_id);
+    }
 
     // Remove all DB assignments for this agent
     const result = await run('DELETE FROM client_agents WHERE agent_id = ?', [agent_id]);
-    console.log(`Deleted agent ${agent_id}, removed ${result.changes} DB assignments`);
+    console.log(`Deleted ${provider} agent ${agent_id}, removed ${result.changes} DB assignments`);
 
     res.json({ success: true, assignments_removed: result.changes });
   } catch (err) {
@@ -446,8 +596,8 @@ router.delete('/:agent_id', authenticate, async (req, res) => {
 
 /**
  * GET /api/agents/:agent_id
- * Returns the FULL agent configuration from ElevenLabs
- * (flattened into a clean shape for the frontend)
+ * Returns the FULL agent configuration (provider-aware)
+ * Flattened into a clean shape for the frontend
  */
 router.get('/:agent_id', authenticate, async (req, res) => {
   try {
@@ -457,26 +607,131 @@ router.get('/:agent_id', authenticate, async (req, res) => {
     let clientCanEdit = 1;
     let allowedFeatures = null;
 
+    // Check provider from DB
+    let provider = 'elevenlabs';
+
     if (req.client.is_admin !== 1) {
       const assignment = await get(
-        'SELECT id, can_edit, allowed_features FROM client_agents WHERE client_id = ? AND agent_id = ?',
+        "SELECT id, can_edit, allowed_features, COALESCE(provider, 'elevenlabs') as provider FROM client_agents WHERE client_id = ? AND agent_id = ?",
         [req.client.id, agent_id]
       );
       if (!assignment) {
         return res.status(403).json({ error: 'Agent not assigned to your account' });
       }
       clientCanEdit = assignment.can_edit ?? 1;
+      provider = assignment.provider || 'elevenlabs';
       try { allowedFeatures = assignment.allowed_features ? JSON.parse(assignment.allowed_features) : null; } catch(e) {}
-    }
-    // Admin: clientCanEdit=1, allowedFeatures=null (all features) — already defaults
+    } else {
+      // Admin: check DB for provider, or auto-detect by ID format
+      const assignment = await get(
+        "SELECT COALESCE(provider, 'elevenlabs') as provider FROM client_agents WHERE agent_id = ? LIMIT 1",
+        [agent_id]
+      );
+      if (assignment) {
+        provider = assignment.provider || 'elevenlabs';
+      }
 
+      // Auto-detect: if agent_id is NOT an ElevenLabs format (agent_xxxx), assume Vapi
+      if (provider === 'elevenlabs' && !agent_id.startsWith('agent_')) {
+        provider = 'vapi';
+        // Also fix the DB entry so future lookups are correct
+        await run("UPDATE client_agents SET provider = 'vapi' WHERE agent_id = ?", [agent_id]).catch(() => {});
+      }
+    }
+
+    // ── Vapi agent detail ──
+    if (provider === 'vapi') {
+      const raw = await vapi.getAssistant(agent_id);
+
+      const config = {
+        agent_id: raw.id,
+        name: raw.name || '',
+        tags: [],
+        provider: 'vapi',
+
+        // General
+        first_message: raw.firstMessage || '',
+        first_message_mode: raw.firstMessageMode || 'assistant-speaks-first',
+        first_message_interruptions_enabled: raw.firstMessageInterruptionsEnabled ?? false,
+        language: raw.transcriber?.language || 'en',
+
+        // Prompt / Model
+        prompt: (raw.model?.messages || []).find(m => m.role === 'system')?.content || '',
+        llm: raw.model?.model || '',
+        model_provider: raw.model?.provider || 'openai',
+        temperature: raw.model?.temperature ?? 0.7,
+        max_tokens: raw.model?.maxTokens ?? -1,
+        emotion_recognition_enabled: raw.model?.emotionRecognitionEnabled ?? false,
+        num_fast_turns: raw.model?.numFastTurns ?? 0,
+
+        // Voice
+        voice_id: raw.voice?.voiceId || '',
+        voice_provider: raw.voice?.provider || '',
+        speed: raw.voice?.speed ?? 1.0,
+        voice_caching_enabled: raw.voice?.cachingEnabled ?? true,
+
+        // Transcriber
+        transcriber_provider: raw.transcriber?.provider || 'deepgram',
+        transcriber_model: raw.transcriber?.model || 'nova-2',
+
+        // Call behavior
+        max_duration_seconds: raw.maxDurationSeconds ?? 600,
+        silence_timeout_seconds: raw.silenceTimeoutSeconds ?? 30,
+        end_call_after_silence_seconds: raw.endCallAfterSilenceSeconds ?? 30,
+        end_call_message: raw.endCallMessage || '',
+        end_call_phrases: raw.endCallPhrases || [],
+        voicemail_message: raw.voicemailMessage || '',
+        voicemail_detection: raw.voicemailDetection || 'off',
+        background_sound: raw.backgroundSound || 'off',
+
+        // Start Speaking Plan
+        start_speaking_wait_seconds: raw.startSpeakingPlan?.waitSeconds ?? 0.4,
+        smart_endpointing_enabled: raw.startSpeakingPlan?.smartEndpointingEnabled ?? false,
+
+        // Stop Speaking Plan
+        stop_speaking_num_words: raw.stopSpeakingPlan?.numWords ?? 0,
+        stop_speaking_voice_seconds: raw.stopSpeakingPlan?.voiceSeconds ?? 0.2,
+        stop_speaking_backoff_seconds: raw.stopSpeakingPlan?.backoffSeconds ?? 1,
+
+        // Compliance
+        hipaa_enabled: raw.compliancePlan?.hipaaEnabled ?? false,
+
+        // Recording / Artifacts
+        recording_enabled: raw.artifactPlan?.recordingEnabled ?? true,
+        video_recording_enabled: raw.artifactPlan?.videoRecordingEnabled ?? false,
+
+        // Background Denoising
+        smart_denoising_enabled: raw.backgroundSpeechDenoisingPlan?.smartDenoisingPlan?.enabled ?? true,
+
+        // Monitor
+        monitor_listen_enabled: raw.monitorPlan?.listenEnabled ?? false,
+        monitor_control_enabled: raw.monitorPlan?.controlEnabled ?? false,
+
+        // Server URL
+        server_url: raw.server?.url || '',
+
+        // Keypad Input
+        keypad_enabled: raw.keypadInputPlan?.enabled ?? false,
+        keypad_timeout_seconds: raw.keypadInputPlan?.timeoutSeconds ?? 3,
+        keypad_delimiters: raw.keypadInputPlan?.delimiters || '#',
+
+        // Timestamps
+        created_at: raw.createdAt || null,
+        updated_at: raw.updatedAt || null,
+      };
+
+      res.json({ config, can_edit: clientCanEdit, allowed_features: allowedFeatures });
+      return;
+    }
+
+    // ── ElevenLabs agent detail (default) ──
     const raw = await elevenlabs.getAgent(agent_id);
 
-    // Flatten into a clean structure for the frontend
     const config = {
       agent_id: raw.agent_id,
       name: raw.name || '',
       tags: raw.tags || [],
+      provider: 'elevenlabs',
 
       // Agent / General
       first_message: raw.conversation_config?.agent?.first_message || '',
@@ -505,16 +760,16 @@ router.get('/:agent_id', authenticate, async (req, res) => {
       agent_output_audio_format: raw.conversation_config?.tts?.agent_output_audio_format || 'pcm_16000',
       text_normalisation_type: raw.conversation_config?.tts?.text_normalisation_type || 'auto',
 
-      // V3 Conversational config (read from ElevenLabs — set via their dashboard)
+      // V3 Conversational config
       expressive_mode: raw.tts_conversational_config?.expressive_mode ?? true,
       suggested_audio_tags: raw.tts_conversational_config?.suggested_audio_tags || [],
 
-      // ASR (Speech Recognition)
+      // ASR
       asr_quality: raw.conversation_config?.asr?.quality || 'high',
       asr_provider: raw.conversation_config?.asr?.provider || 'scribe_realtime',
       asr_keywords: raw.conversation_config?.asr?.keywords || [],
 
-      // VAD (Voice Activity Detection)
+      // VAD
       background_voice_detection: raw.conversation_config?.vad?.background_voice_detection ?? true,
 
       // Turn / Call behavior
@@ -555,17 +810,21 @@ router.get('/:agent_id', authenticate, async (req, res) => {
 
 /**
  * PATCH /api/agents/:agent_id
- * Generic agent update — accepts flat fields and maps them to the ElevenLabs API structure.
+ * Generic agent update — accepts flat fields and maps them to the correct API structure.
+ * Provider-aware: detects whether agent is ElevenLabs or Vapi.
  * Only the fields you send will be updated (sparse PATCH).
  */
 router.patch('/:agent_id', authenticate, async (req, res) => {
   try {
     const { agent_id } = req.params;
 
+    // Detect provider from DB
+    let provider = 'elevenlabs';
+
     // Admin can update any agent; regular clients need assignment + edit permission
     if (req.client.is_admin !== 1) {
       const assignment = await get(
-        'SELECT id, can_edit FROM client_agents WHERE client_id = ? AND agent_id = ?',
+        "SELECT id, can_edit, COALESCE(provider, 'elevenlabs') as provider FROM client_agents WHERE client_id = ? AND agent_id = ?",
         [req.client.id, agent_id]
       );
       if (!assignment) {
@@ -574,9 +833,185 @@ router.patch('/:agent_id', authenticate, async (req, res) => {
       if (!assignment.can_edit) {
         return res.status(403).json({ error: 'You have view-only access to this agent. Contact your admin for edit permissions.' });
       }
+      provider = assignment.provider || 'elevenlabs';
+    } else {
+      const assignment = await get(
+        "SELECT COALESCE(provider, 'elevenlabs') as provider FROM client_agents WHERE agent_id = ? LIMIT 1",
+        [agent_id]
+      );
+      provider = assignment?.provider || 'elevenlabs';
+
+      // Auto-detect: if agent_id is NOT an ElevenLabs format (agent_xxxx), assume Vapi
+      if (provider === 'elevenlabs' && !agent_id.startsWith('agent_')) {
+        provider = 'vapi';
+        await run("UPDATE client_agents SET provider = 'vapi' WHERE agent_id = ?", [agent_id]).catch(() => {});
+      }
     }
 
     const body = req.body;
+
+    // ════════════════════════════════════════════════
+    // ── Vapi PATCH ──
+    // ════════════════════════════════════════════════
+    if (provider === 'vapi') {
+      const vapiPatch = {};
+
+      if (body.name !== undefined) vapiPatch.name = body.name;
+      if (body.first_message !== undefined) vapiPatch.firstMessage = body.first_message;
+      if (body.max_duration_seconds !== undefined) {
+        vapiPatch.maxDurationSeconds = parseInt(body.max_duration_seconds, 10);
+      }
+
+      // Model
+      const hasModelChanges = body.prompt !== undefined || body.llm !== undefined ||
+        body.temperature !== undefined || body.model_provider !== undefined;
+      if (hasModelChanges) {
+        vapiPatch.model = {};
+        if (body.model_provider !== undefined) vapiPatch.model.provider = body.model_provider;
+        if (body.llm !== undefined) vapiPatch.model.model = body.llm;
+        if (body.temperature !== undefined) {
+          const temp = parseFloat(body.temperature);
+          if (isNaN(temp) || temp < 0 || temp > 2) {
+            return res.status(400).json({ error: 'Temperature must be between 0 and 2' });
+          }
+          vapiPatch.model.temperature = temp;
+        }
+        if (body.prompt !== undefined) {
+          if (typeof body.prompt === 'string' && body.prompt.length > 100000) {
+            return res.status(400).json({ error: 'Prompt text exceeds maximum length (100KB)' });
+          }
+          vapiPatch.model.messages = [{ role: 'system', content: body.prompt }];
+        }
+      }
+
+      // Voice — Vapi only accepts: provider, voiceId, speed
+      // (stability, similarity_boost etc. are ElevenLabs-only and will cause 400 errors)
+      const hasVoiceChanges = body.voice_id !== undefined || body.voice_provider !== undefined ||
+        body.speed !== undefined;
+      if (hasVoiceChanges) {
+        vapiPatch.voice = {};
+        if (body.voice_provider !== undefined) vapiPatch.voice.provider = body.voice_provider;
+        if (body.voice_id !== undefined) vapiPatch.voice.voiceId = body.voice_id;
+        if (body.speed !== undefined) vapiPatch.voice.speed = parseFloat(body.speed);
+      }
+
+      // NOTE: silenceTimeoutSeconds and endCallAfterSilenceSeconds are read-only
+      // on Vapi's PATCH endpoint — they cannot be updated after creation.
+      // Sending them causes a 400 "property should not exist" error.
+
+      // General / Call-level fields
+      if (body.first_message_mode !== undefined) vapiPatch.firstMessageMode = body.first_message_mode;
+      if (body.first_message_interruptions_enabled !== undefined) vapiPatch.firstMessageInterruptionsEnabled = !!body.first_message_interruptions_enabled;
+      if (body.end_call_message !== undefined) vapiPatch.endCallMessage = body.end_call_message;
+      if (body.end_call_phrases !== undefined) vapiPatch.endCallPhrases = body.end_call_phrases;
+      if (body.voicemail_message !== undefined) vapiPatch.voicemailMessage = body.voicemail_message;
+      if (body.background_sound !== undefined) vapiPatch.backgroundSound = body.background_sound;
+
+      // Voicemail Detection
+      if (body.voicemail_detection !== undefined) {
+        if (body.voicemail_detection === 'off' || !body.voicemail_detection) {
+          // Don't send voicemailDetection to disable it — Vapi uses absence to mean off
+        } else {
+          vapiPatch.voicemailDetection = { provider: body.voicemail_detection };
+        }
+      }
+
+      // Model extras
+      if (body.emotion_recognition_enabled !== undefined && vapiPatch.model) {
+        vapiPatch.model.emotionRecognitionEnabled = !!body.emotion_recognition_enabled;
+      }
+      if (body.num_fast_turns !== undefined && vapiPatch.model) {
+        vapiPatch.model.numFastTurns = parseInt(body.num_fast_turns, 10);
+      }
+      if (body.max_tokens !== undefined && vapiPatch.model) {
+        vapiPatch.model.maxTokens = parseInt(body.max_tokens, 10);
+      }
+
+      // Voice extras
+      if (body.voice_caching_enabled !== undefined) {
+        if (!vapiPatch.voice) vapiPatch.voice = {};
+        vapiPatch.voice.cachingEnabled = !!body.voice_caching_enabled;
+      }
+
+      // Transcriber
+      const hasTranscriberChanges = body.language !== undefined || body.transcriber_provider !== undefined ||
+        body.transcriber_model !== undefined;
+      if (hasTranscriberChanges) {
+        vapiPatch.transcriber = {};
+        if (body.transcriber_provider !== undefined) vapiPatch.transcriber.provider = body.transcriber_provider;
+        if (body.transcriber_model !== undefined) vapiPatch.transcriber.model = body.transcriber_model;
+        if (body.language !== undefined) vapiPatch.transcriber.language = body.language;
+      }
+
+      // Start Speaking Plan
+      if (body.start_speaking_wait_seconds !== undefined || body.smart_endpointing_enabled !== undefined) {
+        vapiPatch.startSpeakingPlan = {};
+        if (body.start_speaking_wait_seconds !== undefined) vapiPatch.startSpeakingPlan.waitSeconds = parseFloat(body.start_speaking_wait_seconds);
+        if (body.smart_endpointing_enabled !== undefined) vapiPatch.startSpeakingPlan.smartEndpointingEnabled = !!body.smart_endpointing_enabled;
+      }
+
+      // Stop Speaking Plan
+      if (body.stop_speaking_num_words !== undefined || body.stop_speaking_voice_seconds !== undefined || body.stop_speaking_backoff_seconds !== undefined) {
+        vapiPatch.stopSpeakingPlan = {};
+        if (body.stop_speaking_num_words !== undefined) vapiPatch.stopSpeakingPlan.numWords = parseInt(body.stop_speaking_num_words, 10);
+        if (body.stop_speaking_voice_seconds !== undefined) vapiPatch.stopSpeakingPlan.voiceSeconds = parseFloat(body.stop_speaking_voice_seconds);
+        if (body.stop_speaking_backoff_seconds !== undefined) vapiPatch.stopSpeakingPlan.backoffSeconds = parseFloat(body.stop_speaking_backoff_seconds);
+      }
+
+      // Compliance
+      if (body.hipaa_enabled !== undefined) {
+        vapiPatch.compliancePlan = { hipaaEnabled: !!body.hipaa_enabled };
+      }
+
+      // Artifact / Recording
+      if (body.recording_enabled !== undefined || body.video_recording_enabled !== undefined) {
+        vapiPatch.artifactPlan = {};
+        if (body.recording_enabled !== undefined) vapiPatch.artifactPlan.recordingEnabled = !!body.recording_enabled;
+        if (body.video_recording_enabled !== undefined) vapiPatch.artifactPlan.videoRecordingEnabled = !!body.video_recording_enabled;
+      }
+
+      // Background Speech Denoising
+      if (body.smart_denoising_enabled !== undefined) {
+        vapiPatch.backgroundSpeechDenoisingPlan = { smartDenoisingPlan: { enabled: !!body.smart_denoising_enabled } };
+      }
+
+      // Monitor
+      if (body.monitor_listen_enabled !== undefined || body.monitor_control_enabled !== undefined) {
+        vapiPatch.monitorPlan = {};
+        if (body.monitor_listen_enabled !== undefined) vapiPatch.monitorPlan.listenEnabled = !!body.monitor_listen_enabled;
+        if (body.monitor_control_enabled !== undefined) vapiPatch.monitorPlan.controlEnabled = !!body.monitor_control_enabled;
+      }
+
+      // Server URL
+      if (body.server_url !== undefined) {
+        if (body.server_url) {
+          vapiPatch.server = { url: body.server_url };
+        } else {
+          vapiPatch.server = null; // Remove server URL
+        }
+      }
+
+      // Keypad Input
+      if (body.keypad_enabled !== undefined || body.keypad_timeout_seconds !== undefined || body.keypad_delimiters !== undefined) {
+        vapiPatch.keypadInputPlan = {};
+        if (body.keypad_enabled !== undefined) vapiPatch.keypadInputPlan.enabled = !!body.keypad_enabled;
+        if (body.keypad_timeout_seconds !== undefined) vapiPatch.keypadInputPlan.timeoutSeconds = parseFloat(body.keypad_timeout_seconds);
+        if (body.keypad_delimiters !== undefined) vapiPatch.keypadInputPlan.delimiters = body.keypad_delimiters;
+      }
+
+      if (Object.keys(vapiPatch).length === 0) {
+        return res.status(400).json({ error: 'No fields to update' });
+      }
+
+      console.log(`PATCH Vapi agent ${agent_id}:`, JSON.stringify(vapiPatch, null, 2));
+      await vapi.updateAssistant(agent_id, vapiPatch);
+      res.json({ success: true });
+      return;
+    }
+
+    // ════════════════════════════════════════════════
+    // ── ElevenLabs PATCH (default) ──
+    // ════════════════════════════════════════════════
     const patchBody = {};
 
     // ── Top-level fields ──
@@ -637,8 +1072,6 @@ router.patch('/:agent_id', authenticate, async (req, res) => {
     if (body.voice_id !== undefined) ttsPatch.voice_id = body.voice_id;
 
     // ALWAYS include model_id so ElevenLabs updates it atomically with other settings.
-    // This prevents "English Agents must use turbo or flash v2" when the existing
-    // saved model is multilingual_v2 but language is English.
     const requestedModel = body.tts_model_id || 'eleven_flash_v2';
     const agentLang = body.language || '';
 
@@ -785,7 +1218,7 @@ router.patch('/:agent_id', authenticate, async (req, res) => {
       return res.status(400).json({ error: 'No fields to update' });
     }
 
-    console.log(`PATCH agent ${agent_id}:`, JSON.stringify(patchBody, null, 2));
+    console.log(`PATCH ElevenLabs agent ${agent_id}:`, JSON.stringify(patchBody, null, 2));
 
     try {
       await elevenlabs.updateAgent(agent_id, patchBody);
@@ -806,7 +1239,10 @@ router.patch('/:agent_id', authenticate, async (req, res) => {
     res.json({ success: true });
   } catch (err) {
     console.error('PATCH /api/agents/:id error:', err);
-    res.status(500).json({ error: err.body || 'Failed to update agent' });
+    const status = err.statusCode || 500;
+    let errorMsg = 'Failed to update agent';
+    try { errorMsg = JSON.parse(err.body)?.message || err.body || errorMsg; } catch(e) { errorMsg = err.body || errorMsg; }
+    res.status(status).json({ error: errorMsg });
   }
 });
 
@@ -841,4 +1277,109 @@ router.patch('/:agent_id/voice', authenticate, async (req, res) => {
   }
 });
 
+// ═══════════════════════════════════════════════════════════════
+// VAPI CALL ANALYTICS (Client-facing)
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * GET /api/agents/:agent_id/vapi/calls
+ * List Vapi calls for a specific assistant
+ * Client must have the agent assigned to them
+ */
+router.get('/:agent_id/vapi/calls', authenticate, async (req, res) => {
+  try {
+    const { agent_id } = req.params;
+
+    // Verify assignment
+    if (req.client.is_admin !== 1) {
+      const assignment = await get(
+        'SELECT id FROM client_agents WHERE client_id = ? AND agent_id = ?',
+        [req.client.id, agent_id]
+      );
+      if (!assignment) {
+        return res.status(403).json({ error: 'Agent not assigned to your account' });
+      }
+    }
+
+    const limit = parseInt(req.query.limit) || 50;
+    const calls = await vapi.listCalls({ assistantId: agent_id, limit });
+    
+    // Return clean call list
+    const mapped = calls.map(c => ({
+      id: c.id,
+      type: c.type,
+      status: c.status,
+      startedAt: c.startedAt,
+      endedAt: c.endedAt,
+      duration: c.startedAt && c.endedAt
+        ? Math.round((new Date(c.endedAt) - new Date(c.startedAt)) / 1000)
+        : 0,
+      cost: c.cost || 0,
+      endedReason: c.endedReason || null,
+      customer: c.customer || null,
+      summary: c.analysis?.summary || null,
+    }));
+
+    res.json({ calls: mapped, total: mapped.length });
+  } catch (err) {
+    console.error('GET /api/agents/:id/vapi/calls error:', err);
+    res.status(500).json({ error: 'Failed to fetch Vapi calls' });
+  }
+});
+
+/**
+ * GET /api/agents/:agent_id/vapi/calls/:call_id
+ * Full call detail for a specific Vapi call
+ */
+router.get('/:agent_id/vapi/calls/:call_id', authenticate, async (req, res) => {
+  try {
+    const { agent_id, call_id } = req.params;
+
+    // Verify assignment
+    if (req.client.is_admin !== 1) {
+      const assignment = await get(
+        'SELECT id FROM client_agents WHERE client_id = ? AND agent_id = ?',
+        [req.client.id, agent_id]
+      );
+      if (!assignment) {
+        return res.status(403).json({ error: 'Agent not assigned to your account' });
+      }
+    }
+
+    const call = await vapi.getCall(call_id);
+    res.json({ call });
+  } catch (err) {
+    console.error('GET /api/agents/:id/vapi/calls/:id error:', err);
+    res.status(500).json({ error: 'Failed to fetch Vapi call details' });
+  }
+});
+
+/**
+ * GET /api/agents/:agent_id/vapi/analytics
+ * Aggregated analytics for a Vapi assistant
+ */
+router.get('/:agent_id/vapi/analytics', authenticate, async (req, res) => {
+  try {
+    const { agent_id } = req.params;
+
+    // Verify assignment
+    if (req.client.is_admin !== 1) {
+      const assignment = await get(
+        'SELECT id FROM client_agents WHERE client_id = ? AND agent_id = ?',
+        [req.client.id, agent_id]
+      );
+      if (!assignment) {
+        return res.status(403).json({ error: 'Agent not assigned to your account' });
+      }
+    }
+
+    const analytics = await vapi.getAssistantAnalytics(agent_id);
+    res.json({ analytics });
+  } catch (err) {
+    console.error('GET /api/agents/:id/vapi/analytics error:', err);
+    res.status(500).json({ error: 'Failed to fetch Vapi analytics' });
+  }
+});
+
 module.exports = router;
+

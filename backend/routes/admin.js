@@ -192,7 +192,7 @@ router.get('/clients/:id/agents', async (req, res) => {
 router.post('/clients/:id/agents', validateSchema(adminAssignAgentSchema), async (req, res) => {
   try {
     const { id } = req.params;
-    const { agent_id, agent_name, can_edit } = req.body;
+    const { agent_id, agent_name, can_edit, provider } = req.body;
 
     const client = await get('SELECT id FROM clients WHERE id = ?', [id]);
     if (!client) {
@@ -208,9 +208,10 @@ router.post('/clients/:id/agents', validateSchema(adminAssignAgentSchema), async
     }
 
     const editFlag = can_edit === false || can_edit === 0 ? 0 : 1;
+    const agentProvider = provider || 'elevenlabs';
     await run(
-      'INSERT INTO client_agents (client_id, agent_id, agent_name, can_edit) VALUES (?, ?, ?, ?)',
-      [id, agent_id, agent_name, editFlag]
+      'INSERT INTO client_agents (client_id, agent_id, agent_name, can_edit, provider) VALUES (?, ?, ?, ?, ?)',
+      [id, agent_id, agent_name, editFlag, agentProvider]
     );
 
     securityLogger.logAdminAction(req.client.email, 'assign_agent', {
@@ -302,9 +303,17 @@ router.delete('/clients/:id/agents/:agent_id', async (req, res) => {
 /**
  * GET /api/admin/conversations/:conversation_id
  * Returns full conversation detail (transcript, analysis, metadata)
+ * Works for both ElevenLabs and Vapi calls
  */
 router.get('/conversations/:conversation_id', async (req, res) => {
   try {
+    const { provider } = req.query; // ?provider=vapi
+    if (provider === 'vapi') {
+      const vapi = require('../services/vapi');
+      const data = await vapi.getCall(req.params.conversation_id);
+      return res.json({ conversation: data });
+    }
+    // Default: ElevenLabs
     const data = await elevenlabs.getConversation(req.params.conversation_id);
     res.json({ conversation: data });
   } catch (err) {
@@ -316,6 +325,7 @@ router.get('/conversations/:conversation_id', async (req, res) => {
 /**
  * DELETE /api/admin/conversations/:conversation_id
  * Permanently deletes a conversation from ElevenLabs
+ * (Vapi calls cannot be deleted via API)
  */
 router.delete('/conversations/:conversation_id', async (req, res) => {
   try {
@@ -327,4 +337,75 @@ router.delete('/conversations/:conversation_id', async (req, res) => {
   }
 });
 
+// ═══════════════════════════════════════════════════════════════
+// VAPI ANALYTICS
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * GET /api/admin/vapi/calls
+ * List all Vapi calls, optionally filtered by assistantId
+ * Query: ?assistantId=xxx&limit=100
+ */
+router.get('/vapi/calls', async (req, res) => {
+  try {
+    const vapi = require('../services/vapi');
+    const { assistantId, limit } = req.query;
+    const calls = await vapi.listCalls({
+      assistantId,
+      limit: limit ? parseInt(limit) : 100,
+    });
+    res.json({ calls, total: calls.length });
+  } catch (err) {
+    console.error('GET /api/admin/vapi/calls error:', err);
+    res.status(500).json({ error: 'Failed to fetch Vapi calls' });
+  }
+});
+
+/**
+ * GET /api/admin/vapi/calls/:call_id
+ * Full detail for a single Vapi call (transcript, recording, cost, analysis)
+ */
+router.get('/vapi/calls/:call_id', async (req, res) => {
+  try {
+    const vapi = require('../services/vapi');
+    const data = await vapi.getCall(req.params.call_id);
+    res.json({ call: data });
+  } catch (err) {
+    console.error('GET /api/admin/vapi/calls/:id error:', err);
+    res.status(500).json({ error: 'Failed to fetch Vapi call details' });
+  }
+});
+
+/**
+ * GET /api/admin/vapi/analytics/:assistant_id
+ * Aggregated analytics for a Vapi assistant:
+ * total calls, completed, failed, avg duration, total cost, call list
+ */
+router.get('/vapi/analytics/:assistant_id', async (req, res) => {
+  try {
+    const vapi = require('../services/vapi');
+    const analytics = await vapi.getAssistantAnalytics(req.params.assistant_id);
+    res.json({ analytics });
+  } catch (err) {
+    console.error('GET /api/admin/vapi/analytics/:id error:', err);
+    res.status(500).json({ error: 'Failed to fetch Vapi analytics' });
+  }
+});
+
+/**
+ * GET /api/admin/vapi/phone-numbers
+ * List all phone numbers from the Vapi account
+ */
+router.get('/vapi/phone-numbers', async (req, res) => {
+  try {
+    const vapi = require('../services/vapi');
+    const numbers = await vapi.listPhoneNumbers();
+    res.json({ phoneNumbers: numbers, total: numbers.length });
+  } catch (err) {
+    console.error('GET /api/admin/vapi/phone-numbers error:', err);
+    res.status(500).json({ error: 'Failed to fetch Vapi phone numbers' });
+  }
+});
+
 module.exports = router;
+
