@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
+import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 
 /**
  * CustomSelect — dark-themed dropdown replacement for native <select>.
@@ -75,28 +76,10 @@ export function CustomSelect({
 }: CustomSelectProps) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
-  const ref = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
   // Check if any option has rich metadata
   const hasRichMeta = options.some(o => o.provider || o.context_window || o.description || o.language_count || o.latency_ms);
-
-  // Close dropdown on outside click
-  useEffect(() => {
-    const handleClick = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setOpen(false);
-        setSearch('');
-      }
-    };
-    document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
-  }, []);
-
-  // Focus search on open
-  useEffect(() => {
-    if (open && searchRef.current) searchRef.current.focus();
-  }, [open]);
 
   const selectedOption = options.find(o => o.value === value);
   const displayLabel = selectedOption?.label || placeholder;
@@ -108,52 +91,77 @@ export function CustomSelect({
       )
     : options;
 
+  // Focus search input when dropdown opens
+  useEffect(() => {
+    if (open) {
+      // Small timeout to ensure input is rendered before focusing
+      const timeoutId = setTimeout(() => {
+        searchRef.current?.focus();
+      }, 50);
+      return () => clearTimeout(timeoutId);
+    }
+  }, [open]);
+
   return (
-    <div
-      ref={ref}
-      className={`custom-select ${small ? 'small' : ''} ${disabled ? 'disabled' : ''} ${open ? 'is-open' : ''}`}
-      onClick={() => !disabled && setOpen(!open)}
-    >
-      <div className="custom-select-trigger">
-        <span className={selectedOption ? '' : 'placeholder'} style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
-          {selectedOption?.provider && (
-            <span className="cs-provider-dot" style={{ background: providerColor(selectedOption.provider) }} />
-          )}
-          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{displayLabel}</span>
-          {selectedOption?.latency_ms != null && selectedOption.latency_ms > 0 && (
-            <span className={`cs-latency-badge ${selectedOption.latency_ms <= 250 ? 'cs-latency-fast' : selectedOption.latency_ms <= 500 ? 'cs-latency-med' : 'cs-latency-slow'}`}>~{selectedOption.latency_ms}ms</span>
-          )}
-          {selectedOption?.context_window && (
-            <span className="cs-badge cs-badge-ctx">{formatTokens(selectedOption.context_window)} ctx</span>
-          )}
-        </span>
-        <svg
-          width="10"
-          height="10"
-          viewBox="0 0 10 10"
-          style={{
-            transform: open ? 'rotate(180deg)' : 'rotate(0deg)',
-            transition: 'transform 0.15s ease',
-            opacity: 0.4,
-            flexShrink: 0,
+    <DropdownMenu.Root modal={false} open={open} onOpenChange={(isOpen) => {
+      setOpen(isOpen);
+      if (!isOpen) {
+        // Delay clearing search slightly for smoother close animation
+        setTimeout(() => setSearch(''), 200);
+      }
+    }}>
+      <DropdownMenu.Trigger asChild disabled={disabled}>
+        <div className={`custom-select ${small ? 'small' : ''} ${disabled ? 'disabled' : ''} ${open ? 'is-open' : ''}`}>
+          <div className="custom-select-trigger">
+            <span className={selectedOption ? '' : 'placeholder'} style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+              {selectedOption?.provider && (
+                <span className="cs-provider-dot" style={{ background: providerColor(selectedOption.provider) }} />
+              )}
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{displayLabel}</span>
+              {selectedOption?.latency_ms != null && selectedOption.latency_ms > 0 && (
+                <span className={`cs-latency-badge ${selectedOption.latency_ms <= 250 ? 'cs-latency-fast' : selectedOption.latency_ms <= 500 ? 'cs-latency-med' : 'cs-latency-slow'}`}>~{selectedOption.latency_ms}ms</span>
+              )}
+              {selectedOption?.context_window && (
+                <span className="cs-badge cs-badge-ctx">{formatTokens(selectedOption.context_window)} ctx</span>
+              )}
+            </span>
+            <svg
+              width="10"
+              height="10"
+              viewBox="0 0 10 10"
+              style={{
+                transform: open ? 'rotate(180deg)' : 'rotate(0deg)',
+                transition: 'transform 0.15s ease',
+                opacity: 0.4,
+                flexShrink: 0,
+              }}
+            >
+              <path d="M2 3.5L5 6.5L8 3.5" stroke="currentColor" strokeWidth="1.5" fill="none" />
+            </svg>
+          </div>
+        </div>
+      </DropdownMenu.Trigger>
+
+      <DropdownMenu.Portal>
+        <DropdownMenu.Content
+          className={`custom-select-dropdown ${hasRichMeta ? 'rich' : ''}`}
+          align="start"
+          sideOffset={6}
+          style={{ width: 'var(--radix-dropdown-menu-trigger-width)' }}
+          onCloseAutoFocus={(e) => {
+            // Prevent focusing body on close
+            e.preventDefault();
           }}
         >
-          <path d="M2 3.5L5 6.5L8 3.5" stroke="currentColor" strokeWidth="1.5" fill="none" />
-        </svg>
-      </div>
-
-      {open && (
-        <div className={`custom-select-dropdown ${hasRichMeta ? 'rich' : ''}`} onClick={e => e.stopPropagation()}>
           {/* Search within dropdown */}
           {options.length > 6 && (
-            <div className="cs-search-wrap">
+            <div className="cs-search-wrap" onClick={e => e.stopPropagation()} onKeyDown={e => e.stopPropagation()}>
               <input
                 ref={searchRef}
                 className="cs-search"
                 placeholder="Search..."
                 value={search}
                 onChange={e => setSearch(e.target.value)}
-                onClick={e => e.stopPropagation()}
               />
             </div>
           )}
@@ -164,7 +172,6 @@ export function CustomSelect({
             const maxTokStr = formatTokens(opt.max_tokens);
             const isIncompat = !!opt.incompatible;
 
-            // Latency color: green ≤250ms, yellow ≤500ms, red >500ms
             let latencyClass = '';
             if (opt.latency_ms) {
               if (opt.latency_ms <= 250) latencyClass = 'cs-latency-fast';
@@ -173,14 +180,13 @@ export function CustomSelect({
             }
 
             return (
-              <div
+              <DropdownMenu.Item
                 key={opt.value}
                 className={`custom-select-option ${isSelected ? 'selected' : ''} ${hasRichMeta ? 'rich' : ''} ${isIncompat ? 'incompatible' : ''}`}
-                onClick={(e) => {
-                  e.stopPropagation();
+                onSelect={(e) => {
+                  e.preventDefault(); // allow us to handle state
                   onChange({ target: { value: opt.value } });
                   setOpen(false);
-                  setSearch('');
                 }}
               >
                 <div className="cs-opt-main">
@@ -219,15 +225,15 @@ export function CustomSelect({
                     </div>
                   )}
                 </div>
-              </div>
+              </DropdownMenu.Item>
             );
           })}
 
           {filtered.length === 0 && (
             <div style={{ padding: '12px 14px', fontSize: 12, color: 'var(--text-quaternary)', textAlign: 'center' }}>No matches</div>
           )}
-        </div>
-      )}
-    </div>
+        </DropdownMenu.Content>
+      </DropdownMenu.Portal>
+    </DropdownMenu.Root>
   );
 }
