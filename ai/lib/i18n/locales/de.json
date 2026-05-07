@@ -1,0 +1,29 @@
+{
+  "nav": {
+    "platform": "Plattform",
+    "useCases": "Anwendungsfälle",
+    "integrations": "Integrationen",
+    "resources": "Ressourcen",
+    "company": "Unternehmen",
+    "signIn": "Anmelden",
+    "contactSales": "Vertrieb Kontaktieren"
+  },
+  "hero": {
+    "title": "Enterprise-Ready Voice AI Agents für Automatisierte Telefonanrufe",
+    "subtitle": "Die einzige vollständige Voice AI Plattform mit interner Telefonie, bewährtem Deployment-Framework und ROI in Wochen geliefert — neu definierend, wie Unternehmen sich mit Kunden verbinden.",
+    "contactSales": "VERTRIEB KONTAKTIEREN"
+  },
+  "theme": {
+    "toggle": "Theme umschalten",
+    "light": "Hell",
+    "dark": "Dunkel",
+    "system": "System"
+  },
+  "language": {
+    "toggle": "Sprache ändern",
+    "english": "English",
+    "spanish": "Español",
+    "french": "Français",
+    "german": "Deutsch"
+  }
+}

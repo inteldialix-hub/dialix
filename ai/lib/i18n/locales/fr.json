@@ -1,0 +1,29 @@
+{
+  "nav": {
+    "platform": "Plateforme",
+    "useCases": "Cas d'Usage",
+    "integrations": "Intégrations",
+    "resources": "Ressources",
+    "company": "Entreprise",
+    "signIn": "Se Connecter",
+    "contactSales": "Contacter Ventes"
+  },
+  "hero": {
+    "title": "Agents IA Vocaux Prêts pour l'Entreprise pour Appels Téléphoniques Automatisés",
+    "subtitle": "La seule plateforme IA vocale complète avec téléphonie interne, cadre de déploiement éprouvé et ROI livré en semaines — redéfinissant comment les entreprises se connectent avec les clients.",
+    "contactSales": "CONTACTER VENTES"
+  },
+  "theme": {
+    "toggle": "Basculer le thème",
+    "light": "Clair",
+    "dark": "Sombre",
+    "system": "Système"
+  },
+  "language": {
+    "toggle": "Changer de langue",
+    "english": "English",
+    "spanish": "Español",
+    "french": "Français",
+    "german": "Deutsch"
+  }
+}

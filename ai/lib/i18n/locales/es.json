@@ -1,0 +1,464 @@
+{
+  "nav": {
+    "platform": "Plataforma",
+    "useCases": "Casos de Uso",
+    "integrations": "Integraciones",
+    "resources": "Recursos",
+    "company": "Empresa",
+    "signIn": "Iniciar Sesión",
+    "contactSales": "Contactar Ventas"
+  },
+  "hero": {
+    "title": "Agentes de IA de Voz Listos para Empresas para Llamadas Telefónicas Automatizadas",
+    "subtitle": "La única plataforma de IA de voz integral con telefonía interna, marco de implementación probado y ROI entregado en semanas — redefiniendo cómo las empresas se conectan con los clientes.",
+    "contactSales": "CONTACTAR VENTAS",
+    "demo": {
+      "title": "Escucha a los Agentes de IA de Voz en Acción",
+      "subtitle": "Elige un tipo de llamada para ver cómo los agentes de IA de Synthflow manejan conversaciones reales.",
+      "tabs": {
+        "useCase": "Caso de Uso",
+        "flowDesigner": "Diseñador de Flujo",
+        "knowledgeBase": "Base de Conocimiento",
+        "actions": "Acciones",
+        "testCalls": "Llamadas de Prueba"
+      },
+      "cases": {
+        "realEstate": {
+          "category": "Bienes Raíces",
+          "title": "Calificación de Leads - Comprador",
+          "tags": ["#Reserva en Tiempo Real", "#Calificación de Leads"],
+          "description": "Conoce a Paul, un asistente de IA diseñado para calificación de leads inmobiliarios. El objetivo principal de Paul es identificar las preferencias...",
+          "demo": "Escuchar Demo"
+        },
+        "eCommerce": {
+          "category": "Comercio Electrónico",
+          "title": "Soporte al Cliente - Restaurante",
+          "tags": ["#Reserva en Tiempo Real", "#Recepcionista"],
+          "description": "Conoce a Laura, un asistente de IA para Gourmet Table, un restaurante fino. Su función principal es ayudar a los llamantes a programar...",
+          "demo": "Escuchar Demo"
+        },
+        "healthcare": {
+          "category": "Salud",
+          "title": "Recepcionista de Salud",
+          "tags": ["#Recepcionista", "#Reserva en Tiempo Real"],
+          "description": "Conoce a Jessica, un asistente de IA para tu empresa de salud, dedicada a optimizar la programación de citas y mejorar...",
+          "demo": "Escuchar Demo"
+        }
+      }
+    }
+  },
+  "stats": {
+    "calls": {
+      "value": "65M+",
+      "label": "Llamadas de Clientes",
+      "description": "Rendimiento probado de IA de voz en operaciones telefónicas de alto volumen reales."
+    },
+    "hours": {
+      "value": "4M+",
+      "label": "Horas Ahorradas",
+      "description": "Menos tiempo en llamadas manuales. Más tiempo para crecimiento, ventas y soporte."
+    },
+    "answered": {
+      "value": "+35%",
+      "label": "Llamadas Contestadas",
+      "description": "Los agentes de voz responden al instante — sin música en espera, sin oportunidades perdidas."
+    },
+    "uptime": {
+      "value": "99.99%",
+      "label": "Tiempo de Actividad",
+      "description": "Agentes de IA de voz en los que tu empresa puede confiar, cada minuto de cada día."
+    }
+  },
+  "bell": {
+    "badge": "MARCO BELL DE SYNTHFLOW",
+    "title": "Despliega IA de Voz Sin Riesgos",
+    "subtitle": "El Marco BELL de Synthflow conecta cada etapa del ciclo de vida del agente—Construir, Evaluar, Lanzar, Aprender—en un proceso repetible. Integrado en la plataforma Synthflow, ayuda a las empresas a desplegar más rápido, reducir riesgos y mejorar continuamente el rendimiento a escala.",
+    "discover": "Descubre BELL",
+    "subtitle2": "Tu Camino Probado hacia IA de Voz Confiable",
+    "steps": {
+      "build": {
+        "title": "Construir",
+        "description": "Usa el Diseñador de Flujo Visual para definir cada paso, conectar APIs y crear agentes que actúen con precisión."
+      },
+      "evaluate": {
+        "title": "Evaluar",
+        "description": "Cada agente se prueba automáticamente en el Centro de Pruebas. Las llamadas simuladas miden precisión, calidad de respuesta y cumplimiento contra tus KPIs, asegurando rendimiento antes de que los clientes llamen."
+      },
+      "launch": {
+        "title": "Lanzar",
+        "description": "Los agentes se despliegan a través de la propia red de telefonía de Synthflow. Como controlamos el enrutamiento, latencia y entrega regional, cada llamada cumple con estándares empresariales de confiabilidad y velocidad."
+      },
+      "learn": {
+        "title": "Aprender",
+        "description": "Una vez en vivo, Auto-QA y monitoreo analizan cada conversación en tiempo real. Los insights sobre precisión e intención se retroalimentan en la próxima versión — para que los agentes mejoren continuamente."
+      }
+    }
+  },
+  "voiceAI": {
+    "badge": "SOLUCIÓN INTEGRAL",
+    "title": "El Sistema Operativo Completo de IA de Voz",
+    "subtitle": "Automatiza, gestiona y escala miles de llamadas desde un Sistema Operativo Unificado de IA de Voz. Con Synthflow, diseñas, lanzas y operas Agentes de IA de Voz de extremo a extremo— con flujos sin código, telefonía empresarial y análisis profundos.",
+    "features": {
+      "multiAgent": {
+        "title": "Sistema Multi-Agente",
+        "description": "Diseña flujos de voz modulares con nuestro constructor sin código. Los subflujos actúan como agentes especializados que manejan tareas de forma independiente — haciendo que la lógica compleja sea simple de gestionar."
+      },
+      "telephony": {
+        "title": "Telefonía Personalizada",
+        "description": "La telefonía interna de Synthflow entrega latencia inferior a 100 ms y confiabilidad de nivel de operador sin reemplazar tu configuración SIP o PBX existente."
+      },
+      "sandbox": {
+        "title": "Sandbox de IA para Pruebas",
+        "description": "Vista previa, compara y retrocede de forma segura. Rastrea cada versión de tus agentes y despliega actualizaciones sin tiempo de inactividad o riesgo."
+      },
+      "monitoring": {
+        "title": "Monitoreo en Tiempo Real",
+        "description": "Ve todo a medida que sucede. Obtén visibilidad en tiempo real de cada llamada, webhook y API para depurar más rápido y enviar con confianza."
+      },
+      "fineTuning": {
+        "title": "Ajuste Fino de Datos",
+        "description": "Usa llamadas pasadas para entrenar agentes más inteligentes. El ajuste fino permitirá a las empresas mejorar la precisión del modelo y el comportamiento usando sus propios datos de conversación."
+      }
+    }
+  },
+  "omnichannel": {
+    "badge": "IA CONVERSACIONAL OMNICHANNEL",
+    "title": "Un Agente para Cada Conversación",
+    "subtitle": "Diseña, despliega y gestiona agentes de IA en todos los canales — voz, chat, SMS y más — todo desde una plataforma. La IA conversacional de Synthflow aporta consistencia, cumplimiento e inteligencia en tiempo real a cada interacción con el cliente.",
+    "channels": {
+      "voice": "VOZ",
+      "chat": "CHAT",
+      "sms": "SMS",
+      "whatsapp": "WHATSAPP",
+      "email": "EMAIL"
+    }
+  },
+  "telephony": {
+    "badge": "TELEFONÍA LÍDER EN LA INDUSTRIA",
+    "title": "Posee la Red, Controla la Llamada",
+    "subtitle": "A diferencia de otras plataformas de IA de voz vinculadas a operadores de terceros, operamos en nuestra propia infraestructura de comunicaciones de grado empresarial. Nos integramos directamente con tu telefonía o cualquier proveedor SIP — dándote control completo sobre enrutamiento, calidad y cumplimiento.",
+    "learnMore": "APRENDER MÁS",
+    "features": {
+      "deploy": {
+        "title": "Despliega Donde Están Tus Clientes",
+        "description": "Desplegamos estratégicamente infraestructura de voz en las regiones exactas que necesitan tus operaciones — reduciendo drásticamente la latencia y asegurando calidad de llamada cristalina."
+      },
+      "freedom": {
+        "title": "Libertad para Elegir Tu Red",
+        "description": "A diferencia de otras plataformas, Synthflow te permite conectarte a través de tus propios operadores o troncales SIP. Sin bloqueo de proveedor, solo flexibilidad empresarial y control total de tu red."
+      },
+      "integration": {
+        "title": "Construido para Adaptarse a Tu Pila Empresarial",
+        "description": "Synthflow se conecta directamente con tus sistemas empresariales: Cisco, Avaya, Genesys, RingCentral y más. Sin reconstrucciones, solo compatibilidad instantánea y mayor valor en menos tiempo."
+      },
+      "performance": {
+        "title": "Rendimiento en el que Puedes Confiar",
+        "description": "Con enrutamiento, capacidad y tiempo de actividad gestionados completamente internamente, mantenemos la latencia por debajo de 100 ms y el tiempo de actividad por encima del 99.99% — incluso durante picos de tráfico y conmutaciones regionales por error."
+      }
+    }
+  },
+  "industries": {
+    "badge": "AGENTES LISTOS PARA PRODUCCIÓN PARA CADA INDUSTRIA",
+    "title": "Agentes Listos para Producción para Cada Industria",
+    "subtitle": "Ya sea programación, reclamos o soporte siempre activo, Synthflow automatiza las llamadas que ralentizan a los equipos. Diseñado para demandas empresariales, nuestros agentes de IA de voz multilingües y similares a humanos se integran de forma segura con tus sistemas para automatizar conversaciones, aumentar la disponibilidad y reducir costos—sin sacrificar calidad.",
+    "list": {
+      "bpo": {
+        "title": "BPO y Centros de Llamadas",
+        "description": "Reduce la carga de agentes y el tiempo de manejo de llamadas con agentes de IA que gestionan soporte de nivel 1 y llamadas de desbordamiento a escala.",
+        "demo": "Escuchar Demo"
+      },
+      "retail": {
+        "title": "Retail",
+        "description": "Automatiza el seguimiento de pedidos, preguntas frecuentes y soporte al cliente para aumentar la satisfacción del cliente y reducir tiempos de espera.",
+        "demo": "Escuchar Demo"
+      },
+      "financial": {
+        "title": "Servicios Financieros y Seguros",
+        "description": "Verifica llamantes, procesa reclamos y maneja solicitudes de cuenta de forma segura con IA de voz siempre activa y compatible.",
+        "demo": "Escuchar Demo"
+      },
+      "realEstate": {
+        "title": "Bienes Raíces",
+        "description": "Responde consultas sobre propiedades, califica leads y programa visitas al instante para acelerar el servicio de acuerdos—incluso después del horario laboral.",
+        "demo": "Escuchar Demo"
+      },
+      "technology": {
+        "title": "Tecnología y Consultoría",
+        "description": "Automatiza consultas entrantes, incorporación y actualizaciones de clientes para que tu equipo se enfoque en estrategia y resultados.",
+        "demo": "Escuchar Demo"
+      },
+      "healthcare": {
+        "title": "Salud",
+        "description": "Proporciona soporte al paciente 24/7, programación de citas y enrutamiento de llamadas para que el personal se enfoque en el cuidado.",
+        "demo": "Escuchar Demo"
+      },
+      "software": {
+        "title": "Software",
+        "description": "Califica leads, programa demos y gestiona llamadas de soporte automáticamente—para que tu equipo escale de manera más inteligente.",
+        "demo": "Escuchar Demo"
+      },
+      "telecom": {
+        "title": "Telecomunicaciones",
+        "description": "Maneja activaciones, facturación y llamadas de soporte con agentes de IA que se integran directamente en tus sistemas existentes.",
+        "demo": "Escuchar Demo"
+      }
+    }
+  },
+  "benefits": {
+    "badge": "BENEFICIOS EMPRESARIALES",
+    "title": "Por Qué los Equipos Líderes Eligen Synthflow",
+    "subtitle": "Las empresas eligen Synthflow para desplegar IA de Voz con velocidad, precisión y confianza. Nuestros ingenieros desplegados hacia adelante, telefonía interna y marco de cumplimiento global entregan confiabilidad, seguridad y ROI medible — desde la primera llamada hasta la escala completa.",
+    "list": {
+      "roi": {
+        "title": "De Idea a ROI en Semanas",
+        "description": "Ingenieros Desplegados Hacia Adelante lanzan agentes en semanas, no meses — llevando la IA de Voz de piloto a producción rápido, con ROI medible en los primeros 60 días."
+      },
+      "security": {
+        "title": "Seguridad y Cumplimiento Certificados",
+        "description": "La infraestructura de Synthflow está certificada en SOC 2, HIPAA, PCI DSS y GDPR — con encriptación completa, registros de auditoría y alojamiento basado en región integrado en cada lanzamiento.",
+        "badges": ["SOC 2", "HIPAA", "PCI DSS", "GDPR"]
+      },
+      "reliability": {
+        "title": "Confiabilidad Empresarial",
+        "description": "Operamos nuestra propia red con redundancia multi-nube, conmutación por error instantánea y monitoreo las 24 horas — manteniendo cada llamada conectada y cada cliente escuchado."
+      },
+      "cx": {
+        "title": "Diseñado para CX Excepcional",
+        "description": "Cuando los clientes llaman, no buscan automatización, buscan resolución. Hacemos que cada interacción sea personal y humana de principio a fin."
+      },
+      "compliance": {
+        "title": "Confiabilidad Empresarial",
+        "description": "Los agentes de Synthflow siguen lógica definida y fuentes de conocimiento aprobadas — asegurando respuestas compatibles, seguras para la marca y cero respuestas fuera de guion o alucinadas."
+      }
+    }
+  },
+  "integrations": {
+    "badge": "200+ INTEGRACIONES",
+    "title": "Conecta con Tu Pila Tecnológica y CRM",
+    "subtitle": "Synthflow se conecta con los sistemas que tus equipos ya usan—plataformas CRM, CCaaS, calendarios y herramientas de datos—para que los agentes de voz operen dentro de tus flujos de trabajo existentes. No solo manejan conversaciones; completan acciones, actualizan registros, enrutan llamadas y activan procesos posteriores en tiempo real.",
+    "explore": "EXPLORAR INTEGRACIONES"
+  },
+  "caseStudies": {
+    "badge": "ESTUDIO DE CASO",
+    "title": "El ROI para Tu Negocio",
+    "subtitle": "Desbloquea impacto medible con agentes de IA de voz. Synthflow te ayuda a ahorrar tiempo, reducir costos y mejorar la experiencia del cliente — sin compensaciones.",
+    "studies": {
+      "freshworks": {
+        "badges": ["SMART IVR", "CREACIÓN DE TICKETS", "VERIFICACIÓN DE USUARIO"],
+        "description": "A través de una asociación estratégica, Freshworks y Synthflow ahora ofrecen IA de Voz en tiempo real dentro de Freshcaller, Freshdesk y Freshservice, permitiendo a las empresas automatizar hasta el 65% de solicitudes de voz rutinarias—desde enrutamiento y verificación hasta preguntas frecuentes y creación de tickets después del horario laboral. El resultado es resolución más rápida, menor carga de trabajo de agentes y experiencias de voz modernas entregadas directamente dentro de la plataforma Freshworks.",
+        "stats": {
+          "automated": "65% Llamadas Rutinarias Automatizadas",
+          "waitTimes": "75% Reducción en Tiempos de Espera",
+          "responseRate": "2x Tasa de Respuesta Incrementada",
+          "workload": "60% Menor Carga de Trabajo de Agente"
+        },
+        "company": "freshworks",
+        "location": "Global",
+        "industry": "SaaS y Telecom",
+        "size": "5K-10K"
+      },
+      "medbelle": {
+        "badges": ["PROGRAMACIÓN DE CITAS", "CALIFICACIÓN DE LEADS", "SOPORTE AL CLIENTE"],
+        "description": "Medbelle integró el asistente de IA de Synthflow para optimizar la gestión de citas y minimizar tiempos de espera de pacientes. Al automatizar la programación y seguimientos, Medbelle logró un aumento del 60% en la eficiencia de programación y vio 2.5 veces más citas reservadas — transformando experiencias de pacientes y productividad operativa.",
+        "stats": {
+          "efficiency": "+60% Eficiencia de Programación",
+          "noshow": "-30% Tasas de No Presentación",
+          "appointments": "2.5x Citas Calificadas",
+          "satisfaction": "+25% Satisfacción del Paciente"
+        },
+        "company": "medbelle",
+        "location": "UK y UE",
+        "industry": "Salud",
+        "size": "51-200"
+      },
+      "bpo": {
+        "badges": ["SOPORTE AL CLIENTE", "PROGRAMACIÓN DE CITAS", "CALIFICACIÓN DE LEADS"],
+        "description": "Un operador BPO multinacional de $230M se asoció con Synthflow para modernizar operaciones de voz con agentes de IA de marca blanca. En solo 60 días, la compañía desplegó 40+ agentes de voz completamente marcados en programas de clientes, automatizando 600K+ llamadas mensuales sin agregar personal. Esto permitió al equipo entregar servicio más rápido y multilingüe mientras reducía gastos operativos.",
+        "stats": {
+          "calls": ">600K Llamadas Mensuales Gestionadas",
+          "agents": "40+ Agentes de IA Desplegados",
+          "languages": "2 Idiomas",
+          "hires": "0 Nuevas Contrataciones Necesarias"
+        },
+        "company": "operador bpo",
+        "location": "EE.UU. y LATAM",
+        "industry": "BPO y Centro de Contacto",
+        "size": "3000+"
+      },
+      "crm": {
+        "badges": ["CAPTURA DE LEADS", "PROGRAMACIÓN DE CITAS", "SOPORTE AL CLIENTE"],
+        "description": "Una plataforma CRM líder basada en EE.UU. se asoció con Synthflow para integrar IA de voz de marca blanca en su suite de productos. Dentro de 60 días, la compañía lanzó una capa de automatización de voz completamente marcada, permitiendo a los usuarios manejar más de 500K llamadas por mes—sin escribir código o agregar recursos de ingeniería.",
+        "stats": {
+          "calls": "500k Llamadas Mensuales con IA",
+          "deployment": "60 Días Tiempo de Despliegue",
+          "integration": "100% Integración de Voz de Marca Blanca",
+          "code": "0 Código Escrito"
+        },
+        "company": "plataforma crm",
+        "location": "EE.UU.",
+        "industry": "CRM y Plataforma SaaS",
+        "size": "10-50"
+      },
+      "smartcat": {
+        "badges": ["CALIFICACIÓN DE VENTAS", "PROGRAMACIÓN DE DEMOS"],
+        "description": "Smartcat, una plataforma líder de IA de idiomas, se asoció con Synthflow para mejorar su proceso de calificación de leads usando Agentes de IA de Voz. La colaboración llevó a reducir costos de reserva en 70%, permitiendo al equipo de ventas de Smartcat enfocarse en conversaciones de alto valor y aumentar la eficiencia general.",
+        "stats": {
+          "calls": "+24% Llamadas Contestadas",
+          "sales": "+15% Ventas Cerradas",
+          "reactivation": "+15% Reactivación de Leads",
+          "cost": "-70% Costo de Reserva"
+        },
+        "company": "smartcat",
+        "location": "EE.UU.",
+        "industry": "Tecnología",
+        "size": "200+"
+      },
+      "peak": {
+        "badges": ["COLECCIÓN DE DATOS", "SOLICITUD DE SERVICIO", "ACTUALIZACIONES DE ESTADO"],
+        "description": "Peak Demand reemplazó formularios obsoletos con IA de Voz de Synthflow para un proveedor de tránsito importante. Los residentes ahora hacen llamadas rápidas, y la IA maneja solicitudes al instante — mejorando velocidad, precisión y servicio. Después del éxito probado, más agentes de IA se están implementando en toda la ciudad, estableciendo un nuevo estándar para la entrega de servicios públicos.",
+        "stats": {
+          "agents": "3 Agentes de IA Funcionando",
+          "missed": "-100% Llamadas Perdidas Después del Horario",
+          "saved": "-80% Tiempo Ahorrado en Solicitudes",
+          "collection": "100% Colección de Datos Automatizada"
+        },
+        "company": "peak demand",
+        "location": "Canadá",
+        "industry": "Agencia, Sector Público",
+        "size": "10-50"
+      }
+    }
+  },
+  "cta": {
+    "badge": "DEMO PERSONALIZADA",
+    "title": "¿Gestionando Más de 10K Minutos de Llamadas Mensuales?",
+    "subtitle": "Profundiza con nuestros expertos para aprender cómo la IA de Voz puede escalar tus operaciones de servicio al cliente y entregar ROI las 24 horas.",
+    "contactSales": "CONTACTAR VENTAS"
+  },
+  "faq": {
+    "badge": "PREGUNTAS FRECUENTES",
+    "title": "Todo lo que Necesitas Saber sobre los Agentes de IA de Voz de Synthflow",
+    "questions": {
+      "what": {
+        "question": "¿Qué es Synthflow?",
+        "answer": "Synthflow es una plataforma de IA de Voz lista para empresas que permite a las empresas desplegar agentes telefónicos impulsados por IA para conversaciones automatizadas de clientes. Nuestra plataforma maneja todo, desde llamadas de soporte entrantes hasta campañas salientes, con confiabilidad y cumplimiento de grado empresarial."
+      },
+      "trial": {
+        "question": "¿Ofrece Synthflow una prueba gratuita?",
+        "answer": "Sí, Synthflow ofrece una prueba gratuita para que puedas experimentar las capacidades de la plataforma. Contacta a nuestro equipo de ventas para comenzar con una demo personalizada y acceso a prueba adaptado a tu caso de uso."
+      },
+      "support": {
+        "question": "¿Ya tenemos un equipo de soporte. Por qué usar Synthflow?",
+        "answer": "Synthflow aumenta a tu equipo existente manejando llamadas rutinarias, soporte después del horario y desbordamiento durante picos. Esto permite que tus agentes humanos se enfoquen en interacciones complejas y de alto valor mientras la IA maneja tareas repetitivas—mejorando eficiencia y satisfacción del cliente."
+      },
+      "security": {
+        "question": "¿Es Synthflow seguro y compatible?",
+        "answer": "Absolutamente. Synthflow está certificado en SOC 2, HIPAA, PCI DSS y GDPR. Proporcionamos encriptación completa, registros de auditoría, alojamiento basado en región y seguridad de grado empresarial integrada en cada lanzamiento."
+      },
+      "customize": {
+        "question": "¿Puedo personalizar Synthflow para mis flujos de trabajo?",
+        "answer": "Sí, Synthflow es altamente personalizable. Puedes diseñar flujos de conversación con nuestro constructor visual, conectarte a tu CRM existente y herramientas a través de 200+ integraciones, y entrenar agentes en tu base de conocimiento específica."
+      },
+      "integrate": {
+        "question": "¿Puede Synthflow integrarse con nuestras herramientas actuales?",
+        "answer": "Synthflow se integra con 200+ plataformas incluyendo Salesforce, HubSpot, Zendesk, Freshworks y muchas más. También soportamos troncales SIP y BYOC para flexibilidad telefónica."
+      },
+      "brand": {
+        "question": "¿Qué pasa si la IA dice algo fuera de marca?",
+        "answer": "Los agentes de Synthflow siguen lógica definida y fuentes de conocimiento aprobadas, asegurando respuestas compatibles y seguras para la marca. Nuestra plataforma previene respuestas fuera de guion o alucinadas a través de barreras estrictas y opciones de escalada humana."
+      },
+      "stuck": {
+        "question": "¿Qué pasa si la IA se atasca?",
+        "answer": "Si un agente de IA encuentra una situación que no puede manejar, escala sin problemas a un agente humano con contexto completo. Puedes configurar reglas de escalada basadas en sentimiento, palabras clave o escenarios específicos."
+      }
+    }
+  },
+  "footer": {
+    "company": {
+      "blog": "Blog",
+      "brand": "Marca",
+      "careers": "Carreras",
+      "hiring": "Estamos Contratando",
+      "newsroom": "Sala de Prensa",
+      "merch": "Tienda de Merch"
+    },
+    "platform": {
+      "changelog": "Registro de Cambios",
+      "feedback": "Comentarios",
+      "security": "Seguridad",
+      "status": "Estado"
+    },
+    "ecosystem": {
+      "developers": "Desarrolladores",
+      "marketplace": "Mercado",
+      "partners": "Socios",
+      "solutionPartners": "Socios de Soluciones"
+    },
+    "resources": {
+      "academy": "Academia",
+      "apiDocs": "Documentos API",
+      "documentation": "Documentación",
+      "helpCenter": "Centro de Ayuda",
+      "resourceLibrary": "Biblioteca de Recursos"
+    },
+    "integrations": {
+      "cal": "Cal.com",
+      "gohighlevel": "GoHighLevel",
+      "hubspot": "HubSpot",
+      "salesforce": "Salesforce",
+      "zapier": "Zapier"
+    },
+    "useCases": {
+      "customerService": "Servicio al Cliente IA",
+      "receptionist": "Recepcionista IA",
+      "answeringService": "Servicio de Contestación IA",
+      "concierge": "Conserje IA",
+      "appointmentBooking": "Programación de Citas",
+      "ivr": "IVR IA",
+      "whatsapp": "Integración WhatsApp"
+    },
+    "articles": {
+      "callCenter": "Centro de Llamadas IA",
+      "conversationalAI": "Plataforma IA Conversacional",
+      "automation": "Automatización de Centro de Contacto",
+      "comparison": "Comparación Empresarial",
+      "elevenlabs": "Alternativas ElevenLabs",
+      "vapi": "Alternativas Vapi",
+      "bland": "Alternativas Bland AI",
+      "voiceflow": "Alternativas Voiceflow",
+      "retell": "Alternativas Retell AI"
+    },
+    "legal": {
+      "privacy": "Política de Privacidad",
+      "terms": "Términos y Condiciones",
+      "imprint": "Imprint",
+      "gdpr": "GDPR",
+      "transparency": "Declaración de Transparencia IA"
+    },
+    "newsletter": {
+      "title": "SIGNAL: TU BOLETÍN MENSUAL DE IA EMPRESARIAL",
+      "submit": "ENVIAR"
+    },
+    "backedBy": "RESPALDADO POR",
+    "trustedBy": "CONFIADO Y VERIFICADO POR"
+  },
+  "theme": {
+    "toggle": "Cambiar tema",
+    "light": "Claro",
+    "dark": "Oscuro",
+    "system": "Sistema"
+  },
+  "theme": {
+    "toggle": "Cambiar tema",
+    "light": "Claro",
+    "dark": "Oscuro",
+    "system": "Sistema"
+  },
+  "language": {
+    "toggle": "Cambiar idioma",
+    "english": "English",
+    "spanish": "Español",
+    "french": "Français",
+    "german": "Deutsch"
+  }
+}

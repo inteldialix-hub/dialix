@@ -1,0 +1,458 @@
+{
+  "nav": {
+    "platform": "Platform",
+    "useCases": "Use Cases",
+    "integrations": "Integrations",
+    "resources": "Resources",
+    "company": "Company",
+    "signIn": "Sign In",
+    "contactSales": "Contact Sales"
+  },
+  "hero": {
+    "title": "Enterprise-Ready Voice AI Agents for Automated Phone Calls",
+    "subtitle": "The only end-to-end Voice AI platform with in-house telephony, proven deployment framework, and ROI delivered in weeks — redefining how enterprises connect with customers.",
+    "contactSales": "CONTACT SALES",
+    "demo": {
+      "title": "Hear AI Voice Agents in Action",
+      "subtitle": "Choose a call type to see how Synthflow AI agents handle real conversations.",
+      "tabs": {
+        "useCase": "Use Case",
+        "flowDesigner": "Flow Designer",
+        "knowledgeBase": "Knowledge Base",
+        "actions": "Actions",
+        "testCalls": "Test Calls"
+      },
+      "cases": {
+        "realEstate": {
+          "category": "Real Estate",
+          "title": "Lead Qualification - Buyer",
+          "tags": ["#Real-Time Booking", "#Lead Qualification"],
+          "description": "Meet Paul, an AI assistant designed for real estate lead qualification. Paul's primary objective is to identify the preference...",
+          "demo": "Hear Demo"
+        },
+        "eCommerce": {
+          "category": "E-Commerce",
+          "title": "Customer Support - Restaurant",
+          "tags": ["#Real-Time Booking", "#Receptionist"],
+          "description": "Meet Laura, an AI assistant for Gourmet Table, a fine dining restaurant. Her primary role is to assist callers in scheduling...",
+          "demo": "Hear Demo"
+        },
+        "healthcare": {
+          "category": "Healthcare",
+          "title": "Healthcare Receptionist",
+          "tags": ["#Receptionist", "#Real-Time Booking"],
+          "description": "Meet Jessica, an AI assistant for your Healthcare company, dedicated to streamlining appointment scheduling and improving...",
+          "demo": "Hear Demo"
+        }
+      }
+    }
+  },
+  "stats": {
+    "calls": {
+      "value": "65M+",
+      "label": "Customer Calls",
+      "description": "Proven voice AI performance across real, high-volume phone operations."
+    },
+    "hours": {
+      "value": "4M+",
+      "label": "Hours Saved",
+      "description": "Less time on manual calls. More time for growth, sales, and support."
+    },
+    "answered": {
+      "value": "+35%",
+      "label": "Answered Calls",
+      "description": "Voice agents respond instantly — no hold music, no missed opportunities."
+    },
+    "uptime": {
+      "value": "99.99%",
+      "label": "Uptime",
+      "description": "AI voice agents your business can rely on, every minute of every day."
+    }
+  },
+  "bell": {
+    "badge": "SYNTHFLOW BELL FRAMEWORK",
+    "title": "Deploy Voice AI Without the Risks",
+    "subtitle": "The Synthflow BELL Framework connects every stage of the agent lifecycle—Build, Evaluate, Launch, Learn—into one repeatable process. Built into the Synthflow platform, it helps enterprises deploy faster, reduce risk, and continuously improve performance at scale.",
+    "discover": "Discover BELL",
+    "subtitle2": "Your Proven Path to Reliable Voice AI",
+    "steps": {
+      "build": {
+        "title": "Build",
+        "description": "Use the visual Flow Designer to define every step, connect APIs, and create agents that act with precision."
+      },
+      "evaluate": {
+        "title": "Evaluate",
+        "description": "Every agent is tested automatically in the Test Center. Simulated calls measure accuracy, response quality, and compliance against your KPIs, ensuring performance before customers call."
+      },
+      "launch": {
+        "title": "Launch",
+        "description": "Agents deploy through Synthflow's own telephony network. Because we control routing, latency, and regional delivery, every call meets enterprise standards for reliability and speed."
+      },
+      "learn": {
+        "title": "Learn",
+        "description": "Once live, Auto-QA and monitoring analyze every conversation in real-time. Insights on accuracy and intent feed back into the next version — so agents improve continuously."
+      }
+    }
+  },
+  "voiceAI": {
+    "badge": "END-TO-END SOLUTION",
+    "title": "The Complete Voice AI OS",
+    "subtitle": "Automate, manage, and scale thousands of calls from one unified Voice AI Operating System. With Synthflow, you design, launch, and operate Voice AI Agents end-to-end— with no-code flows, enterprise telephony, and deep analytics.",
+    "features": {
+      "multiAgent": {
+        "title": "Multi-Agent System",
+        "description": "Design modular voice flows with our no-code builder. Subflows act as specialized agents that handle tasks independently — making complex logic simple to manage."
+      },
+      "telephony": {
+        "title": "Custom Telephony",
+        "description": "Synthflow's in-house telephony delivers sub-100 ms latency and carrier-grade reliability without replacing your existing SIP or PBX setup."
+      },
+      "sandbox": {
+        "title": "AI Sandbox for Testing",
+        "description": "Preview, compare, and roll back safely. Track every version of your agents and deploy updates without downtime or risk."
+      },
+      "monitoring": {
+        "title": "Real-Time Monitoring",
+        "description": "See everything as it happens. Get real-time visibility into every call, webhook, and API to debug faster and ship with confidence."
+      },
+      "fineTuning": {
+        "title": "Data Fine-Tuning",
+        "description": "Use past calls to train smarter agents. Fine-tuning will let enterprises improve model accuracy and behavior using their own conversation data."
+      }
+    }
+  },
+  "omnichannel": {
+    "badge": "OMNICHANNEL CONVERSATIONAL AI",
+    "title": "One Agent for Every Conversation",
+    "subtitle": "Design, deploy, and manage AI agents across every channel — voice, chat, SMS, and more — all from one platform. Synthflow's conversational AI brings consistency, compliance, and real-time intelligence to every customer interaction.",
+    "channels": {
+      "voice": "VOICE",
+      "chat": "CHAT",
+      "sms": "SMS",
+      "whatsapp": "WHATSAPP",
+      "email": "EMAIL"
+    }
+  },
+  "telephony": {
+    "badge": "INDUSTRY-LEADING TELEPHONY",
+    "title": "Own the Network, Control the Call",
+    "subtitle": "Unlike other voice AI platforms tied to third-party carriers, we run on our own enterprise-grade communications infrastructure. We integrate directly with your telephony or any SIP-based provider — giving you complete control over routing, quality, and compliance.",
+    "learnMore": "LEARN MORE",
+    "features": {
+      "deploy": {
+        "title": "Deploy Where Your Customers Are",
+        "description": "We strategically deploy voice infrastructure in the exact regions your operations need — dramatically reducing latency and ensuring crystal-clear call quality."
+      },
+      "freedom": {
+        "title": "Freedom to Choose Your Network",
+        "description": "Unlike other platforms, Synthflow lets you connect through your own carriers or SIP trunks. No vendor lock-in, just enterprise flexibility and total control of your network."
+      },
+      "integration": {
+        "title": "Built to Fit Your Enterprise Stack",
+        "description": "Synthflow connects directly with your enterprise systems: Cisco, Avaya, Genesys, RingCentral, and more. No rebuilds, just instant compatibility and faster time to value."
+      },
+      "performance": {
+        "title": "Performance You Can Rely On",
+        "description": "With routing, capacity, and uptime managed entirely in-house, we keep latency below 100 ms and uptime above 99.99% — even through traffic surges and regional failovers."
+      }
+    }
+  },
+  "industries": {
+    "badge": "PRODUCTION-READY AGENTS FOR EVERY INDUSTRY",
+    "title": "Production-Ready Agents for Every Industry",
+    "subtitle": "Whether it's scheduling, claims, or always-on support, Synthflow automates the calls that slow teams down. Purpose-built for enterprise demands, our multilingual and human-like Voice AI agents integrate securely with your systems to automate conversations, boost availability, and reduce cost—without sacrificing quality.",
+    "list": {
+      "bpo": {
+        "title": "BPO & Call Centers",
+        "description": "Reduce agent load and call handling time with AI agents that manage tier-1 support and overflow calls at scale.",
+        "demo": "Hear Demo"
+      },
+      "retail": {
+        "title": "Retail",
+        "description": "Automate order tracking, FAQs, and customer support to boost customer satisfaction and reduce wait times.",
+        "demo": "Hear Demo"
+      },
+      "financial": {
+        "title": "Financial Services & Insurance",
+        "description": "Verify callers, process claims, and handle account requests securely with compliant, always-on voice AI.",
+        "demo": "Hear Demo"
+      },
+      "realEstate": {
+        "title": "Real Estate",
+        "description": "Answer property inquiries, qualify leads, and schedule viewings instantly to accelerate deal service—even after hours.",
+        "demo": "Hear Demo"
+      },
+      "technology": {
+        "title": "Technology & Consulting",
+        "description": "Automate inbound inquiries, onboarding, and client updates so your team can focus on strategy and results.",
+        "demo": "Hear Demo"
+      },
+      "healthcare": {
+        "title": "Healthcare",
+        "description": "Provide 24/7 patient support, appointment scheduling, and call routing so staff can focus on care.",
+        "demo": "Hear Demo"
+      },
+      "software": {
+        "title": "Software",
+        "description": "Qualify leads, schedule demos, and manage support calls automatically—so your team can scale smarter.",
+        "demo": "Hear Demo"
+      },
+      "telecom": {
+        "title": "Telecom",
+        "description": "Handle activations, billing, and support calls with AI agents that integrate directly into your existing systems.",
+        "demo": "Hear Demo"
+      }
+    }
+  },
+  "benefits": {
+    "badge": "ENTERPRISE BENEFITS",
+    "title": "Why Leading Teams Choose Synthflow",
+    "subtitle": "Enterprises choose Synthflow to deploy Voice AI with speed, precision, and trust. Our forward-deployed engineers, in-house telephony, and global compliance framework deliver reliability, security, and measurable ROI — from first call to full scale.",
+    "list": {
+      "roi": {
+        "title": "From Idea to ROI in Weeks",
+        "description": "Forward-Deployed Engineers launch agents in weeks, not months — taking Voice AI from pilot to production fast, with measurable ROI in the first 60 days."
+      },
+      "security": {
+        "title": "Certified Security & Compliance",
+        "description": "Synthflow's infrastructure is certified across SOC 2, HIPAA, PCI DSS, and GDPR — with full encryption, audit logs, and region-based hosting built into every release.",
+        "badges": ["SOC 2", "HIPAA", "PCI DSS", "GDPR"]
+      },
+      "reliability": {
+        "title": "Enterprise Reliability",
+        "description": "We run our own network with multi-cloud redundancy, instant failover, and round-the-clock monitoring — keeping every call connected and every customer heard."
+      },
+      "cx": {
+        "title": "Designed for Exceptional CX",
+        "description": "When customers call, they're not looking for automation, they're looking for resolution. We make every interaction personal and human from start to finish."
+      },
+      "compliance": {
+        "title": "Enterprise Reliability",
+        "description": "Synthflow agents follow defined logic and approved knowledge sources — ensuring compliant, brand-safe replies and zero off-script or hallucinated responses."
+      }
+    }
+  },
+  "integrations": {
+    "badge": "200+ INTEGRATIONS",
+    "title": "Connect to Your Tech Stack & CRM",
+    "subtitle": "Synthflow connects to the systems your teams already use—CRMs, CCaaS platforms, calendars, and data tools—so voice agents can operate inside your existing workflows. They don't just handle conversations; they complete actions, update records, route calls, and trigger downstream processes in real time.",
+    "explore": "EXPLORE INTEGRATIONS"
+  },
+  "caseStudies": {
+    "badge": "CASE STUDY",
+    "title": "The ROI for Your Business",
+    "subtitle": "Unlock measurable impact with AI voice agents. Synthflow helps you save time, reduce costs, and improve customer experience — without trade-offs.",
+    "studies": {
+      "freshworks": {
+        "badges": ["SMART IVR", "TICKET CREATION", "USER VERIFICATION"],
+        "description": "Through a strategic partnership, Freshworks and Synthflow now offer real-time Voice AI inside Freshcaller, Freshdesk, and Freshservice, allowing businesses to automate up to 65% of routine voice requests—from routing and verification to FAQs and after-hours ticket creation. The result is faster resolution, lower agent workload, and modern voice experiences delivered directly within the Freshworks platform.",
+        "stats": {
+          "automated": "65% Routine Calls Automated",
+          "waitTimes": "75% Reduction in Wait Times",
+          "responseRate": "2x Increased Response Rate",
+          "workload": "60% Less Agent Workload"
+        },
+        "company": "freshworks",
+        "location": "Global",
+        "industry": "SaaS & Telecom",
+        "size": "5K-10K"
+      },
+      "medbelle": {
+        "badges": ["APPOINTMENT BOOKING", "LEAD QUALIFICATION", "CUSTOMER SUPPORT"],
+        "description": "Medbelle integrated Synthflow's AI assistant to optimize appointment management and minimize patient wait times. By automating scheduling and follow-ups, Medbelle achieved a 60% boost in scheduling efficiency and saw 2.5x more booked appointments — transforming patient experiences and operational productivity.",
+        "stats": {
+          "efficiency": "+60% Scheduling Efficiency",
+          "noshow": "-30% No-Show Rates",
+          "appointments": "2.5x Qualified Appointments",
+          "satisfaction": "+25% Patient Satisfaction"
+        },
+        "company": "medbelle",
+        "location": "UK & EU",
+        "industry": "Healthcare",
+        "size": "51-200"
+      },
+      "bpo": {
+        "badges": ["CUSTOMER SUPPORT", "APPOINTMENT SCHEDULING", "LEAD QUALIFICATION"],
+        "description": "A $230M multinational BPO operator partnered with Synthflow to modernize voice operations with white-labeled AI agents. In just 60 days, the company deployed 40+ fully branded voice agents across client programs, automating 600K+ calls monthly without adding headcount. This enabled the team to deliver faster, multilingual service while reducing operational overhead.",
+        "stats": {
+          "calls": ">600K Monthly Calls Handled",
+          "agents": "40+ AI Agents Deployed",
+          "languages": "2 Languages",
+          "hires": "0 New Hires Needed"
+        },
+        "company": "bpo operator",
+        "location": "US & LATAM",
+        "industry": "BPO & Contact Center",
+        "size": "3000+"
+      },
+      "crm": {
+        "badges": ["LEAD CAPTURE", "APPOINTMENT BOOKING", "CUSTOMER SUPPORT"],
+        "description": "A top U.S.-based CRM platform partnered with Synthflow to embed white-labeled voice AI into its product suite. Within 60 days, the company launched a fully branded voice automation layer, enabling users to handle over 500K calls per month—without writing code or adding engineering resources.",
+        "stats": {
+          "calls": "500k Monthly AI-Powered Calls",
+          "deployment": "60 Days Deployment Time",
+          "integration": "100% White-Labeled Voice Integration",
+          "code": "0 Code Written"
+        },
+        "company": "crm platform",
+        "location": "US",
+        "industry": "CRM & SaaS Platform",
+        "size": "10-50"
+      },
+      "smartcat": {
+        "badges": ["SALES QUALIFICATION", "DEMO SCHEDULING"],
+        "description": "Smartcat, a leading language AI platform, partnered with Synthflow to enhance its lead qualification process using Voice AI Agents. The collaboration led to reducing booking costs by 70%, enabling Smartcat's sales team to focus on high-value conversations and boost overall efficiency.",
+        "stats": {
+          "calls": "+24% Answered Calls",
+          "sales": "+15% Closed Sales",
+          "reactivation": "+15% Lead Reactivation",
+          "cost": "-70% Booking Cost"
+        },
+        "company": "smartcat",
+        "location": "US",
+        "industry": "Technology",
+        "size": "200+"
+      },
+      "peak": {
+        "badges": ["DATA COLLECTION", "SERVICE REQUEST", "STATUS UPDATES"],
+        "description": "Peak Demand replaced outdated forms with Synthflow Voice AI for a major transit provider. Residents now make quick calls, and AI handles requests instantly — improving speed, accuracy, and service. After proven success, more AI agents are rolling out citywide, setting a new standard for public service delivery.",
+        "stats": {
+          "agents": "3 Working AI Agents",
+          "missed": "-100% Missed Calls After Hours",
+          "saved": "-80% Time Saved on Requests",
+          "collection": "100% Automated Data Collection"
+        },
+        "company": "peak demand",
+        "location": "Canada",
+        "industry": "Agency, Public Sector",
+        "size": "10-50"
+      }
+    }
+  },
+  "cta": {
+    "badge": "TAILORED DEMO",
+    "title": "Managing Over 10K Minutes of Calls Monthly?",
+    "subtitle": "Dive deeper with our experts to learn how Voice AI can scale your customer service operations and deliver ROI around the clock.",
+    "contactSales": "CONTACT SALES"
+  },
+  "faq": {
+    "badge": "FREQUENTLY ASKED QUESTIONS",
+    "title": "Everything You Need to Know About Synthflow's AI Voice Agents",
+    "questions": {
+      "what": {
+        "question": "What is Synthflow?",
+        "answer": "Synthflow is an enterprise-ready Voice AI platform that enables businesses to deploy AI-powered phone agents for automated customer conversations. Our platform handles everything from inbound support calls to outbound campaigns, with enterprise-grade reliability and compliance."
+      },
+      "trial": {
+        "question": "Does Synthflow offer a free trial?",
+        "answer": "Yes, Synthflow offers a free trial so you can experience the platform's capabilities. Contact our sales team to get started with a personalized demo and trial access tailored to your use case."
+      },
+      "support": {
+        "question": "We already have a support team. Why use Synthflow?",
+        "answer": "Synthflow augments your existing team by handling routine calls, after-hours support, and overflow during peak times. This lets your human agents focus on complex, high-value interactions while AI handles repetitive tasks—improving efficiency and customer satisfaction."
+      },
+      "security": {
+        "question": "Is Synthflow secure and compliant?",
+        "answer": "Absolutely. Synthflow is certified across SOC 2, HIPAA, PCI DSS, and GDPR. We provide full encryption, audit logs, region-based hosting, and enterprise-grade security built into every release."
+      },
+      "customize": {
+        "question": "Can I customize Synthflow for my workflows?",
+        "answer": "Yes, Synthflow is highly customizable. You can design conversation flows with our visual builder, connect to your existing CRM and tools via 200+ integrations, and train agents on your specific knowledge base."
+      },
+      "integrate": {
+        "question": "Can Synthflow integrate with our current tools?",
+        "answer": "Synthflow integrates with 200+ platforms including Salesforce, HubSpot, Zendesk, Freshworks, and many more. We also support SIP trunking and BYOC for telephony flexibility."
+      },
+      "brand": {
+        "question": "What if the AI says something off-brand?",
+        "answer": "Synthflow agents follow defined logic and approved knowledge sources, ensuring compliant, brand-safe replies. Our platform prevents off-script or hallucinated responses through strict guardrails and human escalation options."
+      },
+      "stuck": {
+        "question": "What happens if the AI gets stuck?",
+        "answer": "If an AI agent encounters a situation it can't handle, it seamlessly escalates to a human agent with full context. You can configure escalation rules based on sentiment, keywords, or specific scenarios."
+      }
+    }
+  },
+  "footer": {
+    "company": {
+      "blog": "Blog",
+      "brand": "Brand",
+      "careers": "Careers",
+      "hiring": "We're Hiring",
+      "newsroom": "Newsroom",
+      "merch": "Merch Store"
+    },
+    "platform": {
+      "changelog": "Changelog",
+      "feedback": "Feedback",
+      "security": "Security",
+      "status": "Status"
+    },
+    "ecosystem": {
+      "developers": "Developers",
+      "marketplace": "Marketplace",
+      "partners": "Partners",
+      "solutionPartners": "Solution Partners"
+    },
+    "resources": {
+      "academy": "Academy",
+      "apiDocs": "API Docs",
+      "documentation": "Documentation",
+      "helpCenter": "Help Center",
+      "resourceLibrary": "Resource Library"
+    },
+    "integrations": {
+      "cal": "Cal.com",
+      "gohighlevel": "GoHighLevel",
+      "hubspot": "HubSpot",
+      "salesforce": "Salesforce",
+      "zapier": "Zapier"
+    },
+    "useCases": {
+      "customerService": "AI Customer Service",
+      "receptionist": "AI Receptionist",
+      "answeringService": "AI Answering Service",
+      "concierge": "AI Concierge",
+      "appointmentBooking": "Appointment Booking",
+      "ivr": "AI IVR",
+      "whatsapp": "WhatsApp Integration"
+    },
+    "articles": {
+      "callCenter": "AI Call Center",
+      "conversationalAI": "Conversational AI Platform",
+      "automation": "Contact Center Automation",
+      "comparison": "Enterprise Comparison",
+      "elevenlabs": "ElevenLabs Alternatives",
+      "vapi": "Vapi Alternatives",
+      "bland": "Bland AI Alternatives",
+      "voiceflow": "Voiceflow Alternatives",
+      "retell": "Retell AI Alternatives"
+    },
+    "legal": {
+      "privacy": "Privacy Policy",
+      "terms": "Terms & Conditions",
+      "imprint": "Imprint",
+      "gdpr": "GDPR",
+      "transparency": "AI Transparency Statement"
+    },
+    "newsletter": {
+      "title": "SIGNAL: YOUR MONTHLY ENTERPRISE AI NEWSLETTER",
+      "submit": "SUBMIT"
+    },
+    "backedBy": "BACKED BY",
+    "trustedBy": "TRUSTED & VERIFIED BY"
+  },
+  "theme": {
+    "toggle": "Toggle theme",
+    "light": "Light",
+    "dark": "Dark",
+    "system": "System"
+  },
+  "language": {
+    "toggle": "Change language",
+    "english": "English",
+    "spanish": "Español",
+    "french": "Français",
+    "german": "Deutsch"
+  }
+}

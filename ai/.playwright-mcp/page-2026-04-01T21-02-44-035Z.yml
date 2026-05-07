@@ -1,0 +1,1000 @@
+- generic [ref=e1]:
+  - generic [ref=e2]:
+    - banner [ref=e3]:
+      - generic [ref=e5]:
+        - link "S Synthflow" [ref=e6] [cursor=pointer]:
+          - /url: /
+          - generic [ref=e8]: S
+          - generic [ref=e9]: Synthflow
+        - navigation [ref=e10]:
+          - link "Platform" [ref=e11] [cursor=pointer]:
+            - /url: "#"
+            - text: Platform
+            - img [ref=e12]
+          - link "Use Cases" [ref=e14] [cursor=pointer]:
+            - /url: "#"
+          - link "Integrations" [ref=e15] [cursor=pointer]:
+            - /url: "#"
+          - link "Resources" [ref=e16] [cursor=pointer]:
+            - /url: "#"
+            - text: Resources
+            - img [ref=e17]
+          - link "Company" [ref=e19] [cursor=pointer]:
+            - /url: "#"
+        - generic [ref=e20]:
+          - button "Toggle theme" [ref=e21] [cursor=pointer]:
+            - img [ref=e22]
+          - link "Sign In" [ref=e24] [cursor=pointer]:
+            - /url: "#"
+          - link "Start Now" [ref=e25] [cursor=pointer]:
+            - /url: "#"
+          - link "Contact Sales" [ref=e26] [cursor=pointer]:
+            - /url: "#"
+    - generic [ref=e27]:
+      - generic [ref=e28]:
+        - generic:
+          - img "Background Paths"
+        - generic:
+          - img "Background Paths"
+      - generic [ref=e30]:
+        - generic [ref=e33]:
+          - img [ref=e34]
+          - text: Enterprise Voice AI
+        - heading "AI Voice Agents for Enterprise-Scale Phone Automation" [level=1] [ref=e37]
+        - paragraph [ref=e39]: Deploy human-like voice AI agents that handle thousands of calls simultaneously. Build, evaluate, launch, and learn — all from one platform.
+        - generic [ref=e41]:
+          - button "Start Now" [ref=e42] [cursor=pointer]:
+            - generic [ref=e43]:
+              - generic [ref=e44]: Start Now
+              - img [ref=e45]
+          - button "Contact Sales" [ref=e49] [cursor=pointer]
+        - generic [ref=e52]:
+          - generic [ref=e53]:
+            - button "Inbound" [ref=e54] [cursor=pointer]: Inbound
+            - button "Outbound" [ref=e56] [cursor=pointer]
+            - button "IVR" [ref=e57] [cursor=pointer]
+          - generic [ref=e58]:
+            - generic [ref=e60] [cursor=pointer]:
+              - generic [ref=e61]:
+                - img [ref=e63]
+                - generic [ref=e65]: Sales
+              - heading "Lead Qualification" [level=3] [ref=e66]
+              - generic [ref=e67]:
+                - generic [ref=e68]: B2B
+                - generic [ref=e69]: SaaS
+                - generic [ref=e70]: Revenue
+              - paragraph [ref=e71]: Automatically qualify inbound leads with AI-driven conversations that identify budget, authority, and timeline.
+              - img [ref=e73]
+            - generic [ref=e76] [cursor=pointer]:
+              - generic [ref=e77]:
+                - img [ref=e79]
+                - generic [ref=e81]: Support
+              - heading "Customer Service" [level=3] [ref=e82]
+              - generic [ref=e83]:
+                - generic [ref=e84]: 24/7
+                - generic [ref=e85]: Tier-1
+                - generic [ref=e86]: Resolution
+              - paragraph [ref=e87]: Handle tier-1 support calls instantly. Route complex issues to humans with full context transfer.
+              - img [ref=e89]
+            - generic [ref=e92] [cursor=pointer]:
+              - generic [ref=e93]:
+                - img [ref=e95]
+                - generic [ref=e97]: Scheduling
+              - heading "Appointment Booking" [level=3] [ref=e98]
+              - generic [ref=e99]:
+                - generic [ref=e100]: Calendar
+                - generic [ref=e101]: CRM
+                - generic [ref=e102]: Reminders
+              - paragraph [ref=e103]: Book, reschedule, and confirm appointments in real-time with direct calendar and CRM integration.
+              - img [ref=e105]
+            - generic [ref=e108] [cursor=pointer]:
+              - generic [ref=e109]:
+                - img [ref=e111]
+                - generic [ref=e115]: Verification
+              - heading "Identity Verification" [level=3] [ref=e116]
+              - generic [ref=e117]:
+                - generic [ref=e118]: KYC
+                - generic [ref=e119]: Compliance
+                - generic [ref=e120]: Secure
+              - paragraph [ref=e121]: Verify caller identity securely through multi-factor voice authentication and knowledge-based checks.
+              - img [ref=e123]
+    - generic [ref=e127]:
+      - generic [ref=e128]:
+        - button "Use Case" [ref=e129] [cursor=pointer]:
+          - generic [ref=e131]:
+            - img [ref=e132]
+            - generic [ref=e134]: Use Case
+        - button "Flow Designer" [ref=e135] [cursor=pointer]:
+          - generic [ref=e136]:
+            - img [ref=e137]
+            - generic [ref=e141]: Flow Designer
+        - button "Knowledge Base" [ref=e142] [cursor=pointer]:
+          - generic [ref=e143]:
+            - img [ref=e144]
+            - generic [ref=e146]: Knowledge Base
+        - button "Actions" [ref=e147] [cursor=pointer]:
+          - generic [ref=e148]:
+            - img [ref=e149]
+            - generic [ref=e151]: Actions
+        - button "Test Calls" [active] [ref=e152] [cursor=pointer]:
+          - generic [ref=e153]:
+            - img [ref=e154]
+            - generic [ref=e156]: Test Calls
+      - generic [ref=e1531]:
+        - heading "Actions" [level=3] [ref=e1532]
+        - paragraph [ref=e1533]: This agent can perform real-time actions as part of the conversation.
+        - generic [ref=e1534]:
+          - generic [ref=e1535]:
+            - generic [ref=e1536]:
+              - img [ref=e1538]
+              - generic [ref=e1541]: Enabled
+            - heading "Real-Time Booking" [level=4] [ref=e1542]
+            - paragraph [ref=e1543]: Let the agent book a meeting or demo directly in your calendar, based on lead availability.
+          - generic [ref=e1544]:
+            - generic [ref=e1545]:
+              - img [ref=e1547]
+              - generic [ref=e1550]: Enabled
+            - heading "Warm Transfer" [level=4] [ref=e1551]
+            - paragraph [ref=e1552]: Seamlessly transfer high-intent leads to a human agent or sales rep in real time.
+          - generic [ref=e1553]:
+            - generic [ref=e1554]:
+              - img [ref=e1556]
+              - generic [ref=e1557]: Enabled
+            - heading "IVR" [level=4] [ref=e1558]
+            - paragraph [ref=e1559]: Extracts key preferences, like budget, location, and property type from their responses.
+        - generic [ref=e1560]:
+          - generic [ref=e1561]:
+            - generic [ref=e1562]: ⚡
+            - generic [ref=e1563]: 📊
+            - generic [ref=e1564]: 💬
+            - generic [ref=e1565]: 🔗
+            - generic [ref=e1566]: 📧
+            - generic [ref=e1567]: "+13"
+          - heading "Create Custom Action" [level=4] [ref=e1568]
+          - paragraph [ref=e1569]: Create your own actions using APIs, business logic, CRMs, and more. Available in the full platform.
+        - button "Try it in a test call" [ref=e1571] [cursor=pointer]:
+          - text: Try it in a test call
+          - img [ref=e1572]
+      - generic [ref=e209]:
+        - generic [ref=e210]:
+          - img [ref=e211]
+          - generic [ref=e213]: This is a simplified demo. Full editing is available in the platform.
+        - generic [ref=e214]:
+          - generic [ref=e215]: Ready to build real agents?
+          - button "Try the Full Platform" [ref=e216] [cursor=pointer]
+    - generic [ref=e218]:
+      - paragraph [ref=e219]: Trusted by leading enterprises
+      - generic [ref=e222]:
+        - generic [ref=e223]: Freshworks
+        - generic [ref=e224]: Gorgias
+        - generic [ref=e225]: Webflow
+        - generic [ref=e226]: Y Combinator
+        - generic [ref=e227]: ActiveCampaign
+        - generic [ref=e228]: Calendly
+        - generic [ref=e229]: GoHighLevel
+        - generic [ref=e230]: Pipedrive
+        - generic [ref=e231]: monday.com
+        - generic [ref=e232]: Intercom
+        - generic [ref=e233]: HubSpot
+        - generic [ref=e234]: Salesforce
+        - generic [ref=e235]: Freshworks
+        - generic [ref=e236]: Gorgias
+        - generic [ref=e237]: Webflow
+        - generic [ref=e238]: Y Combinator
+        - generic [ref=e239]: ActiveCampaign
+        - generic [ref=e240]: Calendly
+        - generic [ref=e241]: GoHighLevel
+        - generic [ref=e242]: Pipedrive
+        - generic [ref=e243]: monday.com
+        - generic [ref=e244]: Intercom
+        - generic [ref=e245]: HubSpot
+        - generic [ref=e246]: Salesforce
+    - generic [ref=e252]:
+      - generic [ref=e254]:
+        - generic [ref=e256]: 0M+
+        - generic [ref=e257]: Customer Calls
+        - paragraph [ref=e258]: Proven voice AI performance across real, high-volume phone operations.
+      - generic [ref=e260]:
+        - generic [ref=e262]: 0M+
+        - generic [ref=e263]: Hours Saved
+        - paragraph [ref=e264]: Less time on manual calls. More time for growth, sales, and support.
+      - generic [ref=e266]:
+        - generic [ref=e268]: +0%
+        - generic [ref=e269]: Answered Calls
+        - paragraph [ref=e270]: Voice agents respond instantly — no hold music, no missed opportunities.
+      - generic [ref=e272]:
+        - generic [ref=e274]: 0.00%
+        - generic [ref=e275]: Uptime
+        - paragraph [ref=e276]: AI voice agents your business can rely on, every minute of every day.
+    - generic [ref=e279]:
+      - generic [ref=e281]: Synthflow BELL Framework
+      - generic [ref=e282]:
+        - heading "Discover BELL Your Proven Path to Reliable Voice AI" [level=2] [ref=e284]:
+          - text: Discover BELL
+          - img [ref=e285]
+          - text: Your Proven Path to Reliable Voice AI
+        - paragraph [ref=e289]: The Synthflow BELL Framework connects every stage of the agent lifecycle — Build, Evaluate, Launch, Learn — into one repeatable process. Built into the Synthflow platform, it helps enterprises deploy faster, reduce risk, and continuously improve performance at scale.
+      - generic [ref=e291]:
+        - generic [ref=e293]:
+          - button "01 Build Voice AI flows that follow business logic, not guesswork. Use the visual Flow Designer to define every step, connect APIs, and create agents that act with precision. Visual flow builder with drag-and-drop nodes API integrations and webhooks Multi-language voice configuration" [ref=e294] [cursor=pointer]:
+            - generic [ref=e295]:
+              - generic [ref=e296]: "01"
+              - generic [ref=e298]: Build
+              - img [ref=e299]
+            - generic [ref=e301]:
+              - paragraph [ref=e302]: Voice AI flows that follow business logic, not guesswork. Use the visual Flow Designer to define every step, connect APIs, and create agents that act with precision.
+              - list [ref=e303]:
+                - listitem [ref=e304]: Visual flow builder with drag-and-drop nodes
+                - listitem [ref=e306]: API integrations and webhooks
+                - listitem [ref=e308]: Multi-language voice configuration
+          - button "02 Evaluate" [ref=e310] [cursor=pointer]:
+            - generic [ref=e311]:
+              - generic [ref=e312]: "02"
+              - generic [ref=e314]: Evaluate
+              - img [ref=e315]
+          - button "03 Launch" [ref=e317] [cursor=pointer]:
+            - generic [ref=e318]:
+              - generic [ref=e319]: "03"
+              - generic [ref=e321]: Launch
+              - img [ref=e322]
+          - button "04 Learn" [ref=e324] [cursor=pointer]:
+            - generic [ref=e325]:
+              - generic [ref=e326]: "04"
+              - generic [ref=e328]: Learn
+              - img [ref=e329]
+        - generic [ref=e334]:
+          - generic [ref=e335]:
+            - generic [ref=e336]:
+              - img [ref=e338]
+              - generic [ref=e342]: Build Phase
+            - paragraph [ref=e343]: Voice AI flows that follow business logic, not guesswork. Use the visual Flow De...
+          - generic [ref=e348]: Visual flow builder with drag-and-drop nodes
+          - generic [ref=e351]: API integrations and webhooks
+          - generic [ref=e354]: Multi-language voice configuration
+    - generic [ref=e357]:
+      - generic [ref=e358]:
+        - generic [ref=e360]: How It Works
+        - heading "From Zero to Production in Days" [level=2] [ref=e362]
+        - paragraph [ref=e364]: Deploy enterprise-grade Voice AI without writing a single line of code. Synthflow handles the infrastructure, compliance, and scaling — you focus on results.
+        - generic [ref=e366]:
+          - generic [ref=e367]:
+            - generic [ref=e368]: 5 Steps
+            - generic [ref=e369]: To Production
+          - generic [ref=e371]:
+            - generic [ref=e372]: < 1 Week
+            - generic [ref=e373]: Average Deploy
+      - generic [ref=e374]:
+        - generic [ref=e376]:
+          - generic [ref=e377]:
+            - generic [ref=e378]:
+              - img [ref=e380]
+              - generic [ref=e382]: "01"
+            - generic [ref=e383]:
+              - generic [ref=e384]: 5 min
+              - generic [ref=e385]: Average Setup Time
+          - heading "Design Your Agent" [level=3] [ref=e386]
+          - paragraph [ref=e387]: Define your agent's personality, voice, language, and conversation flow using our no-code builder. Choose from 20+ voice models across 30 languages — each tuned for natural, human-grade dialogue.
+        - generic [ref=e391]:
+          - generic [ref=e392]:
+            - generic [ref=e393]:
+              - img [ref=e395]
+              - generic [ref=e397]: "02"
+            - generic [ref=e398]:
+              - generic [ref=e399]: 200+
+              - generic [ref=e400]: Native Integrations
+          - heading "Connect Your Stack" [level=3] [ref=e401]
+          - paragraph [ref=e402]: Plug Synthflow into your CRM, helpdesk, calendar, and telephony tools. With 200+ native integrations and webhook support, your AI agent fits seamlessly into your existing workflow — zero rip-and-replace.
+        - generic [ref=e406]:
+          - generic [ref=e407]:
+            - generic [ref=e408]:
+              - img [ref=e410]
+              - generic [ref=e413]: "03"
+            - generic [ref=e414]:
+              - generic [ref=e415]: 0%
+              - generic [ref=e416]: Hallucination Rate
+          - heading "Configure & Train" [level=3] [ref=e417]
+          - paragraph [ref=e418]: Upload your knowledge base, set guardrails, define escalation paths, and test conversations in our sandbox. Your agent learns your product, policies, and brand voice — with zero hallucination risk.
+        - generic [ref=e422]:
+          - generic [ref=e423]:
+            - generic [ref=e424]:
+              - img [ref=e426]
+              - generic [ref=e431]: "04"
+            - generic [ref=e432]:
+              - generic [ref=e433]: 10K+
+              - generic [ref=e434]: Concurrent Calls
+          - heading "Launch & Scale" [level=3] [ref=e435]
+          - paragraph [ref=e436]: Deploy across inbound and outbound phone, SMS, WhatsApp, and web channels. Handle 1 or 10,000 concurrent calls with the same enterprise-grade reliability, automatic scaling, and sub-200ms latency.
+        - generic [ref=e440]:
+          - generic [ref=e441]:
+            - generic [ref=e442]:
+              - img [ref=e444]
+              - generic [ref=e446]: "05"
+            - generic [ref=e447]:
+              - generic [ref=e448]: 95%
+              - generic [ref=e449]: Resolution Rate
+          - heading "Measure & Optimize" [level=3] [ref=e450]
+          - paragraph [ref=e451]: Track every conversation with real-time analytics. Measure resolution rates, customer sentiment, call duration, and conversion metrics. Continuously improve your agent with data-driven insights.
+    - generic [ref=e455]:
+      - generic [ref=e457]: End-to-End Solution
+      - generic [ref=e458]:
+        - heading "The Complete Voice AI OS" [level=2] [ref=e460]
+        - paragraph [ref=e462]: Automate, manage, and scale thousands of calls from one unified Voice AI Operating System. With Synthflow, you design, launch, and operate Voice AI Agents end-to-end, with configurable agent workflows, enterprise telephony, and deep analytics.
+      - generic [ref=e464]:
+        - generic [ref=e466]:
+          - button "Multi-Agent System Architect modular voice flows with a flexible, API-connected builder. Subflows act as specialized agents that handle tasks independently — giving your team full control over complex logic at scale." [ref=e467] [cursor=pointer]:
+            - generic [ref=e468]:
+              - img [ref=e470]
+              - generic [ref=e475]: Multi-Agent System
+            - paragraph [ref=e476]: Architect modular voice flows with a flexible, API-connected builder. Subflows act as specialized agents that handle tasks independently — giving your team full control over complex logic at scale.
+          - button "Custom Telephony" [ref=e477] [cursor=pointer]:
+            - generic [ref=e478]:
+              - img [ref=e480]
+              - generic [ref=e482]: Custom Telephony
+          - button "AI Sandbox for Testing" [ref=e483] [cursor=pointer]:
+            - generic [ref=e484]:
+              - img [ref=e486]
+              - generic [ref=e488]: AI Sandbox for Testing
+          - button "Real-Time Monitoring" [ref=e489] [cursor=pointer]:
+            - generic [ref=e490]:
+              - img [ref=e492]
+              - generic [ref=e494]: Real-Time Monitoring
+          - button "Data Fine-Tuning" [ref=e495] [cursor=pointer]:
+            - generic [ref=e496]:
+              - img [ref=e498]
+              - generic [ref=e499]: Data Fine-Tuning
+        - generic [ref=e503]:
+          - generic [ref=e504]:
+            - img [ref=e505]
+            - generic [ref=e510]: Multi-Agent System
+          - generic [ref=e511]:
+            - generic [ref=e513]:
+              - img [ref=e515]
+              - generic [ref=e518]: Greeting Message
+            - generic [ref=e522]:
+              - img [ref=e524]
+              - generic [ref=e527]: Onboarding Agent
+            - generic [ref=e531]:
+              - img [ref=e533]
+              - generic [ref=e536]: Verification Agent
+            - generic [ref=e540]:
+              - img [ref=e542]
+              - generic [ref=e545]: FAQ Agent
+            - generic [ref=e549]:
+              - img [ref=e551]
+              - generic [ref=e554]: Billing Agent
+            - generic [ref=e558]:
+              - img [ref=e560]
+              - generic [ref=e563]: End Call
+    - generic [ref=e565]:
+      - generic [ref=e566]:
+        - generic [ref=e568]: Omnichannel
+        - heading "One Agent, Every Channel" [level=2] [ref=e570]
+        - paragraph [ref=e572]: Deploy voice agents across every touchpoint — phone, SMS, web, WhatsApp, and more — from a single unified platform.
+      - generic [ref=e574]:
+        - img [ref=e579]
+        - generic:
+          - generic:
+            - generic:
+              - img
+            - generic: Voice
+        - generic:
+          - generic:
+            - generic:
+              - img
+            - generic: SMS
+        - generic:
+          - generic:
+            - generic:
+              - img
+            - generic: Email
+        - generic:
+          - generic:
+            - generic:
+              - img
+            - generic: Web
+        - generic:
+          - generic:
+            - generic:
+              - img
+            - generic: WhatsApp
+        - generic:
+          - generic:
+            - generic:
+              - img
+            - generic: Support
+        - generic:
+          - generic:
+            - generic:
+              - img
+            - generic: IVR
+        - generic:
+          - generic:
+            - generic:
+              - img
+            - generic: Live
+    - generic [ref=e582]:
+      - generic [ref=e583]:
+        - generic [ref=e584]:
+          - generic [ref=e585]: Custom Telephony
+          - heading "Enterprise-Grade Telephony Infrastructure" [level=2] [ref=e586]
+        - generic [ref=e588]:
+          - paragraph [ref=e589]: Synthflow runs its own telephony network — no third-party dependencies, no shared infrastructure. Get carrier-grade reliability with full control over every call.
+          - generic [ref=e590]:
+            - button [disabled] [ref=e591]:
+              - img [ref=e592]
+            - button [ref=e594] [cursor=pointer]:
+              - img [ref=e595]
+      - generic [ref=e597]:
+        - generic [ref=e599] [cursor=pointer]:
+          - img [ref=e601]
+          - heading "Global Number Provisioning" [level=3] [ref=e604]
+          - paragraph [ref=e605]: Provision local and toll-free numbers in 80+ countries. Assign, port, and manage numbers from one dashboard with instant activation.
+        - generic [ref=e608] [cursor=pointer]:
+          - img [ref=e610]
+          - heading "Advanced Call Routing" [level=3] [ref=e613]
+          - paragraph [ref=e614]: Intelligent routing with time-based, skill-based, and geographic rules. Failover, load balancing, and priority queues built in.
+        - generic [ref=e617] [cursor=pointer]:
+          - img [ref=e619]
+          - heading "SIP Trunk Integration" [level=3] [ref=e621]
+          - paragraph [ref=e622]: Connect your existing SIP infrastructure or use Synthflow-managed trunks. Full codec support with sub-100ms latency worldwide.
+        - generic [ref=e625] [cursor=pointer]:
+          - img [ref=e627]
+          - heading "Call Analytics & Quality" [level=3] [ref=e629]
+          - paragraph [ref=e630]: Real-time call quality monitoring with MOS scoring, jitter analysis, and packet loss tracking. Automated alerting for quality drops.
+    - generic [ref=e633]:
+      - generic [ref=e635]: Production-Ready Agents
+      - generic [ref=e636]:
+        - heading "Production-Ready Agents for Every Industry" [level=2] [ref=e638]
+        - paragraph [ref=e640]: Whether it's scheduling, claims, or always-on support, Synthflow automates the calls that slow teams down. Purpose-built for enterprise demands, our multilingual Voice AI agents integrate securely with your systems.
+      - generic [ref=e641]:
+        - generic [ref=e643] [cursor=pointer]:
+          - img [ref=e645]
+          - generic [ref=e650]:
+            - heading "BPO & Call Centers" [level=3] [ref=e651]
+            - paragraph [ref=e652]: Reduce agent load and call handling time with AI agents that manage tier-1 support and overflow calls at scale.
+            - button "Hear Demo" [ref=e653]:
+              - img [ref=e654]
+              - text: Hear Demo
+        - generic [ref=e657] [cursor=pointer]:
+          - img [ref=e659]
+          - generic [ref=e665]:
+            - heading "Retail" [level=3] [ref=e666]
+            - paragraph [ref=e667]: Automate order tracking, FAQs, and customer support to boost satisfaction and reduce wait times.
+            - button "Hear Demo" [ref=e668]:
+              - img [ref=e669]
+              - text: Hear Demo
+        - generic [ref=e672] [cursor=pointer]:
+          - img [ref=e674]
+          - generic [ref=e681]:
+            - heading "Financial Services" [level=3] [ref=e682]
+            - paragraph [ref=e683]: Verify callers, process claims, and handle account requests securely with compliant, always-on voice AI.
+            - button "Hear Demo" [ref=e684]:
+              - img [ref=e685]
+              - text: Hear Demo
+        - generic [ref=e688] [cursor=pointer]:
+          - img [ref=e690]
+          - generic [ref=e696]:
+            - heading "Real Estate" [level=3] [ref=e697]
+            - paragraph [ref=e698]: Answer property inquiries, qualify leads, and schedule viewings instantly — even after hours.
+            - button "Hear Demo" [ref=e699]:
+              - img [ref=e700]
+              - text: Hear Demo
+        - generic [ref=e703] [cursor=pointer]:
+          - img [ref=e705]
+          - generic [ref=e712]:
+            - heading "Technology" [level=3] [ref=e713]
+            - paragraph [ref=e714]: Automate inbound inquiries, onboarding, and client updates so your team can focus on strategy.
+            - button "Hear Demo" [ref=e715]:
+              - img [ref=e716]
+              - text: Hear Demo
+        - generic [ref=e719] [cursor=pointer]:
+          - img [ref=e721]
+          - generic [ref=e728]:
+            - heading "Healthcare" [level=3] [ref=e729]
+            - paragraph [ref=e730]: Provide 24/7 patient support, appointment scheduling, and call routing so staff can focus on care.
+            - button "Hear Demo" [ref=e731]:
+              - img [ref=e732]
+              - text: Hear Demo
+        - generic [ref=e735] [cursor=pointer]:
+          - img [ref=e737]
+          - generic [ref=e742]:
+            - heading "Software" [level=3] [ref=e743]
+            - paragraph [ref=e744]: Qualify leads, schedule demos, and manage support calls automatically — scale smarter.
+            - button "Hear Demo" [ref=e745]:
+              - img [ref=e746]
+              - text: Hear Demo
+        - generic [ref=e749] [cursor=pointer]:
+          - img [ref=e751]
+          - generic [ref=e758]:
+            - heading "Telecom" [level=3] [ref=e759]
+            - paragraph [ref=e760]: Handle activations, billing, and support calls with AI agents that integrate with your systems.
+            - button "Hear Demo" [ref=e761]:
+              - img [ref=e762]
+              - text: Hear Demo
+    - generic [ref=e765]:
+      - generic [ref=e766]:
+        - generic [ref=e768]: Enterprise Benefits
+        - heading "Why Leading Teams Choose Synthflow" [level=2] [ref=e770]
+        - paragraph [ref=e772]: Enterprises choose Synthflow to deploy Voice AI with speed, precision, and trust. Our forward-deployed engineers, in-house telephony, and global compliance framework deliver reliability from first call to full scale.
+      - generic [ref=e773]:
+        - generic [ref=e776]:
+          - generic [ref=e777]:
+            - img [ref=e779]
+            - generic [ref=e782]:
+              - heading "From Idea to ROI in Weeks" [level=3] [ref=e783]
+              - paragraph [ref=e784]: Forward-Deployed Engineers launch agents in weeks, not months — taking Voice AI from pilot to production fast, with measurable ROI in the first 60 days.
+          - generic [ref=e794]:
+            - generic [ref=e795]: Week 1
+            - generic [ref=e796]: Week 8
+        - generic [ref=e799]:
+          - generic [ref=e800]:
+            - img [ref=e802]
+            - generic [ref=e804]:
+              - heading "Certified Security & Compliance" [level=3] [ref=e805]
+              - paragraph [ref=e806]: Infrastructure certified across SOC 2, HIPAA, PCI DSS, and GDPR — with full encryption, audit logs, and region-based hosting built into every release.
+          - generic [ref=e807]:
+            - generic [ref=e808]:
+              - img [ref=e809]
+              - generic [ref=e811]: SOC 2
+            - generic [ref=e812]:
+              - img [ref=e813]
+              - generic [ref=e815]: HIPAA
+            - generic [ref=e816]:
+              - img [ref=e817]
+              - generic [ref=e819]: PCI DSS
+            - generic [ref=e820]:
+              - img [ref=e821]
+              - generic [ref=e823]: GDPR
+        - generic [ref=e827]:
+          - img [ref=e829]
+          - generic [ref=e832]:
+            - heading "Enterprise Reliability" [level=3] [ref=e833]
+            - paragraph [ref=e834]: Multi-cloud redundancy, instant failover, and round-the-clock monitoring — keeping every call connected and every customer heard.
+        - generic [ref=e838]:
+          - img [ref=e840]
+          - generic [ref=e842]:
+            - heading "Designed for Exceptional CX" [level=3] [ref=e843]
+            - paragraph [ref=e844]: Every interaction personal and human. Customers want resolution — we deliver it from start to finish.
+        - generic [ref=e848]:
+          - img [ref=e850]
+          - generic [ref=e860]:
+            - heading "Guardrailed AI Responses" [level=3] [ref=e861]
+            - paragraph [ref=e862]: Synthflow agents follow defined logic and approved knowledge sources — ensuring compliant, brand-safe replies and zero off-script or hallucinated responses.
+    - generic [ref=e869]:
+      - generic [ref=e870]:
+        - generic [ref=e871]: Integrations
+        - heading "Connects Into Your Existing Stack" [level=2] [ref=e872]
+        - paragraph [ref=e873]: Synthflow integrates with your CRM, helpdesk, calendar, and telephony tools. No rip-and-replace — just plug in and go.
+        - button "View All Integrations" [ref=e874] [cursor=pointer]
+      - generic [ref=e875]:
+        - generic [ref=e877]: S
+        - generic:
+          - generic: Sa
+        - generic:
+          - generic: Hu
+        - generic:
+          - generic: Ze
+        - generic:
+          - generic: Fr
+        - generic:
+          - generic: Tw
+        - generic:
+          - generic: Za
+        - generic:
+          - generic: Sl
+        - generic:
+          - generic: Go
+        - generic:
+          - generic: Ca
+        - generic:
+          - generic: In
+        - generic:
+          - generic: Mo
+        - generic:
+          - generic: Pi
+    - generic [ref=e879]:
+      - generic [ref=e880]:
+        - generic [ref=e882]: Success Stories
+        - paragraph [ref=e884]: Unlock measurable impact with AI voice agents. Synthflow helps you save time, reduce costs, and improve customer experience — without trade-offs.
+      - generic [ref=e886]:
+        - generic [ref=e887]:
+          - img [ref=e888]
+          - generic [ref=e890]: Leader
+        - generic [ref=e891]:
+          - img [ref=e892]
+          - generic [ref=e894]: Momentum
+        - generic [ref=e895]:
+          - img [ref=e896]
+          - generic [ref=e898]: Best Results
+        - generic [ref=e899]:
+          - img [ref=e900]
+          - generic [ref=e902]: Easiest Setup
+      - generic [ref=e904]:
+        - button [ref=e905] [cursor=pointer]:
+          - img [ref=e906]
+        - button [ref=e908] [cursor=pointer]:
+          - img [ref=e909]
+        - generic [ref=e913]:
+          - generic [ref=e914]:
+            - generic [ref=e915]:
+              - generic [ref=e916]: Smart IVR
+              - generic [ref=e917]: Ticket Creation
+              - generic [ref=e918]: User Verification
+            - paragraph [ref=e919]: Through a strategic partnership, Freshworks and Synthflow now offer real-time Voice AI inside Freshcaller, Freshdesk, and Freshservice, allowing businesses to automate up to 65% of routine voice requests — from routing and verification to FAQs and after-hours ticket creation.
+            - generic [ref=e920]:
+              - generic [ref=e921]:
+                - generic [ref=e922]: 65%
+                - generic [ref=e923]: Routine Calls Automated
+              - generic [ref=e924]:
+                - generic [ref=e925]: 75%
+                - generic [ref=e926]: Reduction in Wait Times
+              - generic [ref=e927]:
+                - generic [ref=e928]: 2×
+                - generic [ref=e929]: Increased Response Rate
+              - generic [ref=e930]:
+                - generic [ref=e931]: 60%
+                - generic [ref=e932]: Less Agent Workload
+          - generic [ref=e933]:
+            - generic [ref=e934]:
+              - generic [ref=e936]: Fr
+              - text: Freshworks
+            - generic [ref=e937]:
+              - generic [ref=e938]:
+                - img [ref=e939]
+                - text: Global
+              - generic [ref=e942]:
+                - img [ref=e943]
+                - text: SaaS & Telecom
+              - generic [ref=e947]:
+                - img [ref=e948]
+                - text: 5K-10K
+        - generic [ref=e953]:
+          - button [ref=e954] [cursor=pointer]
+          - button [ref=e955] [cursor=pointer]
+          - button [ref=e956] [cursor=pointer]
+    - generic [ref=e957]:
+      - generic [ref=e959]:
+        - generic [ref=e961]: What People Say
+        - heading "Trusted by Industry Leaders" [level=2] [ref=e963]
+        - paragraph [ref=e965]: From startups to Fortune 500 companies, teams trust Synthflow to power their voice AI operations.
+      - generic [ref=e968]:
+        - generic [ref=e971]:
+          - img [ref=e972]
+          - generic [ref=e975]:
+            - img [ref=e976]
+            - img [ref=e978]
+            - img [ref=e980]
+            - img [ref=e982]
+            - img [ref=e984]
+          - paragraph [ref=e986]: “Synthflow cut our average response time by 75%. The AI agents handle tier-1 support flawlessly — our human team now focuses exclusively on complex cases.”
+          - generic [ref=e987]:
+            - generic [ref=e988]: SC
+            - generic [ref=e989]:
+              - generic [ref=e990]: Sarah Chen
+              - generic [ref=e991]: VP of Customer Success · Freshworks
+        - generic [ref=e994]:
+          - img [ref=e995]
+          - generic [ref=e998]:
+            - img [ref=e999]
+            - img [ref=e1001]
+            - img [ref=e1003]
+            - img [ref=e1005]
+            - img [ref=e1007]
+          - paragraph [ref=e1009]: “We went from zero to 3x more demos booked in the first month. The lead qualification accuracy is remarkably precise — better than our best SDRs.”
+          - generic [ref=e1010]:
+            - generic [ref=e1011]: MT
+            - generic [ref=e1012]:
+              - generic [ref=e1013]: Marcus Thompson
+              - generic [ref=e1014]: Head of Operations · TechFlow
+        - generic [ref=e1017]:
+          - img [ref=e1018]
+          - generic [ref=e1021]:
+            - img [ref=e1022]
+            - img [ref=e1024]
+            - img [ref=e1026]
+            - img [ref=e1028]
+            - img [ref=e1030]
+          - paragraph [ref=e1032]: “The ROI was visible within 2 weeks. Synthflow's voice agents sound natural, handle objections beautifully, and never miss a follow-up.”
+          - generic [ref=e1033]:
+            - generic [ref=e1034]: ER
+            - generic [ref=e1035]:
+              - generic [ref=e1036]: Elena Rodriguez
+              - generic [ref=e1037]: Chief Revenue Officer · ScaleUp AI
+        - generic [ref=e1040]:
+          - img [ref=e1041]
+          - generic [ref=e1044]:
+            - img [ref=e1045]
+            - img [ref=e1047]
+            - img [ref=e1049]
+            - img [ref=e1051]
+            - img [ref=e1053]
+          - paragraph [ref=e1055]: “Synthflow cut our average response time by 75%. The AI agents handle tier-1 support flawlessly — our human team now focuses exclusively on complex cases.”
+          - generic [ref=e1056]:
+            - generic [ref=e1057]: SC
+            - generic [ref=e1058]:
+              - generic [ref=e1059]: Sarah Chen
+              - generic [ref=e1060]: VP of Customer Success · Freshworks
+        - generic [ref=e1063]:
+          - img [ref=e1064]
+          - generic [ref=e1067]:
+            - img [ref=e1068]
+            - img [ref=e1070]
+            - img [ref=e1072]
+            - img [ref=e1074]
+            - img [ref=e1076]
+          - paragraph [ref=e1078]: “We went from zero to 3x more demos booked in the first month. The lead qualification accuracy is remarkably precise — better than our best SDRs.”
+          - generic [ref=e1079]:
+            - generic [ref=e1080]: MT
+            - generic [ref=e1081]:
+              - generic [ref=e1082]: Marcus Thompson
+              - generic [ref=e1083]: Head of Operations · TechFlow
+        - generic [ref=e1086]:
+          - img [ref=e1087]
+          - generic [ref=e1090]:
+            - img [ref=e1091]
+            - img [ref=e1093]
+            - img [ref=e1095]
+            - img [ref=e1097]
+            - img [ref=e1099]
+          - paragraph [ref=e1101]: “The ROI was visible within 2 weeks. Synthflow's voice agents sound natural, handle objections beautifully, and never miss a follow-up.”
+          - generic [ref=e1102]:
+            - generic [ref=e1103]: ER
+            - generic [ref=e1104]:
+              - generic [ref=e1105]: Elena Rodriguez
+              - generic [ref=e1106]: Chief Revenue Officer · ScaleUp AI
+      - generic [ref=e1109]:
+        - generic [ref=e1112]:
+          - img [ref=e1113]
+          - generic [ref=e1116]:
+            - img [ref=e1117]
+            - img [ref=e1119]
+            - img [ref=e1121]
+            - img [ref=e1123]
+            - img [ref=e1125]
+          - paragraph [ref=e1127]: “HIPAA compliance was non-negotiable for us. Synthflow met every requirement and deployed in under two weeks. Our patient scheduling is now 100% automated.”
+          - generic [ref=e1128]:
+            - generic [ref=e1129]: DK
+            - generic [ref=e1130]:
+              - generic [ref=e1131]: David Kim
+              - generic [ref=e1132]: Director of IT · MedConnect
+        - generic [ref=e1135]:
+          - img [ref=e1136]
+          - generic [ref=e1139]:
+            - img [ref=e1140]
+            - img [ref=e1142]
+            - img [ref=e1144]
+            - img [ref=e1146]
+            - img [ref=e1148]
+          - paragraph [ref=e1150]: “Our property inquiry response rate went from 40% to 98%. Prospects get instant answers 24/7 and agents only handle serious buyers. Game-changing.”
+          - generic [ref=e1151]:
+            - generic [ref=e1152]: LW
+            - generic [ref=e1153]:
+              - generic [ref=e1154]: Lisa Wang
+              - generic [ref=e1155]: COO · PropTech Solutions
+        - generic [ref=e1158]:
+          - img [ref=e1159]
+          - generic [ref=e1162]:
+            - img [ref=e1163]
+            - img [ref=e1165]
+            - img [ref=e1167]
+            - img [ref=e1169]
+            - img [ref=e1171]
+          - paragraph [ref=e1173]: “The multilingual support blew us away. We serve 12 markets with one platform. Synthflow handles calls in Spanish, French, German, and Arabic natively.”
+          - generic [ref=e1174]:
+            - generic [ref=e1175]: JO
+            - generic [ref=e1176]:
+              - generic [ref=e1177]: James Okafor
+              - generic [ref=e1178]: Customer Experience Lead · FinServe Global
+        - generic [ref=e1181]:
+          - img [ref=e1182]
+          - generic [ref=e1185]:
+            - img [ref=e1186]
+            - img [ref=e1188]
+            - img [ref=e1190]
+            - img [ref=e1192]
+            - img [ref=e1194]
+          - paragraph [ref=e1196]: “HIPAA compliance was non-negotiable for us. Synthflow met every requirement and deployed in under two weeks. Our patient scheduling is now 100% automated.”
+          - generic [ref=e1197]:
+            - generic [ref=e1198]: DK
+            - generic [ref=e1199]:
+              - generic [ref=e1200]: David Kim
+              - generic [ref=e1201]: Director of IT · MedConnect
+        - generic [ref=e1204]:
+          - img [ref=e1205]
+          - generic [ref=e1208]:
+            - img [ref=e1209]
+            - img [ref=e1211]
+            - img [ref=e1213]
+            - img [ref=e1215]
+            - img [ref=e1217]
+          - paragraph [ref=e1219]: “Our property inquiry response rate went from 40% to 98%. Prospects get instant answers 24/7 and agents only handle serious buyers. Game-changing.”
+          - generic [ref=e1220]:
+            - generic [ref=e1221]: LW
+            - generic [ref=e1222]:
+              - generic [ref=e1223]: Lisa Wang
+              - generic [ref=e1224]: COO · PropTech Solutions
+        - generic [ref=e1227]:
+          - img [ref=e1228]
+          - generic [ref=e1231]:
+            - img [ref=e1232]
+            - img [ref=e1234]
+            - img [ref=e1236]
+            - img [ref=e1238]
+            - img [ref=e1240]
+          - paragraph [ref=e1242]: “The multilingual support blew us away. We serve 12 markets with one platform. Synthflow handles calls in Spanish, French, German, and Arabic natively.”
+          - generic [ref=e1243]:
+            - generic [ref=e1244]: JO
+            - generic [ref=e1245]:
+              - generic [ref=e1246]: James Okafor
+              - generic [ref=e1247]: Customer Experience Lead · FinServe Global
+    - generic [ref=e1254]:
+      - generic [ref=e1255]:
+        - img [ref=e1256]
+        - text: Get Started
+      - heading "Ready to Deploy Voice AI?" [level=2] [ref=e1258]
+      - paragraph [ref=e1259]: Join enterprises already automating thousands of calls. Start your pilot in days, see ROI in weeks.
+      - generic [ref=e1260]:
+        - button "Start Free Trial" [ref=e1261] [cursor=pointer]:
+          - generic [ref=e1262]:
+            - generic [ref=e1263]: Start Free Trial
+            - img [ref=e1264]
+        - button "Book a Demo" [ref=e1268] [cursor=pointer]
+    - generic [ref=e1271]:
+      - generic [ref=e1273]:
+        - generic [ref=e1274]: FAQ
+        - heading "Frequently Asked Questions" [level=2] [ref=e1275]
+        - paragraph [ref=e1276]: Everything you need to know about deploying enterprise Voice AI with Synthflow.
+      - generic [ref=e1278]:
+        - button "What is Synthflow and how does it work?" [ref=e1280] [cursor=pointer]:
+          - text: What is Synthflow and how does it work?
+          - img [ref=e1281]
+        - button "How long does it take to deploy a voice agent?" [ref=e1284] [cursor=pointer]:
+          - text: How long does it take to deploy a voice agent?
+          - img [ref=e1285]
+        - button "Is Synthflow secure and compliant?" [ref=e1288] [cursor=pointer]:
+          - text: Is Synthflow secure and compliant?
+          - img [ref=e1289]
+        - button "Can Synthflow integrate with my existing tools?" [ref=e1292] [cursor=pointer]:
+          - text: Can Synthflow integrate with my existing tools?
+          - img [ref=e1293]
+        - button "What languages does Synthflow support?" [ref=e1296] [cursor=pointer]:
+          - text: What languages does Synthflow support?
+          - img [ref=e1297]
+        - button "How is pricing structured?" [ref=e1300] [cursor=pointer]:
+          - text: How is pricing structured?
+          - img [ref=e1301]
+    - contentinfo [ref=e1303]:
+      - generic [ref=e1305]:
+        - generic [ref=e1306]:
+          - generic [ref=e1308]:
+            - link "Synthflow" [ref=e1309] [cursor=pointer]:
+              - /url: /
+              - img [ref=e1311]
+              - generic [ref=e1313]: Synthflow
+            - paragraph [ref=e1314]: Enterprise-ready Voice AI platform for automated phone calls. Build, deploy, and scale AI voice agents that handle thousands of conversations simultaneously.
+            - generic [ref=e1315]:
+              - link "Li" [ref=e1316] [cursor=pointer]:
+                - /url: "#"
+              - link "Tw" [ref=e1317] [cursor=pointer]:
+                - /url: "#"
+              - link "Yo" [ref=e1318] [cursor=pointer]:
+                - /url: "#"
+              - link "Gi" [ref=e1319] [cursor=pointer]:
+                - /url: "#"
+            - generic [ref=e1320]:
+              - paragraph [ref=e1321]: Stay Updated
+              - generic [ref=e1322]:
+                - textbox "your@email.com" [ref=e1323]
+                - button [ref=e1324] [cursor=pointer]:
+                  - img [ref=e1325]
+            - generic [ref=e1327]:
+              - generic [ref=e1328]:
+                - img [ref=e1329]
+                - text: SOC 2
+              - generic [ref=e1331]:
+                - img [ref=e1332]
+                - text: HIPAA
+              - generic [ref=e1334]:
+                - img [ref=e1335]
+                - text: GDPR
+              - generic [ref=e1337]:
+                - img [ref=e1338]
+                - text: PCI DSS
+          - generic [ref=e1340]:
+            - generic [ref=e1341]:
+              - heading "Product" [level=4] [ref=e1342]
+              - list [ref=e1343]:
+                - listitem [ref=e1344]:
+                  - link "Voice AI Agents" [ref=e1345] [cursor=pointer]:
+                    - /url: "#"
+                - listitem [ref=e1346]:
+                  - link "Flow Designer" [ref=e1347] [cursor=pointer]:
+                    - /url: "#"
+                - listitem [ref=e1348]:
+                  - link "Telephony" [ref=e1349] [cursor=pointer]:
+                    - /url: "#"
+                - listitem [ref=e1350]:
+                  - link "Integrations" [ref=e1351] [cursor=pointer]:
+                    - /url: "#"
+                - listitem [ref=e1352]:
+                  - link "Analytics" [ref=e1353] [cursor=pointer]:
+                    - /url: "#"
+                - listitem [ref=e1354]:
+                  - link "API" [ref=e1355] [cursor=pointer]:
+                    - /url: "#"
+            - generic [ref=e1356]:
+              - heading "Solutions" [level=4] [ref=e1357]
+              - list [ref=e1358]:
+                - listitem [ref=e1359]:
+                  - link "BPO & Call Centers" [ref=e1360] [cursor=pointer]:
+                    - /url: "#"
+                - listitem [ref=e1361]:
+                  - link "Healthcare" [ref=e1362] [cursor=pointer]:
+                    - /url: "#"
+                - listitem [ref=e1363]:
+                  - link "Financial Services" [ref=e1364] [cursor=pointer]:
+                    - /url: "#"
+                - listitem [ref=e1365]:
+                  - link "Real Estate" [ref=e1366] [cursor=pointer]:
+                    - /url: "#"
+                - listitem [ref=e1367]:
+                  - link "Retail" [ref=e1368] [cursor=pointer]:
+                    - /url: "#"
+                - listitem [ref=e1369]:
+                  - link "Technology" [ref=e1370] [cursor=pointer]:
+                    - /url: "#"
+            - generic [ref=e1371]:
+              - heading "Resources" [level=4] [ref=e1372]
+              - list [ref=e1373]:
+                - listitem [ref=e1374]:
+                  - link "Documentation" [ref=e1375] [cursor=pointer]:
+                    - /url: "#"
+                - listitem [ref=e1376]:
+                  - link "API Reference" [ref=e1377] [cursor=pointer]:
+                    - /url: "#"
+                - listitem [ref=e1378]:
+                  - link "Blog" [ref=e1379] [cursor=pointer]:
+                    - /url: "#"
+                - listitem [ref=e1380]:
+                  - link "Case Studies" [ref=e1381] [cursor=pointer]:
+                    - /url: "#"
+                - listitem [ref=e1382]:
+                  - link "Webinars" [ref=e1383] [cursor=pointer]:
+                    - /url: "#"
+                - listitem [ref=e1384]:
+                  - link "Community" [ref=e1385] [cursor=pointer]:
+                    - /url: "#"
+            - generic [ref=e1386]:
+              - heading "Company" [level=4] [ref=e1387]
+              - list [ref=e1388]:
+                - listitem [ref=e1389]:
+                  - link "About Us" [ref=e1390] [cursor=pointer]:
+                    - /url: "#"
+                - listitem [ref=e1391]:
+                  - link "Careers" [ref=e1392] [cursor=pointer]:
+                    - /url: "#"
+                - listitem [ref=e1393]:
+                  - link "Contact" [ref=e1394] [cursor=pointer]:
+                    - /url: "#"
+                - listitem [ref=e1395]:
+                  - link "Partners" [ref=e1396] [cursor=pointer]:
+                    - /url: "#"
+                - listitem [ref=e1397]:
+                  - link "Press" [ref=e1398] [cursor=pointer]:
+                    - /url: "#"
+                - listitem [ref=e1399]:
+                  - link "Security" [ref=e1400] [cursor=pointer]:
+                    - /url: "#"
+        - generic [ref=e1401]:
+          - paragraph [ref=e1402]: © 2026 Synthflow AI. All rights reserved.
+          - generic [ref=e1403]:
+            - link "Privacy Policy" [ref=e1404] [cursor=pointer]:
+              - /url: "#"
+            - link "Terms of Service" [ref=e1405] [cursor=pointer]:
+              - /url: "#"
+            - link "Cookie Policy" [ref=e1406] [cursor=pointer]:
+              - /url: "#"
+      - generic: SYNTHFLOW
+  - alert [ref=e1409]
+  - button "Open Next.js Dev Tools" [ref=e1415] [cursor=pointer]:
+    - img [ref=e1416]
