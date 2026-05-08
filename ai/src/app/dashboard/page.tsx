@@ -235,33 +235,34 @@ export default function DashboardPage() {
   ];
 
   return (
-    <>
-      <div className="page-title-section">
-        <div>
-          <h2>Dashboard</h2>
-          <p>Overview of your AI calling operations</p>
+    <div className="page-body">
+      <div className="page-content" style={{ paddingBottom: '100px' }}>
+        <div className="page-title-section" style={{ padding: '32px 0 24px' }}>
+          <div>
+            <h2 style={{ fontSize: '24px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '8px' }}>Dashboard</h2>
+            <p style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>Overview of your AI calling operations</p>
+          </div>
+          <div className="page-actions">
+            <button
+              className="btn btn-secondary"
+              onClick={() => handleExport('csv')}
+              disabled={exportLoading === 'csv'}
+            >
+              <Icon name={exportLoading === 'csv' ? 'loader' : 'download'} size={14} />
+              {exportLoading === 'csv' ? 'Exporting...' : 'Export CSV'}
+            </button>
+            <button
+              className="btn btn-secondary"
+              onClick={() => handleExport('pdf')}
+              disabled={exportLoading === 'pdf'}
+            >
+              <Icon name={exportLoading === 'pdf' ? 'loader' : 'file-text'} size={14} />
+              {exportLoading === 'pdf' ? 'Exporting...' : 'Export PDF'}
+            </button>
+          </div>
         </div>
-        <div className="page-actions">
-          <button
-            className="btn btn-secondary"
-            onClick={() => handleExport('csv')}
-            disabled={exportLoading === 'csv'}
-          >
-            <Icon name={exportLoading === 'csv' ? 'loader' : 'download'} size={14} />
-            {exportLoading === 'csv' ? 'Exporting...' : 'Export CSV'}
-          </button>
-          <button
-            className="btn btn-secondary"
-            onClick={() => handleExport('pdf')}
-            disabled={exportLoading === 'pdf'}
-          >
-            <Icon name={exportLoading === 'pdf' ? 'loader' : 'file-text'} size={14} />
-            {exportLoading === 'pdf' ? 'Exporting...' : 'Export PDF'}
-          </button>
-        </div>
-      </div>
 
-      {/* Stat Cards */}
+        {/* Stat Cards */}
       <div className="dashboard-grid">
         {statCards.map((card, i) => (
           <div key={i} className="stat-card" style={{ animationDelay: `${i * 60}ms` }}>
@@ -330,11 +331,55 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Call Flow */}
-      <div className="dashboard-row" style={{ gridTemplateColumns: '1fr' }}>
-        <div className="dashboard-panel">
+      {/* Agent Performance & Call Flow */}
+      <div className="dashboard-row">
+        <div className="dashboard-panel" style={{ flex: 2 }}>
           <div className="dashboard-panel-header">
-            <span className="dashboard-panel-title"><Icon name="git-branch" size={14} /> Call Flow Architecture</span>
+            <span className="dashboard-panel-title"><Icon name="bot" size={14} /> Agent Performance Overview</span>
+          </div>
+          <div className="dashboard-panel-body" style={{ padding: 0 }}>
+            {stats?.callsByAgent && stats.callsByAgent.length > 0 ? (
+              <table className="data-table" style={{ margin: 0, width: '100%', borderCollapse: 'collapse' }}>
+                <thead style={{ background: 'var(--bg-overlay)' }}>
+                  <tr>
+                    <th style={{ padding: '12px 24px', fontWeight: 500, color: 'var(--text-secondary)', textAlign: 'left', borderBottom: '1px solid var(--border-default)' }}>Agent Name</th>
+                    <th style={{ padding: '12px 24px', fontWeight: 500, color: 'var(--text-secondary)', textAlign: 'left', borderBottom: '1px solid var(--border-default)' }}>Total Calls</th>
+                    <th style={{ padding: '12px 24px', fontWeight: 500, color: 'var(--text-secondary)', textAlign: 'left', borderBottom: '1px solid var(--border-default)' }}>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {stats.callsByAgent.map((agent, i) => (
+                    <tr key={i} className="hover:bg-zinc-800/30" style={{ transition: 'background 0.2s', borderBottom: '1px solid var(--border-faint)' }}>
+                      <td style={{ padding: '16px 24px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                          <span className="agent-icon indigo" style={{ width: 32, height: 32 }}><Icon name="bot" size={16} /></span>
+                          <span style={{ fontSize: '14px', fontWeight: 500, color: 'var(--text-primary)' }}>{agent.name}</span>
+                        </div>
+                      </td>
+                      <td style={{ padding: '16px 24px', color: 'var(--text-secondary)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <Icon name="phone-call" size={14} style={{ color: 'var(--text-tertiary)' }} />
+                          {agent.count} handled
+                        </div>
+                      </td>
+                      <td style={{ padding: '16px 24px' }}>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: 'var(--green)' }}>
+                          <span className="status-dot active" style={{ width: 8, height: 8 }} /> Active
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text-quaternary)', fontSize: '13px' }}>No agent data available</div>
+            )}
+          </div>
+        </div>
+
+        <div className="dashboard-panel" style={{ flex: 1 }}>
+          <div className="dashboard-panel-header">
+            <span className="dashboard-panel-title"><Icon name="git-branch" size={14} /> Workflow Architecture</span>
           </div>
           <div className="dashboard-panel-body">
             <div className="call-flow">
@@ -342,7 +387,7 @@ export default function DashboardPage() {
                 { icon: 'user', label: 'Caller', bg: 'var(--brand-accent-muted)', color: 'var(--brand-accent)' },
                 { icon: 'phone', label: 'Twilio/SIP', bg: 'rgba(251,146,60,0.15)', color: 'var(--orange)' },
                 { icon: 'server', label: 'Dialix API', bg: 'rgba(74,222,128,0.15)', color: 'var(--green)' },
-                { icon: 'brain', label: 'ElevenLabs AI', bg: 'rgba(139,92,246,0.15)', color: '#A78BFA' },
+                { icon: 'brain', label: 'AI Engine', bg: 'rgba(139,92,246,0.15)', color: '#A78BFA' },
                 { icon: 'message-square', label: 'Response', bg: 'rgba(34,211,238,0.15)', color: '#22D3EE' },
               ].map((node, i, arr) => (
                 <React.Fragment key={node.label}>
@@ -464,7 +509,8 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
-    </>
+    </div>
+    </div>
   );
 }
 
