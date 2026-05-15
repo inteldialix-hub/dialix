@@ -32,7 +32,10 @@ export async function api<T = Record<string, unknown>>(
   });
 
   if (!res.ok) {
-    const errorData = await res.json().catch(() => ({}));
+    const errorData = await res.json().catch(() => ({})) as {
+      error?: string;
+      issues?: { path: string; message: string }[];
+    };
 
     // Auto-logout on expired/invalid token — redirect to login
     if (res.status === 401 && typeof window !== 'undefined') {
@@ -43,9 +46,15 @@ export async function api<T = Record<string, unknown>>(
       return new Promise<T>(() => {});
     }
 
-    throw new Error(
-      (errorData as { error?: string }).error || `API error: ${res.status}`
-    );
+    // Extract Zod validation issues into a readable message
+    let message = errorData.error || `API error: ${res.status}`;
+    if (errorData.issues && errorData.issues.length > 0) {
+      message = errorData.issues
+        .map((i) => i.path ? `${i.path}: ${i.message}` : i.message)
+        .join(', ');
+    }
+
+    throw new Error(message);
   }
 
   return res.json() as Promise<T>;

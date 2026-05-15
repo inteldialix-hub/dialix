@@ -60,7 +60,7 @@ const steps = [
 
 export default function ScrollProcessSection() {
   return (
-    <section className="section-pad">
+    <section className="section-pad section-alt">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid lg:grid-cols-2 lg:gap-12 items-start">
           {/* Sticky left column */}

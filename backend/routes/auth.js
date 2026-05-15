@@ -5,7 +5,7 @@ const { rateLimit, ipKeyGenerator } = require('express-rate-limit');
 const { get, run } = require('../db');
 const { authenticate } = require('../middleware/auth');
 const { validateSchema } = require('../middleware/validate');
-const { loginSchema, registerSchema, changePasswordSchema, forgotPasswordSchema, resetPasswordSchema, otpSchema } = require('../lib/schemas');
+const { loginSchema, registerSchema, changePasswordSchema, forgotPasswordSchema } = require('../lib/schemas');
 const securityLogger = require('../lib/security-logger');
 
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -57,25 +57,6 @@ const registerLimiter = rateLimit({
   keyGenerator: (req, res) => ipKeyGenerator(req, res), // IP-based limiting for registration
 });
 
-const otpLimiter = rateLimit({
-  windowMs: 60 * 1000, // 1 minute
-  max: 3,              // 3 OTP attempts per minute
-  message: { error: 'Too many OTP attempts. Please wait 1 minute.' },
-  standardHeaders: true,
-  legacyHeaders: false,
-  keyGenerator: (req, res) => `${ipKeyGenerator(req, res)}-${req.body?.email || 'unknown'}`,
-});
-
-const otpHourlyLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000, // 1 hour
-  max: 10,                  // 10 OTP attempts per hour
-  message: { error: 'Too many OTP attempts. Please try again later.' },
-  standardHeaders: true,
-  legacyHeaders: false,
-  keyGenerator: (req, res) => `${ipKeyGenerator(req, res)}-${req.body?.email || 'unknown'}`,
-});
-
-// Password reset rate limiting
 const passwordResetLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
   max: 5,                    // 5 password reset requests per hour
@@ -166,7 +147,7 @@ router.post('/register', registerLimiter, validateSchema(registerSchema), async 
     const displayName = company ? `${trimmedName} (${String(company).trim()})` : trimmedName;
 
     const result = await run(
-      'INSERT INTO clients (name, email, password_hash, is_admin) VALUES (?, ?, ?, 0) RETURNING id',
+      'INSERT INTO clients (name, email, password_hash, is_admin) VALUES (?, ?, ?, 0)',
       [displayName, trimmedEmail, passwordHash]
     );
 
@@ -219,7 +200,7 @@ router.post('/change-password', authenticate, validateSchema(changePasswordSchem
     }
 
     // Update password and clear the flag
-    const newHash = bcrypt.hashSync(new_password, 10);
+    const newHash = bcrypt.hashSync(new_password, 12);
     await run('UPDATE clients SET password_hash = ?, must_change_password = 0 WHERE id = ?', [newHash, req.client.id]);
 
     securityLogger.logPasswordChange(req.client.email, req);
@@ -252,42 +233,7 @@ router.post('/forgot-password', ipBruteForceLimiter, sensitiveOperationLimiter, 
   }
 });
 
-/**
- * POST /api/auth/reset-password
- * Body: { token, new_password }
- * Resets password with token validation and rate limiting
- */
-router.post('/reset-password', ipBruteForceLimiter, sensitiveOperationLimiter, validateSchema(resetPasswordSchema), async (req, res) => {
-  try {
-    const { token, new_password } = req.body;
-
-    // Verify reset token (placeholder - implement actual token verification)
-    // This would typically verify a JWT token with short expiration
-
-    securityLogger.logAuthFailure('unknown', 'password_reset_used', req);
-    res.status(501).json({ error: 'Password reset not yet implemented' });
-  } catch (err) {
-    console.error('Reset password error:', err);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-/**
- * POST /api/auth/verify-otp
- * Body: { email, otp_code }
- * Verifies OTP code with rate limiting
- */
-router.post('/verify-otp', otpLimiter, otpHourlyLimiter, validateSchema(otpSchema), async (req, res) => {
-  try {
-    const { email, otp_code } = req.body;
-
-    // Placeholder for OTP verification
-    securityLogger.logAuthFailure(email, 'otp_verification_attempted', req);
-    res.status(501).json({ error: 'OTP verification not yet implemented' });
-  } catch (err) {
-    console.error('OTP verification error:', err);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
+// NOTE: reset-password and verify-otp routes removed — they were non-functional stubs
+// returning 501. Re-implement when email/OTP infrastructure is available.
 
 module.exports = router;

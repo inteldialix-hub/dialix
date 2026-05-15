@@ -92,11 +92,11 @@ async function getAgent(agentId) {
 }
 
 /**
- * Create a new agent — POST /v1/convai/agents
+ * Create a new agent — POST /v1/convai/agents/create
  * Body should follow the ElevenLabs agent creation schema.
  */
 async function createAgent(body) {
-  return elevenLabsFetch('/v1/convai/agents', {
+  return elevenLabsFetch('/v1/convai/agents/create', {
     method: 'POST',
     body: JSON.stringify(body),
   });

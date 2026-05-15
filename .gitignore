@@ -23,6 +23,9 @@ Thumbs.db
 .vscode/
 .idea/
 
+# Local MCP config (contains auth tokens)
+.windsurf/mcp.json
+
 # Build output
 dist/
 build/

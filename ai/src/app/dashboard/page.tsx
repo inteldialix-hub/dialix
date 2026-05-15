@@ -56,7 +56,18 @@ interface AnalyticsData {
     duration: number;
     quality_score?: number;
     created_at: string;
+    error_message?: string;
   }>;
+}
+
+interface ActiveCall {
+  id: number;
+  agentId: string;
+  conversationId: string;
+  toNumber: string;
+  status: string;
+  duration: number;
+  startedAt: string;
 }
 
 export default function DashboardPage() {
@@ -65,10 +76,17 @@ export default function DashboardPage() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
   const [webhooks, setWebhooks] = useState<WebhookSubscription[]>([]);
+  const [activeCalls, setActiveCalls] = useState<ActiveCall[]>([]);
   const [loading, setLoading] = useState(true);
   const [exportLoading, setExportLoading] = useState<'csv' | 'pdf' | null>(null);
   const [webhookLoading, setWebhookLoading] = useState(false);
   const [showWebhookForm, setShowWebhookForm] = useState(false);
+
+  // Filter states
+  const [filterAgent, setFilterAgent] = useState('');
+  const [filterStatus, setFilterStatus] = useState('');
+  const [filterDateFrom, setFilterDateFrom] = useState('');
+  const [filterDateTo, setFilterDateTo] = useState('');
 
   useEffect(() => {
     if (!token) return;
@@ -77,18 +95,29 @@ export default function DashboardPage() {
     Promise.all([
       api<Stats>('/stats', { token }),
       api<AnalyticsData>('/calls/analytics', { token }),
-      api<{ subscriptions: WebhookSubscription[] }>('/webhooks', { token })
+      api<{ subscriptions: WebhookSubscription[] }>('/webhooks', { token }),
+      api<{ activeCalls: ActiveCall[] }>('/calls/active', { token })
     ])
-      .then(([statsData, analyticsData, webhooksData]) => {
+      .then(([statsData, analyticsData, webhooksData, activeCallsData]) => {
         setStats(statsData);
         setAnalytics(analyticsData);
         setWebhooks(webhooksData.subscriptions || []);
+        setActiveCalls(activeCallsData.activeCalls || []);
         setLoading(false);
       })
       .catch(() => {
         addToast('Failed to load dashboard data', 'error');
         setLoading(false);
       });
+
+    // Poll active calls every 5 seconds
+    const interval = setInterval(() => {
+      api<{ activeCalls: ActiveCall[] }>('/calls/active', { token })
+        .then(data => setActiveCalls(data.activeCalls || []))
+        .catch(() => {});
+    }, 5000);
+
+    return () => clearInterval(interval);
   }, [token, addToast]);
 
   const formatDuration = (secs: number) => {
@@ -236,11 +265,11 @@ export default function DashboardPage() {
 
   return (
     <div className="page-body">
-      <div className="page-content" style={{ paddingBottom: '100px' }}>
-        <div className="page-title-section" style={{ padding: '32px 0 24px' }}>
+      <div className="page-content">
+        <div className="page-title-section">
           <div>
-            <h2 style={{ fontSize: '24px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '8px' }}>Dashboard</h2>
-            <p style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>Overview of your AI calling operations</p>
+            <h2>Dashboard</h2>
+            <p>Overview of your AI calling operations</p>
           </div>
           <div className="page-actions">
             <button
@@ -289,9 +318,11 @@ export default function DashboardPage() {
           </div>
           <div className="dashboard-panel-body">
             {(stats?.callsByAgent?.length ?? 0) > 0 ? (
-              <div className="chart-container"><Doughnut data={chartData} options={chartOptions} /></div>
+              <div className="chart-container" style={{ height: '300px' }}>
+                <Doughnut data={chartData} options={chartOptions} />
+              </div>
             ) : (
-              <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text-quaternary)', fontSize: '13px' }}>No call data yet</div>
+              <div className="empty-state">No call data yet</div>
             )}
           </div>
         </div>
@@ -301,9 +332,17 @@ export default function DashboardPage() {
             <span className="dashboard-panel-title"><Icon name="activity" size={14} /> Recent Calls</span>
           </div>
           <div className="dashboard-panel-body">
-            {(analytics?.recentCalls?.length ?? 0) > 0 ? (
+            {(() => {
+              const filteredCalls = analytics?.recentCalls?.filter(call => {
+                if (filterStatus && call.status !== filterStatus) return false;
+                if (filterDateFrom && new Date(call.created_at) < new Date(filterDateFrom)) return false;
+                if (filterDateTo && new Date(call.created_at) > new Date(filterDateTo + 'T23:59:59Z')) return false;
+                return true;
+              }) || [];
+
+              return filteredCalls.length > 0 ? (
               <div className="activity-feed">
-                {analytics?.recentCalls?.map((call, i) => (
+                {filteredCalls.map((call, i) => (
                   <div key={call.id} className="activity-item" style={{ animationDelay: `${i * 40}ms` }}>
                     <div className="activity-dot-col">
                       <span className={`activity-dot ${call.status === 'completed' ? 'success' : call.status === 'failed' ? 'failed' : 'info'}`} />
@@ -318,6 +357,7 @@ export default function DashboardPage() {
                         <span>{call.status}</span>
                         {call.duration > 0 && <span>• {formatDuration(call.duration)}</span>}
                         {call.quality_score && <span>• Quality: {call.quality_score.toFixed(1)}</span>}
+                        {call.error_message && <span style={{ color: 'var(--red)', fontSize: '11px', background: 'rgba(239,68,68,0.1)', padding: '2px 6px', borderRadius: '4px', marginLeft: '6px' }}>{call.error_message}</span>}
                       </div>
                     </div>
                     <div className="activity-time">{new Date(call.created_at).toLocaleDateString()}</div>
@@ -325,44 +365,45 @@ export default function DashboardPage() {
                 ))}
               </div>
             ) : (
-              <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text-quaternary)', fontSize: '13px' }}>No recent calls</div>
-            )}
+              <div className="empty-state">No recent calls matching filters</div>
+            );
+            })()}
           </div>
         </div>
       </div>
 
       {/* Agent Performance & Call Flow */}
-      <div className="dashboard-row">
-        <div className="dashboard-panel" style={{ flex: 2 }}>
+      <div className="dashboard-row dashboard-row-wide">
+        <div className="dashboard-panel">
           <div className="dashboard-panel-header">
             <span className="dashboard-panel-title"><Icon name="bot" size={14} /> Agent Performance Overview</span>
           </div>
           <div className="dashboard-panel-body" style={{ padding: 0 }}>
             {stats?.callsByAgent && stats.callsByAgent.length > 0 ? (
-              <table className="data-table" style={{ margin: 0, width: '100%', borderCollapse: 'collapse' }}>
-                <thead style={{ background: 'var(--bg-overlay)' }}>
+              <table className="data-table">
+                <thead>
                   <tr>
-                    <th style={{ padding: '12px 24px', fontWeight: 500, color: 'var(--text-secondary)', textAlign: 'left', borderBottom: '1px solid var(--border-default)' }}>Agent Name</th>
-                    <th style={{ padding: '12px 24px', fontWeight: 500, color: 'var(--text-secondary)', textAlign: 'left', borderBottom: '1px solid var(--border-default)' }}>Total Calls</th>
-                    <th style={{ padding: '12px 24px', fontWeight: 500, color: 'var(--text-secondary)', textAlign: 'left', borderBottom: '1px solid var(--border-default)' }}>Status</th>
+                    <th>Agent Name</th>
+                    <th>Total Calls</th>
+                    <th>Status</th>
                   </tr>
                 </thead>
                 <tbody>
                   {stats.callsByAgent.map((agent, i) => (
-                    <tr key={i} className="hover:bg-zinc-800/30" style={{ transition: 'background 0.2s', borderBottom: '1px solid var(--border-faint)' }}>
-                      <td style={{ padding: '16px 24px' }}>
+                    <tr key={i}>
+                      <td>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                           <span className="agent-icon indigo" style={{ width: 32, height: 32 }}><Icon name="bot" size={16} /></span>
                           <span style={{ fontSize: '14px', fontWeight: 500, color: 'var(--text-primary)' }}>{agent.name}</span>
                         </div>
                       </td>
-                      <td style={{ padding: '16px 24px', color: 'var(--text-secondary)' }}>
+                      <td className="phone-cell">
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                           <Icon name="phone-call" size={14} style={{ color: 'var(--text-tertiary)' }} />
                           {agent.count} handled
                         </div>
                       </td>
-                      <td style={{ padding: '16px 24px' }}>
+                      <td>
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: 'var(--green)' }}>
                           <span className="status-dot active" style={{ width: 8, height: 8 }} /> Active
                         </span>
@@ -377,7 +418,7 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        <div className="dashboard-panel" style={{ flex: 1 }}>
+        <div className="dashboard-panel">
           <div className="dashboard-panel-header">
             <span className="dashboard-panel-title"><Icon name="git-branch" size={14} /> Workflow Architecture</span>
           </div>
@@ -405,6 +446,49 @@ export default function DashboardPage() {
                 </React.Fragment>
               ))}
             </div>
+          </div>
+        </div>
+
+        {/* Live Monitoring Panel */}
+        <div className="dashboard-panel">
+          <div className="dashboard-panel-header">
+            <span className="dashboard-panel-title">
+              <Icon name="radio" size={14} style={{ color: 'var(--red)' }} /> 
+              Live Monitoring
+              {activeCalls.length > 0 && (
+                <span className="live-badge" style={{ background: 'var(--red)', color: 'white', padding: '2px 6px', borderRadius: '4px', fontSize: '10px', marginLeft: '6px', fontWeight: 'bold', animation: 'pulse 2s infinite' }}>{activeCalls.length} ACTIVE</span>
+              )}
+            </span>
+          </div>
+          <div className="dashboard-panel-body">
+            {activeCalls.length > 0 ? (
+              <div className="activity-feed">
+                {activeCalls.map((call, i) => (
+                  <div key={call.id} className="activity-item">
+                    <div className="activity-dot-col">
+                      <span className="activity-dot" style={{ background: 'var(--red)', boxShadow: '0 0 8px rgba(239,68,68,0.6)' }} />
+                      {i < activeCalls.length - 1 && <div className="activity-line" />}
+                    </div>
+                    <div className="activity-content">
+                      <div className="activity-title">
+                        <span style={{color: 'var(--brand-accent)'}}>{call.agentId.substring(0, 8)}...</span> on call with {call.toNumber}
+                      </div>
+                      <div className="activity-meta">
+                        <span style={{ color: 'var(--text-primary)', fontWeight: 500 }}>{call.status}</span>
+                        <span>• Started {new Date(call.startedAt).toLocaleTimeString()}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="empty-state" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px', height: '100%' }}>
+                <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'var(--bg-hover)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-tertiary)' }}>
+                  <Icon name="mic-off" size={20} />
+                </div>
+                <div>No calls currently active</div>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -470,8 +554,8 @@ export default function DashboardPage() {
               <div className="filter-group">
                 <label>Agent</label>
                 <CustomSelect
-                  value={""}
-                  onChange={() => {}}
+                  value={filterAgent}
+                  onChange={(e) => setFilterAgent(e.target.value)}
                   options={[
                     { value: '', label: 'All Agents' },
                     ...(stats?.callsByAgent.map(agent => ({ value: agent.name, label: agent.name })) || [])
@@ -482,13 +566,14 @@ export default function DashboardPage() {
               <div className="filter-group">
                 <label>Status</label>
                 <CustomSelect
-                  value={""}
-                  onChange={() => {}}
+                  value={filterStatus}
+                  onChange={(e) => setFilterStatus(e.target.value)}
                   options={[
                     { value: '', label: 'All Statuses' },
                     { value: 'completed', label: 'Completed' },
                     { value: 'failed', label: 'Failed' },
-                    { value: 'initiated', label: 'Initiated' }
+                    { value: 'initiated', label: 'Initiated' },
+                    { value: 'in-progress', label: 'In Progress' }
                   ]}
                 />
               </div>
@@ -496,14 +581,19 @@ export default function DashboardPage() {
               <div className="filter-group">
                 <label>Date Range</label>
                 <div className="date-range">
-                  <input type="date" className="form-input" placeholder="From" />
-                  <input type="date" className="form-input" placeholder="To" />
+                  <input type="date" className="form-input" placeholder="From" value={filterDateFrom} onChange={e => setFilterDateFrom(e.target.value)} />
+                  <input type="date" className="form-input" placeholder="To" value={filterDateTo} onChange={e => setFilterDateTo(e.target.value)} />
                 </div>
               </div>
 
-              <button className="btn btn-primary" style={{ width: '100%', marginTop: '12px' }}>
-                <Icon name="search" size={14} />
-                Apply Filters
+              <button className="btn btn-secondary" style={{ width: '100%', marginTop: '12px' }} onClick={() => {
+                setFilterAgent('');
+                setFilterStatus('');
+                setFilterDateFrom('');
+                setFilterDateTo('');
+              }}>
+                <Icon name="refresh-cw" size={14} />
+                Reset Filters
               </button>
             </div>
           </div>

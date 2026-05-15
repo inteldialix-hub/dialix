@@ -11,7 +11,7 @@ const navItems = [
   { label: "Platform", href: "/#platform", hasDropdown: false },
   { label: "Use Cases", href: "/#industries", hasDropdown: false },
   { label: "Integrations", href: "/#integrations", hasDropdown: false },
-  { label: "Pricing", href: "/#pricing", hasDropdown: false },
+  { label: "Pricing", href: "/pricing", hasDropdown: false },
   { label: "FAQ", href: "/#faq", hasDropdown: false },
 ];
 

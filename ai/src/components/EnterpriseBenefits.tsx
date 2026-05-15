@@ -7,7 +7,7 @@ const complianceBadges = ["SOC 2", "HIPAA", "PCI DSS", "GDPR"];
 
 export default function EnterpriseBenefits() {
   return (
-    <section className="section-pad bg-zinc-50/50 dark:bg-zinc-900/30">
+    <section className="section-pad bg-purple-50/40 dark:bg-zinc-900/30">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-16">
           <Reveal>

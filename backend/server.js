@@ -14,6 +14,7 @@ const webSecurity = require('./middleware/web-security');
 const { getMonitoringUrl } = require('./services/elevenlabs');
 const callMonitor = require('./lib/call-monitoring');
 const securityLogger = require('./lib/security-logger');
+const { attachGeminiCallBridge } = require('./lib/gemini-call-bridge');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -60,6 +61,18 @@ app.use(securityMiddleware.monitorRequestSize());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+// ─── Request logging ────────────────────────────────────────────
+app.use((req, res, next) => {
+  const start = Date.now();
+  res.on('finish', () => {
+    const duration = Date.now() - start;
+    if (req.path.startsWith('/api/') && duration > 50) {
+      console.log(`[REQ] ${req.method} ${req.path} ${res.statusCode} ${duration}ms`);
+    }
+  });
+  next();
+});
+
 // ─── API Routes ─────────────────────────────────────────────────
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/agents', require('./routes/agents'));
@@ -67,6 +80,7 @@ app.use('/api/phone-numbers', require('./routes/phoneNumbers'));
 app.use('/api/calls', require('./routes/calls'));
 app.use('/api/webhooks', require('./routes/webhooks'));
 app.use('/api/admin', require('./routes/admin'));
+app.use('/api/pricing', require('./routes/pricing'));
 app.use('/api/stats', require('./routes/stats'));
 
 // ─── Health check ───────────────────────────────────────────────
@@ -98,6 +112,20 @@ if (fs.existsSync(frontendPath)) {
   console.warn('Frontend static folder not found at', frontendPath);
 }
 
+// ─── Global error handler ────────────────────────────────────
+// Must be defined after all routes. Catches unhandled errors and
+// prevents stack traces from leaking to clients in production.
+app.use((err, req, res, _next) => {
+  const status = err.status || err.statusCode || 500;
+  console.error(`[ERROR] ${req.method} ${req.url}:`, err.message || err);
+  if (process.env.NODE_ENV !== 'production') {
+    console.error(err.stack);
+  }
+  res.status(status).json({
+    error: status === 500 ? 'Internal server error' : err.message,
+  });
+});
+
 // ─── HTTP + WebSocket Server ────────────────────────────────────
 const server = http.createServer(app);
 
@@ -112,7 +140,7 @@ const server = http.createServer(app);
  * 
  * This way the API key NEVER leaves the server.
  */
-const wss = new WebSocketServer({ server, path: '/ws' });
+const wss = new WebSocketServer({ noServer: true });
 
 wss.on('connection', (clientWs, req) => {
   const url = new URL(req.url, `http://localhost:${PORT}`);
@@ -239,6 +267,27 @@ wss.on('connection', (clientWs, req) => {
   });
 });
 
+// ─── Gemini Live Call Bridge WebSocket ───────────────────────────
+const geminiWss = attachGeminiCallBridge(server);
+
+// ─── Unified WebSocket Upgrade Handler ──────────────────────────
+// Route upgrade requests to the correct WSS based on pathname
+server.on('upgrade', (request, socket, head) => {
+  const pathname = new URL(request.url, `http://localhost:${PORT}`).pathname;
+
+  if (pathname === '/ws/gemini-call') {
+    geminiWss.handleUpgrade(request, socket, head, (ws) => {
+      geminiWss.emit('connection', ws, request);
+    });
+  } else if (pathname === '/ws') {
+    wss.handleUpgrade(request, socket, head, (ws) => {
+      wss.emit('connection', ws, request);
+    });
+  } else {
+    socket.destroy();
+  }
+});
+
 // ─── Start server (async because sql.js init is async) ──────────
 async function start() {
   await initDb();
@@ -249,11 +298,13 @@ async function start() {
     console.log('  ║   DIALIX API Server                   ║');
     console.log(`  ║   Running on port ${PORT}               ║`);
     console.log('  ║   WebSocket monitoring: /ws            ║');
+    console.log('  ║   Gemini Live calls: /ws/gemini-call   ║');
     console.log('  ╚═══════════════════════════════════════╝');
     console.log('');
     console.log(`  → API:      http://localhost:${PORT}/api`);
     console.log(`  → Frontend: http://localhost:${PORT}`);
     console.log(`  → WS:       ws://localhost:${PORT}/ws`);
+    console.log(`  → Gemini:   ws://localhost:${PORT}/ws/gemini-call`);
     console.log('');
   });
 }

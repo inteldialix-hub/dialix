@@ -6,12 +6,14 @@ const { callOutboundSchema } = require('../lib/schemas');
 const elevenlabs = require('../services/elevenlabs');
 const vapi = require('../services/vapi');
 const callMonitor = require('../lib/call-monitoring');
+const { checkCallLimit } = require('../lib/plan-limits');
 const { Parser } = require('json2csv');
 const PDFDocument = require('pdfkit');
 
 /** Determine provider for an agent: checks DB first, falls back to ID pattern */
 function detectProvider(agentId, dbRow) {
   if (dbRow?.provider) return dbRow.provider;
+  if (agentId.startsWith('gemini_')) return 'gemini';
   // ElevenLabs agent IDs start with "agent_"
   return agentId.startsWith('agent_') ? 'elevenlabs' : 'vapi';
 }
@@ -36,7 +38,13 @@ router.post('/outbound', authenticate, async (req, res) => {
       return res.status(400).json({ error: 'to_number must be in E.164 format (e.g., +12125551234)' });
     }
 
-    const agent = get(
+    // Enforce monthly call limit from plan
+    const callLimitCheck = await checkCallLimit(req.client.id);
+    if (!callLimitCheck.allowed) {
+      return res.status(403).json({ error: callLimitCheck.reason });
+    }
+
+    const agent = await get(
       'SELECT id FROM client_agents WHERE client_id = ? AND agent_id = ?',
       [req.client.id, agent_id]
     );
@@ -52,7 +60,7 @@ router.post('/outbound', authenticate, async (req, res) => {
       elevenlabsPhoneId = phone_number_id.replace('el_', '');
     } else {
       // Local DB phone number
-      const phoneNum = get(
+      const phoneNum = await get(
         'SELECT * FROM phone_numbers WHERE id = ? AND client_id = ?',
         [phone_number_id, req.client.id]
       );
@@ -119,6 +127,31 @@ router.get('/history/:agent_id', authenticate, async (req, res) => {
     }
 
     const provider = detectProvider(agent_id, agentRow);
+
+    if (provider === 'gemini') {
+      // Gemini calls are tracked in our local call_history table
+      try {
+        const { all } = require('../db');
+        const calls = await all(
+          'SELECT * FROM call_history WHERE agent_id = ? ORDER BY created_at DESC LIMIT 100',
+          [agent_id]
+        );
+        const conversations = (calls || []).map(c => ({
+          conversation_id: c.conversation_id,
+          agent_id: agent_id,
+          status: c.status === 'completed' ? 'done' : c.status,
+          call_successful: c.success ? 'success' : 'unknown',
+          start_time_unix_secs: c.started_at ? Math.floor(new Date(c.started_at).getTime() / 1000) : undefined,
+          call_duration_secs: c.duration || 0,
+          message_count: 0,
+          metadata: { type: 'gemini', provider: 'gemini' },
+        }));
+        return res.json({ conversations });
+      } catch (geminiErr) {
+        console.error('Gemini call history error:', geminiErr);
+        return res.json({ conversations: [] });
+      }
+    }
 
     if (provider === 'vapi') {
       // Fetch from Vapi API

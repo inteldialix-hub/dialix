@@ -18,6 +18,9 @@ import {
   VAPI_LLM_OPTIONS,
   VAPI_VOICE_PROVIDERS,
   VAPI_TRANSCRIBER_PROVIDERS,
+  GEMINI_VOICES,
+  GEMINI_MODELS,
+  GEMINI_THINKING_LEVELS,
 } from '@/lib/constants';
 
 /**
@@ -39,6 +42,22 @@ interface Voice {
   name: string;
 }
 
+interface AgentTemplate {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  category: string;
+  defaults: {
+    first_message?: string;
+    prompt?: string;
+    temperature?: number;
+    max_duration_seconds?: number;
+    language?: string;
+    llm?: string;
+  };
+}
+
 export default function AgentsPage() {
   const { token } = useAuth();
   const { addToast } = useToast();
@@ -47,6 +66,7 @@ export default function AgentsPage() {
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
   const [voices, setVoices] = useState<Voice[]>([]);
+  const [templates, setTemplates] = useState<AgentTemplate[]>([]);
 
   const loadAgents = useCallback(async () => {
     try {
@@ -73,8 +93,18 @@ export default function AgentsPage() {
     }
   };
 
+  const loadTemplates = async () => {
+    try {
+      const data = await api<{ templates: AgentTemplate[] }>('/agents/templates', { token: token! });
+      setTemplates(data.templates || []);
+    } catch {
+      // non-critical — modal will work without templates
+    }
+  };
+
   const handleOpenCreate = () => {
     loadVoices();
+    loadTemplates();
     setShowCreate(true);
   };
 
@@ -116,8 +146,8 @@ export default function AgentsPage() {
                 <span className="agent-id">{agent.agent_id.slice(0, 16)}...</span>
               </div>
               <div style={{ width: 90 }}>
-                <span className={`provider-badge ${(agent.provider || 'elevenlabs') === 'vapi' ? 'provider-vapi' : 'provider-elevenlabs'}`}>
-                  {(agent.provider || 'elevenlabs') === 'vapi' ? 'Vapi' : 'ElevenLabs'}
+                <span className={`provider-badge ${(agent.provider || 'elevenlabs') === 'vapi' ? 'provider-vapi' : (agent.provider || 'elevenlabs') === 'gemini' ? 'provider-gemini' : 'provider-elevenlabs'}`}>
+                  {(agent.provider || 'elevenlabs') === 'vapi' ? 'Vapi' : (agent.provider || 'elevenlabs') === 'gemini' ? 'Gemini' : 'ElevenLabs'}
                 </span>
               </div>
               <div style={{ width: 100 }}>
@@ -137,6 +167,7 @@ export default function AgentsPage() {
         <CreateAgentModal
           token={token!}
           voices={voices}
+          templates={templates}
           onClose={() => setShowCreate(false)}
           onCreated={(agent) => {
             setAgents(prev => [agent, ...prev]);
@@ -149,16 +180,21 @@ export default function AgentsPage() {
 }
 
 // ── Create Agent Modal ───────────────────────────────────────
-function CreateAgentModal({ token, voices, onClose, onCreated }: {
+function CreateAgentModal({ token, voices, templates, onClose, onCreated }: {
   token: string;
   voices: Voice[];
+  templates: AgentTemplate[];
   onClose: () => void;
   onCreated: (agent: Agent) => void;
 }) {
   const { addToast } = useToast();
 
+  // Step: 'template' (pick template) or 'configure' (fill form)
+  const [step, setStep] = useState<'template' | 'configure'>('template');
+  const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
+
   // Provider selection
-  const [provider, setProvider] = useState<'elevenlabs' | 'vapi'>('elevenlabs');
+  const [provider, setProvider] = useState<'elevenlabs' | 'vapi' | 'gemini'>('elevenlabs');
 
   // Shared fields
   const [name, setName] = useState('');
@@ -180,6 +216,11 @@ function CreateAgentModal({ token, voices, onClose, onCreated }: {
   const [voiceProvider, setVoiceProvider] = useState('11labs');
   const [vapiVoiceId, setVapiVoiceId] = useState('');
   const [transcriberProvider, setTranscriberProvider] = useState('deepgram');
+
+  // Gemini-specific
+  const [geminiVoice, setGeminiVoice] = useState('Kore');
+  const [geminiModel, setGeminiModel] = useState('models/gemini-3.1-flash-live-preview');
+  const [geminiThinkingLevel, setGeminiThinkingLevel] = useState('none');
 
   // When model provider changes, reset LLM to first available
   useEffect(() => {
@@ -203,6 +244,7 @@ function CreateAgentModal({ token, voices, onClose, onCreated }: {
         temperature,
         prompt: prompt || `You are ${name.trim()}, a helpful AI assistant.`,
         max_duration_seconds: maxDuration,
+        ...(selectedTemplate && selectedTemplate !== 'custom' ? { template: selectedTemplate } : {}),
       };
 
       if (provider === 'elevenlabs') {
@@ -210,6 +252,12 @@ function CreateAgentModal({ token, voices, onClose, onCreated }: {
           llm,
           tts_model_id: ttsModel,
           voice_id: voiceId || undefined,
+        });
+      } else if (provider === 'gemini') {
+        Object.assign(baseBody, {
+          gemini_voice: geminiVoice,
+          gemini_model: geminiModel,
+          thinking_level: geminiThinkingLevel,
         });
       } else {
         // Vapi
@@ -235,11 +283,148 @@ function CreateAgentModal({ token, voices, onClose, onCreated }: {
     }
   };
 
+  const handlePickTemplate = (tplId: string) => {
+    setSelectedTemplate(tplId);
+    if (tplId === 'custom') {
+      // Blank slate — keep defaults
+    } else {
+      const tpl = templates.find(t => t.id === tplId);
+      if (tpl) {
+        const d = tpl.defaults;
+        if (d.first_message !== undefined) setFirstMessage(d.first_message);
+        if (d.prompt !== undefined) setPrompt(d.prompt);
+        if (d.temperature !== undefined) setTemperature(d.temperature);
+        if (d.max_duration_seconds !== undefined) setMaxDuration(d.max_duration_seconds);
+        if (d.language !== undefined) setLanguage(d.language);
+        if (d.llm !== undefined) {
+          setLlm(d.llm);
+          setVapiLlm(d.llm);
+        }
+        // Suggest a name based on template if name is empty
+        if (!name.trim()) setName(tpl.name);
+      }
+    }
+    setStep('configure');
+  };
+
+  // ── Step 1: Template Picker ──
+  if (step === 'template') {
+    return (
+      <div className="modal-overlay" onClick={onClose}>
+        <div className="modal-container" onClick={e => e.stopPropagation()} style={{ maxWidth: '720px', maxHeight: '85vh', overflow: 'auto' }}>
+          <div className="modal-header">
+            <Icon name="sparkles" size={16} /><span>Choose a Template</span>
+            <div style={{ flex: 1 }} />
+            <div className="btn-icon" onClick={onClose}><Icon name="x" size={14} /></div>
+          </div>
+          <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: 0 }}>
+              Start from a ready-made template or build your own from scratch.
+            </p>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '12px' }}>
+              {/* Custom / blank option */}
+              <button
+                type="button"
+                onClick={() => handlePickTemplate('custom')}
+                className="template-card"
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'flex-start',
+                  gap: '8px',
+                  padding: '16px',
+                  border: '1px dashed var(--border)',
+                  borderRadius: '10px',
+                  background: 'transparent',
+                  color: 'var(--text-primary)',
+                  textAlign: 'left',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                  minHeight: '130px',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Icon name="plus-circle" size={18} />
+                  <span style={{ fontWeight: 600, fontSize: '14px' }}>Custom / Blank</span>
+                </div>
+                <span style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+                  Configure everything yourself from scratch.
+                </span>
+              </button>
+
+              {templates.map(t => (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => handlePickTemplate(t.id)}
+                  className="template-card"
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'flex-start',
+                    gap: '8px',
+                    padding: '16px',
+                    border: '1px solid var(--border)',
+                    borderRadius: '10px',
+                    background: 'var(--bg-secondary, transparent)',
+                    color: 'var(--text-primary)',
+                    textAlign: 'left',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                    minHeight: '130px',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Icon name={t.icon} size={18} />
+                    <span style={{ fontWeight: 600, fontSize: '14px' }}>{t.name}</span>
+                  </div>
+                  <span style={{
+                    fontSize: '10px',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px',
+                    color: 'var(--brand-accent)',
+                    fontWeight: 600,
+                  }}>
+                    {t.category}
+                  </span>
+                  <span style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+                    {t.description}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="modal-footer" style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <button type="button" className="btn-ghost" onClick={onClose}>Cancel</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Step 2: Configure Form ──
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-container" onClick={e => e.stopPropagation()} style={{ maxWidth: '600px', maxHeight: '85vh', overflow: 'auto' }}>
         <div className="modal-header">
+          <div className="btn-icon" onClick={() => setStep('template')} title="Back to templates" style={{ cursor: 'pointer' }}>
+            <Icon name="arrow-left" size={14} />
+          </div>
           <Icon name="bot" size={16} /><span>Create New Agent</span>
+          {selectedTemplate && selectedTemplate !== 'custom' && (
+            <span style={{
+              marginLeft: '8px',
+              fontSize: '11px',
+              padding: '2px 8px',
+              borderRadius: '10px',
+              background: 'rgba(124, 58, 237, 0.15)',
+              color: 'var(--brand-accent)',
+              fontWeight: 500,
+            }}>
+              {templates.find(t => t.id === selectedTemplate)?.name || 'Template'}
+            </span>
+          )}
           <div style={{ flex: 1 }} />
           <div className="btn-icon" onClick={onClose}><Icon name="x" size={14} /></div>
         </div>
@@ -256,7 +441,7 @@ function CreateAgentModal({ token, voices, onClose, onCreated }: {
                     key={p.value}
                     type="button"
                     className={`btn-ghost ${provider === p.value ? 'provider-tab-active' : ''}`}
-                    onClick={() => setProvider(p.value as 'elevenlabs' | 'vapi')}
+                    onClick={() => setProvider(p.value as 'elevenlabs' | 'vapi' | 'gemini')}
                     style={{
                       flex: 1,
                       padding: '10px 16px',
@@ -292,7 +477,26 @@ function CreateAgentModal({ token, voices, onClose, onCreated }: {
             {/* AI Model */}
             <div className="admin-section-title" style={{ fontSize: '11px', marginBottom: '0' }}>AI Model</div>
 
-            {provider === 'elevenlabs' ? (
+            {provider === 'gemini' ? (
+              /* ── Gemini Model Config ── */
+              <>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div className="form-group">
+                    <label className="form-label">Model</label>
+                    <CustomSelect value={geminiModel} onChange={e => setGeminiModel(e.target.value)} options={GEMINI_MODELS} placeholder="Select model" />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Thinking Level</label>
+                    <CustomSelect value={geminiThinkingLevel} onChange={e => setGeminiThinkingLevel(e.target.value)} options={GEMINI_THINKING_LEVELS} placeholder="Select thinking level" />
+                  </div>
+                </div>
+                <div className="form-group" style={{ marginTop: 8 }}>
+                  <label className="form-label">Temperature: {temperature.toFixed(2)}</label>
+                  <input type="range" className="config-slider" min="0" max="2" step="0.05" value={temperature} onChange={e => setTemperature(parseFloat(e.target.value))} />
+                  <div style={{ fontSize: 10, color: 'var(--text-quaternary)', marginTop: 2 }}>Recommended: 1.0 for Gemini 3</div>
+                </div>
+              </>
+            ) : provider === 'elevenlabs' ? (
               /* ── ElevenLabs Model Config ── */
               <>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
@@ -339,7 +543,21 @@ function CreateAgentModal({ token, voices, onClose, onCreated }: {
             {/* Voice */}
             <div className="admin-section-title" style={{ fontSize: '11px', marginBottom: '0' }}>Voice</div>
 
-            {provider === 'elevenlabs' ? (
+            {provider === 'gemini' ? (
+              /* ── Gemini Voice Config ── */
+              <>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div className="form-group">
+                    <label className="form-label">Voice</label>
+                    <CustomSelect value={geminiVoice} onChange={e => setGeminiVoice(e.target.value)} options={GEMINI_VOICES} placeholder="Select voice" />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Max Duration (sec)</label>
+                    <input className="form-input" type="number" value={maxDuration} onChange={e => setMaxDuration(parseInt(e.target.value))} min="30" max="3600" />
+                  </div>
+                </div>
+              </>
+            ) : provider === 'elevenlabs' ? (
               /* ── ElevenLabs Voice Config ── */
               <>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>

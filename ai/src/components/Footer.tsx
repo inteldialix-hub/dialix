@@ -14,6 +14,7 @@ const footerLinks = [
       { label: "Phone Numbers", href: "/dashboard/phone-numbers" },
       { label: "Call Analytics", href: "/dashboard/history" },
       { label: "Webhooks & API", href: "/dashboard" },
+      { label: "Pricing", href: "/pricing" },
       { label: "Settings", href: "/dashboard/settings" },
     ],
   },

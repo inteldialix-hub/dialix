@@ -15,7 +15,7 @@ interface TestCallViewProps {
   agentName: string;
   leadName: string;
   token: string;
-  provider?: 'elevenlabs' | 'vapi';
+  provider?: 'elevenlabs' | 'vapi' | 'gemini';
   onClose: () => void;
 }
 
@@ -372,6 +372,66 @@ export default function TestCallView({ agentId, agentName, leadName, token, prov
           });
 
           await vapiInstance.start(data.assistant_id);
+          return;
+        }
+
+        // ── Gemini flow: Backend WebSocket bridge + PCM audio ──
+        if (data.provider === 'gemini' || provider === 'gemini') {
+          const apiBase = process.env.NEXT_PUBLIC_API_URL || '';
+          const wsProto = apiBase.startsWith('https') ? 'wss' : 'ws';
+          const wsHost = apiBase.replace(/^https?:\/\//, '');
+          const geminiWsUrl = `${wsProto}://${wsHost}/ws/gemini-call?agent_id=${agentId}&token=${token}`;
+
+          const stream = await navigator.mediaDevices.getUserMedia({
+            audio: { echoCancellation: true, noiseSuppression: true, sampleRate: 16000 },
+          });
+          if (cancelled) { stream.getTracks().forEach(t => t.stop()); return; }
+          streamRef.current = stream;
+
+          const micCtx = new AudioContext({ sampleRate: 16000 });
+          micCtxRef.current = micCtx;
+          const playCtx = new AudioContext({ sampleRate: 24000 });
+          playCtxRef.current = playCtx;
+          nextPlayTimeRef.current = 0;
+
+          const ws = new WebSocket(geminiWsUrl);
+          wsRef.current = ws;
+
+          ws.onopen = () => {
+            if (cancelled) return;
+            setStatus('active');
+            setTranscript(prev => [...prev, { role: 'system', text: 'Gemini call started', time: Date.now() }]);
+            timerRef.current = setInterval(() => setCallTime(t => t + 1), 1000);
+            setupMic(stream, micCtx, ws);
+          };
+
+          ws.onmessage = (evt) => {
+            try {
+              const msg = JSON.parse(evt.data.toString());
+              if (msg.type === 'audio') {
+                if (msg.data) playChunk(msg.data);
+              } else if (msg.type === 'text') {
+                if (msg.text) setTranscript(prev => [...prev, { role: 'agent', text: msg.text, time: Date.now() }]);
+              } else if (msg.type === 'transcript') {
+                if (msg.text) setTranscript(prev => [...prev, { role: 'user', text: msg.text, time: Date.now() }]);
+              } else if (msg.type === 'error') {
+                console.error('[Gemini] Error:', msg.message);
+              } else if (msg.type === 'session_ended') {
+                setStatus('ended');
+                setTranscript(prev => [...prev, { role: 'system', text: 'Call ended', time: Date.now() }]);
+                if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
+              }
+            } catch {}
+          };
+
+          ws.onerror = () => { if (!cancelled) setStatus('error'); };
+          ws.onclose = () => {
+            if (!cancelled) {
+              setStatus('ended');
+              setTranscript(prev => [...prev, { role: 'system', text: 'Call ended', time: Date.now() }]);
+              if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
+            }
+          };
           return;
         }
 

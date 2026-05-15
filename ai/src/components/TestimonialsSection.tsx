@@ -112,7 +112,7 @@ function TestimonialCard({
 
 export default function TestimonialsSection() {
   return (
-    <section className="section-pad overflow-hidden">
+    <section className="section-pad section-alt overflow-hidden">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-12">
         <div className="text-center">
           <Reveal>

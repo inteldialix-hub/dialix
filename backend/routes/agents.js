@@ -3,9 +3,193 @@ const { Readable } = require('stream');
 const { all, get, run } = require('../db');
 const { authenticate, requireAdmin } = require('../middleware/auth');
 const { validateSchema } = require('../middleware/validate');
-const { addSharedVoiceSchema } = require('../lib/schemas');
+const { addSharedVoiceSchema, createAgentSchema } = require('../lib/schemas');
+const { checkAgentLimit } = require('../lib/plan-limits');
 const elevenlabs = require('../services/elevenlabs');
 const vapi = require('../services/vapi');
+const gemini = require('../services/gemini');
+
+// ═══════════════════════════════════════════════════════════════
+// AGENT TEMPLATES — Ready-made configurations for quick creation
+// ═══════════════════════════════════════════════════════════════
+const AGENT_TEMPLATES = {
+  sales_outbound: {
+    id: 'sales_outbound',
+    name: 'Sales Outbound',
+    description: 'Proactive outbound sales agent that qualifies leads, pitches your product, and books meetings.',
+    icon: 'phone-outgoing',
+    category: 'Sales',
+    defaults: {
+      first_message: "Hi {{name}}, this is {{agent_name}} from {{company}}. I'm reaching out because I noticed you might be interested in our solution. Do you have a quick moment?",
+      prompt: `You are a professional outbound sales agent. Your goal is to:
+1. Build rapport quickly and be personable
+2. Qualify the lead by asking about their current challenges
+3. Present the value proposition clearly and concisely
+4. Handle objections with empathy and data
+5. Book a follow-up meeting or demo if there's interest
+6. Always be respectful if they're not interested — leave the door open
+
+Rules:
+- Never be pushy or aggressive
+- Keep responses concise (2-3 sentences max)
+- Ask one question at a time
+- If they say they're busy, offer to call back at a better time
+- Always confirm next steps before ending the call`,
+      temperature: 0.7,
+      max_duration_seconds: 300,
+      language: 'en',
+      llm: 'gpt-4o-mini',
+    },
+  },
+  customer_support: {
+    id: 'customer_support',
+    name: 'Customer Support',
+    description: 'Handles inbound support calls with empathy, troubleshoots issues, and escalates when needed.',
+    icon: 'headphones',
+    category: 'Support',
+    defaults: {
+      first_message: "Thank you for calling {{company}} support. My name is {{agent_name}}. How can I help you today?",
+      prompt: `You are a friendly and knowledgeable customer support agent. Your goal is to:
+1. Listen carefully to the customer's issue
+2. Show empathy and acknowledge their frustration
+3. Ask clarifying questions to understand the problem
+4. Provide step-by-step solutions when possible
+5. Escalate to a human agent if you cannot resolve the issue
+6. Always confirm the issue is resolved before ending
+
+Rules:
+- Be patient and never rush the customer
+- Use simple, non-technical language unless the customer is technical
+- Apologize sincerely for any inconvenience
+- Always provide a ticket/reference number if available
+- End every call by asking "Is there anything else I can help you with?"`,
+      temperature: 0.5,
+      max_duration_seconds: 600,
+      language: 'en',
+      llm: 'gpt-4o-mini',
+    },
+  },
+  receptionist: {
+    id: 'receptionist',
+    name: 'Receptionist',
+    description: 'Professional front-desk agent that answers calls, routes inquiries, and takes messages.',
+    icon: 'building',
+    category: 'General',
+    defaults: {
+      first_message: "Good {{time_of_day}}! Thank you for calling {{company}}. How may I direct your call?",
+      prompt: `You are a professional receptionist/front-desk agent. Your role is to:
+1. Greet callers warmly and professionally
+2. Determine the purpose of their call
+3. Route them to the appropriate department or person
+4. Take detailed messages if the person is unavailable
+5. Provide basic company information (hours, location, services)
+6. Schedule appointments when requested
+
+Rules:
+- Always be courteous and professional
+- Collect the caller's name and phone number
+- Repeat back messages to confirm accuracy
+- If unsure where to route, ask clarifying questions
+- Keep responses brief and efficient
+- Never share internal/confidential information`,
+      temperature: 0.4,
+      max_duration_seconds: 180,
+      language: 'en',
+      llm: 'gpt-4o-mini',
+    },
+  },
+  appointment_scheduler: {
+    id: 'appointment_scheduler',
+    name: 'Appointment Scheduler',
+    description: 'Books, reschedules, and confirms appointments efficiently.',
+    icon: 'calendar',
+    category: 'Operations',
+    defaults: {
+      first_message: "Hi! I'm {{agent_name}} from {{company}}. I'm calling to help you schedule your appointment. When works best for you?",
+      prompt: `You are an appointment scheduling assistant. Your goal is to:
+1. Help callers book new appointments
+2. Reschedule or cancel existing appointments
+3. Confirm upcoming appointments
+4. Collect necessary information (name, contact, preferred time, service type)
+5. Handle scheduling conflicts gracefully
+
+Rules:
+- Always confirm the date, time, and type of appointment before finalizing
+- Offer alternative times if the preferred slot is unavailable
+- Send a summary of the booking details at the end
+- Be efficient — don't waste the caller's time
+- If you can't find a suitable time, offer to put them on a waitlist`,
+      temperature: 0.3,
+      max_duration_seconds: 240,
+      language: 'en',
+      llm: 'gpt-4o-mini',
+    },
+  },
+  lead_qualifier: {
+    id: 'lead_qualifier',
+    name: 'Lead Qualifier',
+    description: 'Qualifies inbound leads with BANT criteria and routes hot prospects to sales.',
+    icon: 'filter',
+    category: 'Sales',
+    defaults: {
+      first_message: "Hi {{name}}! Thanks for your interest in {{company}}. I'd love to learn more about what you're looking for. Can I ask you a few quick questions?",
+      prompt: `You are a lead qualification agent. Your goal is to qualify leads using BANT criteria:
+- Budget: Can they afford the solution?
+- Authority: Are they the decision-maker?
+- Need: Do they have a genuine need for the product?
+- Timeline: When are they looking to make a decision?
+
+Conversation flow:
+1. Start friendly — ask about their role and company
+2. Understand their current pain points
+3. Gauge budget range (don't ask directly — infer from company size/needs)
+4. Determine decision-making process
+5. Understand timeline and urgency
+6. Rate the lead as Hot, Warm, or Cold based on responses
+
+Rules:
+- Ask open-ended questions, not yes/no
+- Don't interrogate — keep it conversational
+- If they're a hot lead, express excitement and offer to connect them with sales
+- If cold, thank them and offer to send information`,
+      temperature: 0.6,
+      max_duration_seconds: 300,
+      language: 'en',
+      llm: 'gpt-4o-mini',
+    },
+  },
+  survey_collector: {
+    id: 'survey_collector',
+    name: 'Survey & Feedback',
+    description: 'Collects customer feedback and survey responses in a conversational way.',
+    icon: 'clipboard-list',
+    category: 'Research',
+    defaults: {
+      first_message: "Hi {{name}}! I'm calling from {{company}}. We value your feedback and would love to hear about your recent experience. Do you have 2 minutes?",
+      prompt: `You are a survey collection agent. Your goal is to gather honest feedback from customers.
+
+Survey flow:
+1. Ask about their overall satisfaction (1-10 scale)
+2. Ask what they liked most about the product/service
+3. Ask what could be improved
+4. Ask if they would recommend to a friend (NPS)
+5. Ask if there's anything else they'd like to share
+6. Thank them for their time
+
+Rules:
+- Be warm and appreciative of their time
+- Don't lead or bias their answers
+- Accept all feedback — positive or negative — without being defensive
+- Keep the survey under 3 minutes
+- If they rate low, empathize and assure their feedback will be heard
+- Thank them regardless of their responses`,
+      temperature: 0.5,
+      max_duration_seconds: 240,
+      language: 'en',
+      llm: 'gpt-4o-mini',
+    },
+  },
+};
 
 const router = express.Router();
 
@@ -34,6 +218,19 @@ router.get('/', authenticate, async (req, res) => {
         }
 
         try {
+          if (effectiveProvider === 'gemini') {
+            const geminiData = await get('SELECT * FROM gemini_agents WHERE agent_id = ?', [a.agent_id]);
+            return {
+              agent_id: a.agent_id,
+              name: geminiData?.name || a.agent_name,
+              voice_id: geminiData?.voice || 'kore',
+              language: geminiData?.language || 'en',
+              llm: geminiData?.model || 'gemini-3.1-flash-live-preview',
+              status: 'active',
+              can_edit: a.can_edit ?? 1,
+              provider: 'gemini',
+            };
+          }
           if (effectiveProvider === 'vapi') {
             const liveData = await vapi.getAssistant(a.agent_id);
             return {
@@ -90,14 +287,18 @@ router.get('/all', authenticate, async (req, res) => {
       return res.status(403).json({ error: 'Admin access required' });
     }
 
-    // Fetch from both providers in parallel
-    const [elAgents, vapiAgents] = await Promise.all([
+    // Fetch from all providers in parallel
+    const [elAgents, vapiAgents, geminiAgents] = await Promise.all([
       elevenlabs.getAgents().catch(err => {
         console.warn('Failed to fetch ElevenLabs agents:', err.message);
         return [];
       }),
       (process.env.VAPI_API_KEY ? vapi.listAssistants() : Promise.resolve([])).catch(err => {
         console.warn('Failed to fetch Vapi agents:', err.message);
+        return [];
+      }),
+      (process.env.GOOGLE_API_KEY ? all('SELECT * FROM gemini_agents') : Promise.resolve([])).catch(err => {
+        console.warn('Failed to fetch Gemini agents:', err.message);
         return [];
       }),
     ]);
@@ -116,6 +317,13 @@ router.get('/all', authenticate, async (req, res) => {
         tags: [],
         last_call: a.updatedAt || null,
         provider: 'vapi',
+      })),
+      ...geminiAgents.map(a => ({
+        agent_id: a.agent_id,
+        name: a.name || 'Unnamed Agent',
+        tags: [],
+        last_call: a.updated_at || null,
+        provider: 'gemini',
       })),
     ];
     res.json({ agents: mapped });
@@ -206,6 +414,21 @@ router.get('/:agent_id/test-call/signed-url', authenticate, async (req, res) => 
     );
     if (assignment) provider = assignment.provider || 'elevenlabs';
     if (provider === 'elevenlabs' && !agent_id.startsWith('agent_')) provider = 'vapi';
+
+    if (provider === 'gemini') {
+      // Gemini test calls are handled via a backend WebSocket bridge.
+      // Return agent config so the frontend can start a browser-based call.
+      const geminiData = await get('SELECT * FROM gemini_agents WHERE agent_id = ?', [agent_id]);
+      if (!geminiData) {
+        return res.status(404).json({ error: 'Gemini agent not found' });
+      }
+      return res.json({
+        provider: 'gemini',
+        agent_id,
+        voice: geminiData.voice || 'Kore',
+        model: geminiData.model || 'models/gemini-3.1-flash-live-preview',
+      });
+    }
 
     if (provider === 'vapi') {
       // Vapi web calls are initiated client-side via @vapi-ai/web SDK.
@@ -433,13 +656,68 @@ router.get('/voices/:voice_id/preview', authenticate, async (req, res) => {
 });
 
 /**
- * POST /api/agents  (Admin only — create a new agent)
- * Accepts a `provider` field: 'elevenlabs' (default) or 'vapi'
+ * GET /api/agents/templates
+ * Returns the list of ready-made agent templates available for quick creation.
+ * Available to all authenticated clients.
  */
-router.post('/', authenticate, async (req, res) => {
+router.get('/templates', authenticate, (req, res) => {
+  const templates = Object.values(AGENT_TEMPLATES).map(t => ({
+    id: t.id,
+    name: t.name,
+    description: t.description,
+    icon: t.icon,
+    category: t.category,
+    defaults: t.defaults,
+  }));
+  res.json({ templates });
+});
+
+/**
+ * Parse a provider error body into a readable user-facing message.
+ */
+function parseProviderError(err) {
+  let body = err.body;
+  if (typeof body === 'string') {
+    try { body = JSON.parse(body); } catch { /* keep string */ }
+  }
+  if (body && typeof body === 'object') {
+    // ElevenLabs: { detail: { message, status } | string }
+    if (body.detail) {
+      if (typeof body.detail === 'string') return body.detail;
+      if (body.detail.message) return body.detail.message;
+    }
+    // Vapi: { message: string | string[] }
+    if (body.message) {
+      return Array.isArray(body.message) ? body.message.join('; ') : body.message;
+    }
+    if (body.error) return typeof body.error === 'string' ? body.error : JSON.stringify(body.error);
+  }
+  if (typeof body === 'string' && body.length < 500) return body;
+  return err.message || 'Failed to create agent';
+}
+
+/**
+ * POST /api/agents
+ * Create a new agent on ElevenLabs or Vapi and auto-assign it to the
+ * requesting client. Plan-agent-limit enforced for non-admin clients.
+ * Body validated by `createAgentSchema`.
+ * Supports `template` field to pre-fill defaults from `AGENT_TEMPLATES`.
+ */
+router.post('/', authenticate, validateSchema(createAgentSchema), async (req, res) => {
   try {
+    // Enforce plan limit for non-admin clients
     if (req.client.is_admin !== 1) {
-      return res.status(403).json({ error: 'Admin access required' });
+      const limit = await checkAgentLimit(req.client.id);
+      if (!limit.allowed) {
+        return res.status(403).json({ error: limit.reason });
+      }
+    }
+
+    // Merge template defaults (if specified) with request body — request body wins
+    let merged = { ...req.body };
+    if (req.body.template && AGENT_TEMPLATES[req.body.template]) {
+      const tpl = AGENT_TEMPLATES[req.body.template].defaults;
+      merged = { ...tpl, ...req.body };
     }
 
     const {
@@ -453,17 +731,87 @@ router.post('/', authenticate, async (req, res) => {
       prompt = '',
       max_duration_seconds = 300,
       provider = 'elevenlabs',
-      // Vapi-specific fields
       voice_provider,
       model_provider,
-    } = req.body;
+      transcriber_provider,
+      gemini_voice,
+      gemini_model,
+      thinking_level,
+      media_resolution,
+      max_context_size,
+      target_context_size,
+      grounding_google_search,
+      affective_dialog,
+      proactive_audio,
+    } = merged;
 
-    if (!name) {
-      return res.status(400).json({ error: 'Agent name is required' });
+    // ── Gemini creation ──
+    if (provider === 'gemini') {
+      if (!process.env.GOOGLE_API_KEY) {
+        return res.status(503).json({ error: 'Gemini is not configured on this server. Contact your administrator.' });
+      }
+
+      // Generate a unique agent ID for local storage
+      const agentId = 'gemini_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 6);
+
+      const geminiConfig = {
+        agent_id: agentId,
+        name,
+        system_prompt: prompt || `You are ${name}, a helpful AI assistant.`,
+        voice: gemini_voice || voice_id || 'Kore',
+        model: gemini_model || 'models/gemini-3.1-flash-live-preview',
+        temperature: parseFloat(temperature) || 1.0,
+        language: language || 'en',
+        max_duration_seconds: parseInt(max_duration_seconds, 10) || 600,
+        first_message: first_message || '',
+        thinking_level: thinking_level || 'none',
+        media_resolution: media_resolution || 'medium',
+        max_context_size: parseInt(max_context_size, 10) || 128000,
+        target_context_size: parseInt(target_context_size, 10) || 64000,
+        grounding_google_search: grounding_google_search ? 1 : 0,
+        affective_dialog: affective_dialog ? 1 : 0,
+        proactive_audio: proactive_audio ? 1 : 0,
+      };
+
+      console.log(`Creating Gemini agent for client ${req.client.id}:`, name);
+
+      // Store in gemini_agents table
+      await run(
+        `INSERT INTO gemini_agents (agent_id, name, system_prompt, voice, model, temperature, language, max_duration_seconds, first_message, thinking_level, media_resolution, max_context_size, target_context_size, grounding_google_search, affective_dialog, proactive_audio)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [geminiConfig.agent_id, geminiConfig.name, geminiConfig.system_prompt, geminiConfig.voice,
+         geminiConfig.model, geminiConfig.temperature, geminiConfig.language,
+         geminiConfig.max_duration_seconds, geminiConfig.first_message,
+         geminiConfig.thinking_level, geminiConfig.media_resolution, geminiConfig.max_context_size,
+         geminiConfig.target_context_size, geminiConfig.grounding_google_search,
+         geminiConfig.affective_dialog, geminiConfig.proactive_audio]
+      );
+
+      // Link to client
+      await run(
+        'INSERT OR IGNORE INTO client_agents (client_id, agent_id, agent_name, can_edit, provider) VALUES (?, ?, ?, 1, ?)',
+        [req.client.id, agentId, name, 'gemini']
+      );
+
+      return res.status(201).json({
+        agent: {
+          agent_id: agentId,
+          name,
+          language,
+          llm: geminiConfig.model,
+          voice_id: geminiConfig.voice,
+          provider: 'gemini',
+          can_edit: 1,
+        },
+      });
     }
 
     // ── Vapi creation ──
     if (provider === 'vapi') {
+      if (!process.env.VAPI_API_KEY) {
+        return res.status(503).json({ error: 'Vapi is not configured on this server. Contact your administrator.' });
+      }
+
       const vapiBody = {
         name,
         firstMessage: first_message || `Hello! I'm ${name}. How can I help you today?`,
@@ -479,14 +827,13 @@ router.post('/', authenticate, async (req, res) => {
           temperature: parseFloat(temperature),
         },
         transcriber: {
-          provider: 'deepgram',
+          provider: transcriber_provider || 'deepgram',
           model: 'nova-2',
           language: language || 'en',
         },
         maxDurationSeconds: parseInt(max_duration_seconds, 10),
       };
 
-      // Add voice if provided
       if (voice_id) {
         vapiBody.voice = {
           provider: voice_provider || '11labs',
@@ -494,20 +841,31 @@ router.post('/', authenticate, async (req, res) => {
         };
       }
 
-      console.log('Creating Vapi agent:', JSON.stringify(vapiBody, null, 2));
+      console.log(`Creating Vapi agent for client ${req.client.id}:`, name);
       const created = await vapi.createAssistant(vapiBody);
 
-      // Auto-assign to admin's account in DB
       await run(
         'INSERT OR IGNORE INTO client_agents (client_id, agent_id, agent_name, can_edit, provider) VALUES (?, ?, ?, 1, ?)',
         [req.client.id, created.id, name, 'vapi']
       );
 
-      res.status(201).json({ agent: { agent_id: created.id, ...created, provider: 'vapi' } });
-      return;
+      return res.status(201).json({
+        agent: {
+          agent_id: created.id,
+          name: created.name || name,
+          language: created.transcriber?.language || language,
+          llm: created.model?.model || llm,
+          provider: 'vapi',
+          can_edit: 1,
+        },
+      });
     }
 
     // ── ElevenLabs creation (default) ──
+    if (!process.env.ELEVENLABS_API_KEY) {
+      return res.status(503).json({ error: 'ElevenLabs is not configured on this server. Contact your administrator.' });
+    }
+
     const agentBody = {
       name,
       conversation_config: {
@@ -537,19 +895,34 @@ router.post('/', authenticate, async (req, res) => {
       },
     };
 
-    console.log('Creating ElevenLabs agent:', JSON.stringify(agentBody, null, 2));
+    console.log(`Creating ElevenLabs agent for client ${req.client.id}:`, name);
     const created = await elevenlabs.createAgent(agentBody);
 
-    // Auto-assign to admin's account in DB
     await run(
       'INSERT OR IGNORE INTO client_agents (client_id, agent_id, agent_name, can_edit, provider) VALUES (?, ?, ?, 1, ?)',
       [req.client.id, created.agent_id, name, 'elevenlabs']
     );
 
-    res.status(201).json({ agent: { ...created, provider: 'elevenlabs' } });
+    res.status(201).json({
+      agent: {
+        agent_id: created.agent_id,
+        name: created.name || name,
+        language,
+        llm,
+        provider: 'elevenlabs',
+        can_edit: 1,
+      },
+    });
   } catch (err) {
-    console.error('POST /api/agents error:', err);
-    res.status(500).json({ error: err.body || 'Failed to create agent' });
+    console.error('POST /api/agents error:', err.message, err.body || '');
+    // Map provider errors to client-facing status codes.
+    // Don't blindly forward provider status (e.g. 405) — use 502 for upstream failures.
+    let status = 500;
+    if (err.statusCode === 400 || err.statusCode === 422) status = 400;
+    else if (err.statusCode === 401 || err.statusCode === 403) status = 503; // provider auth issue
+    else if (err.statusCode === 429) status = 429;
+    else if (err.statusCode >= 400) status = 502; // upstream error
+    res.status(status).json({ error: parseProviderError(err) });
   }
 });
 
@@ -577,7 +950,9 @@ router.delete('/:agent_id', authenticate, async (req, res) => {
     }
 
     // Delete from the correct provider
-    if (provider === 'vapi') {
+    if (provider === 'gemini') {
+      await run('DELETE FROM gemini_agents WHERE agent_id = ?', [agent_id]);
+    } else if (provider === 'vapi') {
       await vapi.deleteAssistant(agent_id);
     } else {
       await elevenlabs.deleteAgent(agent_id);
@@ -591,6 +966,19 @@ router.delete('/:agent_id', authenticate, async (req, res) => {
   } catch (err) {
     console.error('DELETE /api/agents/:id error:', err);
     res.status(500).json({ error: err.body || 'Failed to delete agent' });
+  }
+});
+
+/**
+ * GET /api/agents/:agent_id/raw — Debug: raw Vapi response (admin only)
+ */
+router.get('/:agent_id/raw', authenticate, async (req, res) => {
+  try {
+    if (req.client.is_admin !== 1) return res.status(403).json({ error: 'Admin only' });
+    const raw = await vapi.getAssistant(req.params.agent_id);
+    res.json(raw);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 
@@ -639,6 +1027,53 @@ router.get('/:agent_id', authenticate, async (req, res) => {
       }
     }
 
+    // ── Gemini agent detail ──
+    if (provider === 'gemini') {
+      const geminiData = await get('SELECT * FROM gemini_agents WHERE agent_id = ?', [agent_id]);
+      if (!geminiData) {
+        return res.status(404).json({ error: 'Gemini agent configuration not found' });
+      }
+
+      const config = {
+        agent_id: geminiData.agent_id,
+        name: geminiData.name,
+        provider: 'gemini',
+
+        // General
+        first_message: geminiData.first_message || '',
+        language: geminiData.language || 'en',
+
+        // Prompt / Model
+        prompt: geminiData.system_prompt || '',
+        llm: geminiData.model || 'models/gemini-3.1-flash-live-preview',
+        temperature: geminiData.temperature ?? 1.0,
+
+        // Voice (built-in Gemini voices)
+        voice_id: geminiData.voice || 'Kore',
+        gemini_voice: geminiData.voice || 'Kore',
+        gemini_model: geminiData.model || 'models/gemini-3.1-flash-live-preview',
+
+        // Call behavior
+        max_duration_seconds: geminiData.max_duration_seconds ?? 600,
+
+        // Gemini-specific features
+        thinking_level: geminiData.thinking_level || 'none',
+        media_resolution: geminiData.media_resolution || 'medium',
+        max_context_size: geminiData.max_context_size ?? 128000,
+        target_context_size: geminiData.target_context_size ?? 64000,
+        grounding_google_search: !!geminiData.grounding_google_search,
+        affective_dialog: !!geminiData.affective_dialog,
+        proactive_audio: !!geminiData.proactive_audio,
+
+        // Timestamps
+        created_at: geminiData.created_at || null,
+        updated_at: geminiData.updated_at || null,
+      };
+
+      res.json({ config, can_edit: clientCanEdit, allowed_features: allowedFeatures });
+      return;
+    }
+
     // ── Vapi agent detail ──
     if (provider === 'vapi') {
       const raw = await vapi.getAssistant(agent_id);
@@ -667,12 +1102,25 @@ router.get('/:agent_id', authenticate, async (req, res) => {
         // Voice
         voice_id: raw.voice?.voiceId || '',
         voice_provider: raw.voice?.provider || '',
-        speed: raw.voice?.speed ?? 1.0,
+        voice_model: raw.voice?.model ?? undefined,
         voice_caching_enabled: raw.voice?.cachingEnabled ?? true,
+        voice_speed: raw.voice?.speed ?? undefined,
+        voice_stability: raw.voice?.stability ?? undefined,
+        voice_similarity_boost: raw.voice?.similarityBoost ?? undefined,
+        voice_style: raw.voice?.style ?? undefined,
+        voice_input_preprocessing_enabled: raw.voice?.inputPreprocessingEnabled ?? undefined,
+        voice_input_reformatting_enabled: raw.voice?.inputReformattingEnabled ?? undefined,
+        voice_input_min_characters: raw.voice?.inputMinCharacters ?? undefined,
+        voice_filler_injection_enabled: raw.voice?.fillerInjectionEnabled ?? undefined,
 
         // Transcriber
         transcriber_provider: raw.transcriber?.provider || 'deepgram',
         transcriber_model: raw.transcriber?.model || 'nova-2',
+        transcriber_language: raw.transcriber?.language || 'en',
+        transcriber_confidence_threshold: raw.transcriber?.confidenceThreshold ?? undefined,
+        transcriber_smart_format: raw.transcriber?.smartFormat ?? undefined,
+        transcriber_keywords: raw.transcriber?.keywords || [],
+        transcriber_endpointing: raw.transcriber?.endpointing ?? undefined,
 
         // Call behavior
         max_duration_seconds: raw.maxDurationSeconds ?? 600,
@@ -680,13 +1128,16 @@ router.get('/:agent_id', authenticate, async (req, res) => {
         end_call_after_silence_seconds: raw.endCallAfterSilenceSeconds ?? 30,
         end_call_message: raw.endCallMessage || '',
         end_call_phrases: raw.endCallPhrases || [],
+        end_call_function_enabled: raw.endCallFunctionEnabled ?? true,
         voicemail_message: raw.voicemailMessage || '',
-        voicemail_detection: raw.voicemailDetection || 'off',
+        voicemail_detection: raw.voicemailDetection?.provider || 'off',
         background_sound: raw.backgroundSound || 'off',
+        background_denoising_enabled: raw.backgroundDenoisingEnabled ?? false,
 
         // Start Speaking Plan
         start_speaking_wait_seconds: raw.startSpeakingPlan?.waitSeconds ?? 0.4,
         smart_endpointing_enabled: raw.startSpeakingPlan?.smartEndpointingEnabled ?? false,
+        transcription_endpointing_plan: raw.startSpeakingPlan?.transcriptionEndpointingPlan ?? undefined,
 
         // Stop Speaking Plan
         stop_speaking_num_words: raw.stopSpeakingPlan?.numWords ?? 0,
@@ -714,6 +1165,10 @@ router.get('/:agent_id', authenticate, async (req, res) => {
         keypad_enabled: raw.keypadInputPlan?.enabled ?? false,
         keypad_timeout_seconds: raw.keypadInputPlan?.timeoutSeconds ?? 3,
         keypad_delimiters: raw.keypadInputPlan?.delimiters || '#',
+
+        // Message configuration
+        client_messages: raw.clientMessages || [],
+        server_messages: raw.serverMessages || [],
 
         // Timestamps
         created_at: raw.createdAt || null,
@@ -851,6 +1306,49 @@ router.patch('/:agent_id', authenticate, async (req, res) => {
     const body = req.body;
 
     // ════════════════════════════════════════════════
+    // ── Gemini PATCH ──
+    // ════════════════════════════════════════════════
+    if (provider === 'gemini') {
+      const updates = [];
+      const params = [];
+
+      if (body.name !== undefined) { updates.push('name = ?'); params.push(body.name); }
+      if (body.prompt !== undefined) { updates.push('system_prompt = ?'); params.push(body.prompt); }
+      if (body.gemini_voice !== undefined || body.voice_id !== undefined) {
+        updates.push('voice = ?'); params.push(body.gemini_voice || body.voice_id);
+      }
+      if (body.gemini_model !== undefined) { updates.push('model = ?'); params.push(body.gemini_model); }
+      if (body.temperature !== undefined) { updates.push('temperature = ?'); params.push(parseFloat(body.temperature)); }
+      if (body.language !== undefined) { updates.push('language = ?'); params.push(body.language); }
+      if (body.max_duration_seconds !== undefined) { updates.push('max_duration_seconds = ?'); params.push(parseInt(body.max_duration_seconds, 10)); }
+      if (body.first_message !== undefined) { updates.push('first_message = ?'); params.push(body.first_message); }
+      if (body.thinking_level !== undefined) { updates.push('thinking_level = ?'); params.push(body.thinking_level); }
+      if (body.media_resolution !== undefined) { updates.push('media_resolution = ?'); params.push(body.media_resolution); }
+      if (body.max_context_size !== undefined) { updates.push('max_context_size = ?'); params.push(parseInt(body.max_context_size, 10)); }
+      if (body.target_context_size !== undefined) { updates.push('target_context_size = ?'); params.push(parseInt(body.target_context_size, 10)); }
+      if (body.grounding_google_search !== undefined) { updates.push('grounding_google_search = ?'); params.push(body.grounding_google_search ? 1 : 0); }
+      if (body.affective_dialog !== undefined) { updates.push('affective_dialog = ?'); params.push(body.affective_dialog ? 1 : 0); }
+      if (body.proactive_audio !== undefined) { updates.push('proactive_audio = ?'); params.push(body.proactive_audio ? 1 : 0); }
+
+      if (updates.length === 0) {
+        return res.status(400).json({ error: 'No fields to update' });
+      }
+
+      updates.push("updated_at = datetime('now')");
+      params.push(agent_id);
+
+      await run(`UPDATE gemini_agents SET ${updates.join(', ')} WHERE agent_id = ?`, params);
+
+      // Also update name in client_agents if changed
+      if (body.name !== undefined) {
+        await run('UPDATE client_agents SET agent_name = ? WHERE agent_id = ?', [body.name, agent_id]);
+      }
+
+      const updated = await get('SELECT * FROM gemini_agents WHERE agent_id = ?', [agent_id]);
+      return res.json({ config: updated });
+    }
+
+    // ════════════════════════════════════════════════
     // ── Vapi PATCH ──
     // ════════════════════════════════════════════════
     if (provider === 'vapi') {
@@ -884,15 +1382,23 @@ router.patch('/:agent_id', authenticate, async (req, res) => {
         }
       }
 
-      // Voice — Vapi only accepts: provider, voiceId, speed
-      // (stability, similarity_boost etc. are ElevenLabs-only and will cause 400 errors)
+      // Voice — build voice object with supported fields per provider
+      const SPEED_PROVIDERS = ['openai', 'playht', 'lmnt', 'azure'];
       const hasVoiceChanges = body.voice_id !== undefined || body.voice_provider !== undefined ||
-        body.speed !== undefined;
+        body.voice_model !== undefined || body.voice_speed !== undefined ||
+        body.voice_caching_enabled !== undefined || body.voice_filler_injection_enabled !== undefined;
       if (hasVoiceChanges) {
         vapiPatch.voice = {};
         if (body.voice_provider !== undefined) vapiPatch.voice.provider = body.voice_provider;
         if (body.voice_id !== undefined) vapiPatch.voice.voiceId = body.voice_id;
-        if (body.speed !== undefined) vapiPatch.voice.speed = parseFloat(body.speed);
+        if (body.voice_model !== undefined) vapiPatch.voice.model = body.voice_model;
+        if (body.voice_caching_enabled !== undefined) vapiPatch.voice.cachingEnabled = !!body.voice_caching_enabled;
+        if (body.voice_filler_injection_enabled !== undefined) vapiPatch.voice.fillerInjectionEnabled = !!body.voice_filler_injection_enabled;
+        // Speed is only supported by some providers — others reject it with 400
+        const effectiveProvider = body.voice_provider || '';
+        if (body.voice_speed !== undefined && SPEED_PROVIDERS.includes(effectiveProvider)) {
+          vapiPatch.voice.speed = parseFloat(body.voice_speed);
+        }
       }
 
       // NOTE: silenceTimeoutSeconds and endCallAfterSilenceSeconds are read-only
@@ -904,8 +1410,10 @@ router.patch('/:agent_id', authenticate, async (req, res) => {
       if (body.first_message_interruptions_enabled !== undefined) vapiPatch.firstMessageInterruptionsEnabled = !!body.first_message_interruptions_enabled;
       if (body.end_call_message !== undefined) vapiPatch.endCallMessage = body.end_call_message;
       if (body.end_call_phrases !== undefined) vapiPatch.endCallPhrases = body.end_call_phrases;
+      if (body.end_call_function_enabled !== undefined) vapiPatch.endCallFunctionEnabled = !!body.end_call_function_enabled;
       if (body.voicemail_message !== undefined) vapiPatch.voicemailMessage = body.voicemail_message;
       if (body.background_sound !== undefined) vapiPatch.backgroundSound = body.background_sound;
+      if (body.background_denoising_enabled !== undefined) vapiPatch.backgroundDenoisingEnabled = !!body.background_denoising_enabled;
 
       // Voicemail Detection
       if (body.voicemail_detection !== undefined) {
@@ -924,23 +1432,28 @@ router.patch('/:agent_id', authenticate, async (req, res) => {
         vapiPatch.model.numFastTurns = parseInt(body.num_fast_turns, 10);
       }
       if (body.max_tokens !== undefined && vapiPatch.model) {
-        vapiPatch.model.maxTokens = parseInt(body.max_tokens, 10);
+        const mt = parseInt(body.max_tokens, 10);
+        if (mt >= 50) vapiPatch.model.maxTokens = mt;
+        // Skip if <= 0 (means "default / unlimited") — Vapi requires >= 50
       }
 
-      // Voice extras
-      if (body.voice_caching_enabled !== undefined) {
-        if (!vapiPatch.voice) vapiPatch.voice = {};
-        vapiPatch.voice.cachingEnabled = !!body.voice_caching_enabled;
-      }
+      // (voice_caching_enabled is handled in the voice block above)
 
       // Transcriber
       const hasTranscriberChanges = body.language !== undefined || body.transcriber_provider !== undefined ||
-        body.transcriber_model !== undefined;
+        body.transcriber_model !== undefined || body.transcriber_language !== undefined ||
+        body.transcriber_keywords !== undefined || body.transcriber_endpointing !== undefined ||
+        body.transcriber_confidence_threshold !== undefined || body.transcriber_smart_format !== undefined;
       if (hasTranscriberChanges) {
         vapiPatch.transcriber = {};
         if (body.transcriber_provider !== undefined) vapiPatch.transcriber.provider = body.transcriber_provider;
         if (body.transcriber_model !== undefined) vapiPatch.transcriber.model = body.transcriber_model;
         if (body.language !== undefined) vapiPatch.transcriber.language = body.language;
+        if (body.transcriber_language !== undefined) vapiPatch.transcriber.language = body.transcriber_language;
+        if (body.transcriber_keywords !== undefined) vapiPatch.transcriber.keywords = body.transcriber_keywords;
+        if (body.transcriber_endpointing !== undefined) vapiPatch.transcriber.endpointing = parseFloat(body.transcriber_endpointing);
+        if (body.transcriber_confidence_threshold !== undefined) vapiPatch.transcriber.confidenceThreshold = parseFloat(body.transcriber_confidence_threshold);
+        if (body.transcriber_smart_format !== undefined) vapiPatch.transcriber.smartFormat = !!body.transcriber_smart_format;
       }
 
       // Start Speaking Plan

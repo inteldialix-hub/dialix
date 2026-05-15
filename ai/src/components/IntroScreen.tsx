@@ -1,7 +1,7 @@
 'use client'
 
-import { SpiralAnimation } from "@/components/ui/spiral-animation"
-import { useState, useEffect, useCallback } from 'react'
+import { CodeSliceAnimation, type CodeSliceAnimationHandle } from "@/components/ui/code-slice-animation"
+import { useState, useEffect, useCallback, useRef } from 'react'
 
 interface IntroScreenProps {
   onEnter: () => void
@@ -10,23 +10,29 @@ interface IntroScreenProps {
 export function IntroScreen({ onEnter }: IntroScreenProps) {
   const [buttonVisible, setButtonVisible] = useState(false)
   const [isExiting, setIsExiting] = useState(false)
+  const animRef = useRef<CodeSliceAnimationHandle>(null)
 
-  // Fade in the enter button after the animation loads
+  // Fade in the enter button after the tiles assemble
   useEffect(() => {
     const timer = setTimeout(() => {
       setButtonVisible(true)
-    }, 2000)
+    }, 2800)
 
     return () => clearTimeout(timer)
   }, [])
 
   const handleEnter = useCallback(() => {
+    if (isExiting) return
     setIsExiting(true)
-    // Wait for exit animation to complete before revealing main site
+
+    // Trigger the cube explosion
+    animRef.current?.triggerExit()
+
+    // After cubes fly out, reveal the main site
     setTimeout(() => {
       onEnter()
-    }, 800)
-  }, [onEnter])
+    }, 1400)
+  }, [onEnter, isExiting])
 
   // Also allow keyboard Enter to trigger
   useEffect(() => {
@@ -42,59 +48,52 @@ export function IntroScreen({ onEnter }: IntroScreenProps) {
 
   return (
     <div
-      className={`
-        fixed inset-0 w-full h-full overflow-hidden bg-black z-[9999]
-        transition-opacity duration-700 ease-out
-        ${isExiting ? 'opacity-0 pointer-events-none' : 'opacity-100'}
-      `}
+      className={`fixed inset-0 w-full h-full overflow-hidden z-[9999] transition-colors duration-300 ${isExiting ? 'bg-transparent' : ''}`}
+      style={isExiting ? undefined : { background: '#f5f0ff' }}
     >
-      {/* Galaxy Spiral Animation */}
+      {/* Code Slice 3D Animation */}
       <div className="absolute inset-0">
-        <SpiralAnimation />
+        <CodeSliceAnimation ref={animRef} />
       </div>
 
-      {/* Subtle vignette overlay */}
-      <div
-        className="absolute inset-0 pointer-events-none"
-        style={{
-          background: 'radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.4) 100%)',
-        }}
-      />
-
-      {/* Enter Button */}
+      {/* Enter Button — fades out when exiting */}
       <div
         className={`
-          absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10
-          flex flex-col items-center gap-6
-          transition-all duration-[1500ms] ease-out
-          ${buttonVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}
+          absolute left-1/2 bottom-[15%] -translate-x-1/2 z-10
+          flex flex-col items-center gap-4
+          transition-all ease-out
+          ${isExiting ? 'opacity-0 translate-y-4 duration-500' : buttonVisible ? 'opacity-100 translate-y-0 duration-[1500ms]' : 'opacity-0 translate-y-6 duration-[1500ms]'}
         `}
       >
-        {/* Brand name above Enter */}
-        <div className="text-white/40 text-xs tracking-[0.4em] uppercase font-light">
-          Dialix
-        </div>
-
         <button
           onClick={handleEnter}
           className="
-            group relative text-white text-2xl tracking-[0.2em] uppercase font-extralight
-            transition-all duration-700 cursor-pointer
-            hover:tracking-[0.35em]
+            group relative text-white text-sm tracking-[0.12em] uppercase font-semibold
+            transition-all duration-500 cursor-pointer
+            hover:text-white
+            px-8 py-3.5
           "
           aria-label="Enter the website"
         >
-          {/* Glow effect behind text */}
-          <span className="absolute inset-0 -inset-x-4 rounded-full bg-white/5 blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+          {/* Backdrop pill */}
+          <span
+            className="absolute inset-0 rounded-full transition-all duration-300 group-hover:scale-105"
+            style={{
+              background: 'linear-gradient(135deg, #a78bfa 0%, #7c3aed 50%, #5b21b6 100%)',
+              backdropFilter: 'blur(12px)',
+              border: '1px solid rgba(167,139,250,0.3)',
+              boxShadow: '0 4px 20px rgba(124,58,237,0.4), 0 0 40px rgba(124,58,237,0.15)',
+            }}
+          />
 
-          {/* Pulsing dot */}
-          <span className="absolute -left-6 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse" />
-
-          <span className="relative">Enter</span>
+          <span className="relative flex items-center gap-2">
+            <span>Enter</span>
+            <span className="text-white/60 group-hover:text-white transition-colors">→</span>
+          </span>
         </button>
 
         {/* Keyboard hint */}
-        <div className="text-white/20 text-[10px] tracking-[0.2em] uppercase mt-2">
+        <div className="text-zinc-400 text-[10px] tracking-[0.2em] uppercase">
           or press ↵ enter
         </div>
       </div>

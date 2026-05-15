@@ -33,7 +33,7 @@ const faqs = [
 
 export default function FAQSection() {
   return (
-    <section id="faq" className="section-pad">
+    <section id="faq" className="section-pad section-alt">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid lg:grid-cols-[1fr_1.5fr] gap-12 lg:gap-20">
           {/* Left: heading */}

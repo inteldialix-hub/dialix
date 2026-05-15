@@ -10,18 +10,14 @@ const DOMPurifyInstance = DOMPurify(window);
 function sanitizeInput(input) {
   if (typeof input !== 'string') return input;
 
-  // Remove potentially dangerous characters
-  let sanitized = validator.escape(input);
-
-  // Additional sanitization for HTML content (if needed)
-  if (input.includes('<') || input.includes('>')) {
-    sanitized = DOMPurifyInstance.sanitize(input, {
-      ALLOWED_TAGS: [], // No HTML tags allowed
-      ALLOWED_ATTR: []
-    });
-  }
-
-  return sanitized;
+  // Use DOMPurify to strip all HTML tags/attributes — safe for DB storage.
+  // NOTE: We intentionally do NOT call validator.escape() here because
+  // combining escape + DOMPurify causes double-encoding (&amp;amp;).
+  // Output encoding should happen at the render layer instead.
+  return DOMPurifyInstance.sanitize(input, {
+    ALLOWED_TAGS: [],
+    ALLOWED_ATTR: [],
+  });
 }
 
 function sanitizeObject(obj) {
@@ -49,29 +45,50 @@ function isValidUrl(url) {
   try {
     const parsedUrl = new URL(url);
 
+    // Only allow HTTP/HTTPS
+    if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
+      return false;
+    }
+
     // Block localhost and private IP ranges
     const hostname = parsedUrl.hostname.toLowerCase();
 
-    // Block localhost variations
-    if (hostname === 'localhost' || hostname === '127.0.0.1' ||
-        hostname.startsWith('127.') || hostname === '0.0.0.0') {
+    // Strip IPv6 brackets for analysis
+    const bare = hostname.replace(/^\[|\]$/g, '');
+
+    // Block localhost variations (string, IPv4, IPv6)
+    if (bare === 'localhost' || bare === '127.0.0.1' ||
+        bare.startsWith('127.') || bare === '0.0.0.0' ||
+        bare === '::1' || bare === '0000::1' || bare === '::ffff:127.0.0.1') {
+      return false;
+    }
+
+    // Block octal/hex encoded IPs (e.g. 0177.0.0.1, 0x7f000001)
+    if (/^0[0-7]/.test(bare) || /^0x[0-9a-f]/i.test(bare)) {
+      return false;
+    }
+
+    // Block cloud metadata endpoints
+    if (bare === '169.254.169.254' || bare === 'metadata.google.internal') {
       return false;
     }
 
     // Block private IP ranges
-    const ip = hostname.split('.').map(Number);
-    if (ip.length === 4) {
+    const ip = bare.split('.').map(Number);
+    if (ip.length === 4 && ip.every(n => !isNaN(n))) {
       const [a, b] = ip;
-      // 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16
+      // 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 169.254.0.0/16 (link-local)
       if (a === 10 ||
           (a === 172 && b >= 16 && b <= 31) ||
-          (a === 192 && b === 168)) {
+          (a === 192 && b === 168) ||
+          (a === 169 && b === 254) ||
+          a === 0) {
         return false;
       }
     }
 
-    // Only allow HTTP/HTTPS
-    if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
+    // Block IPv6 private/link-local ranges
+    if (bare.startsWith('fe80:') || bare.startsWith('fc00:') || bare.startsWith('fd')) {
       return false;
     }
 

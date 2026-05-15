@@ -1,10 +1,13 @@
 'use client';
 
 import React, { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
 import { Sidebar } from '@/components/dashboard/Sidebar';
 import { ToastProvider } from '@/components/dashboard/shared/ToastProvider';
+import { DashboardErrorBoundary } from '@/components/dashboard/ErrorBoundary';
 import '@/styles/dashboard.css';
+import '@/styles/dashboard-home.css';
 
 /**
  * Dashboard layout — wraps all /dashboard/* pages.
@@ -18,12 +21,13 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const { isAuthenticated, isLoading } = useAuth();
+  const router = useRouter();
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
-      window.location.href = '/login';
+      router.replace('/login');
     }
-  }, [isLoading, isAuthenticated]);
+  }, [isLoading, isAuthenticated, router]);
 
   // Show loading spinner while checking auth or redirecting
   if (isLoading || !isAuthenticated) {
@@ -61,8 +65,10 @@ export default function DashboardLayout({
     <ToastProvider>
       <div className="app-shell">
         <Sidebar />
-        <main className="main-content">
-          {children}
+        <main id="main-content" className="main-content" role="main">
+          <DashboardErrorBoundary>
+            {children}
+          </DashboardErrorBoundary>
         </main>
       </div>
     </ToastProvider>

@@ -63,8 +63,16 @@ export default function AdminPage() {
 
   const handleCreateClient = async (e: React.FormEvent) => {
     e.preventDefault();
-    try { await api('/admin/clients', { token: token!, method: 'POST', body: { name: newName, email: newEmail, password: newPassword } }); addToast('Client created', 'success'); setShowCreateClient(false); setNewName(''); setNewEmail(''); setNewPassword(''); loadData(); }
-    catch (err) { addToast(err instanceof Error ? err.message : 'Failed', 'error'); }
+    try {
+      await api('/admin/clients', { token: token!, method: 'POST', body: { name: newName, email: newEmail, password: newPassword } });
+      addToast('Client created', 'success');
+      setShowCreateClient(false); setNewName(''); setNewEmail(''); setNewPassword('');
+      loadData();
+    } catch (err: unknown) {
+      // Extract Zod validation issues if present
+      const msg = err instanceof Error ? err.message : 'Failed';
+      addToast(msg, 'error');
+    }
   };
 
   const handleDeleteClient = async (id: number) => {
@@ -168,7 +176,13 @@ export default function AdminPage() {
                       <div className="form-group" style={{ flex: 1 }}><label className="form-label">Name</label><input className="form-input" value={newName} onChange={e => setNewName(e.target.value)} required /></div>
                       <div className="form-group" style={{ flex: 1 }}><label className="form-label">Email</label><input className="form-input" type="email" value={newEmail} onChange={e => setNewEmail(e.target.value)} required /></div>
                     </div>
-                    <div className="form-group" style={{ maxWidth: '50%' }}><label className="form-label">Password</label><input className="form-input" type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} required /></div>
+                    <div className="form-group" style={{ maxWidth: '50%' }}>
+                      <label className="form-label">Password</label>
+                      <input className="form-input" type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} required minLength={12} />
+                      <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginTop: '6px', lineHeight: '1.5' }}>
+                        Min 12 characters • Uppercase • Lowercase • Number • Symbol
+                      </div>
+                    </div>
                     <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '8px' }}>
                       <button type="button" className="btn-ghost" onClick={() => setShowCreateClient(false)}>Cancel</button>
                       <button type="submit" className="btn-primary">Create Client</button>
@@ -217,7 +231,7 @@ export default function AdminPage() {
                             {(clientAgentMap[c.id] || []).length > 0 && (
                               <div style={{ marginBottom: '24px' }}>
                                 <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Assigned Agents</div>
-                                <div style={{ borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border-default)' }}>
+                                <div style={{ borderRadius: '8px', overflow: 'auto', border: '1px solid var(--border-default)' }}>
                                   <table className="data-table" style={{ margin: 0, width: '100%', borderCollapse: 'collapse' }}>
                                     <thead style={{ background: 'var(--bg-overlay)' }}>
                                       <tr>
@@ -225,7 +239,7 @@ export default function AdminPage() {
                                         <th style={{ padding: '12px 16px', fontWeight: 500, color: 'var(--text-secondary)', textAlign: 'left' }}>Agent ID</th>
                                         <th style={{ padding: '12px 16px', fontWeight: 500, color: 'var(--text-secondary)', textAlign: 'left' }}>Provider</th>
                                         <th style={{ padding: '12px 16px', fontWeight: 500, color: 'var(--text-secondary)', textAlign: 'left' }}>Permissions</th>
-                                        <th style={{ padding: '12px 16px', fontWeight: 500, color: 'var(--text-secondary)', textAlign: 'right' }}>Actions</th>
+                                        <th style={{ padding: '12px 16px', fontWeight: 500, color: 'var(--text-secondary)', textAlign: 'right', whiteSpace: 'nowrap' }}>Actions</th>
                                       </tr>
                                     </thead>
                                     <tbody>
@@ -236,23 +250,24 @@ export default function AdminPage() {
                                           <React.Fragment key={ag.agent_id}>
                                             <tr className="hover:bg-zinc-800/30" style={{ borderTop: '1px solid var(--border-default)', transition: 'background 0.2s' }}>
                                               <td style={{ padding: '16px' }}>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                                  <span className="status-dot active" style={{ width: 8, height: 8 }} />
-                                                  <span style={{ fontSize: '14px', fontWeight: 500, color: 'var(--text-primary)' }}>{ag.agent_name}</span>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                                  <span className="status-dot active" style={{ width: 8, height: 8, flexShrink: 0 }} />
+                                                  <span style={{ fontSize: '14px', fontWeight: 500, color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>{ag.agent_name}</span>
                                                   {disabledCount > 0 && (
                                                     <span style={{
-                                                      display: 'inline-flex', alignItems: 'center', gap: '4px',
-                                                      fontSize: '11px', fontWeight: 600, padding: '2px 6px',
+                                                      display: 'inline-flex', alignItems: 'center', gap: '3px',
+                                                      fontSize: '10px', fontWeight: 600, padding: '2px 6px',
                                                       borderRadius: '4px', background: 'rgba(239,68,68,0.1)', color: '#ef4444',
+                                                      whiteSpace: 'nowrap', flexShrink: 0,
                                                     }}>
-                                                      <Icon name="eye-off" size={12} />
+                                                      <Icon name="eye-off" size={10} />
                                                       {disabledCount} hidden
                                                     </span>
                                                   )}
                                                 </div>
                                               </td>
-                                              <td style={{ padding: '16px', fontSize: '13px', color: 'var(--text-tertiary)', fontFamily: 'var(--font-mono)' }}>
-                                                {ag.agent_id.slice(0, 16)}...
+                                              <td style={{ padding: '16px', fontSize: '12px', color: 'var(--text-tertiary)', fontFamily: 'var(--font-mono)', maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                {ag.agent_id.slice(0, 12)}...
                                               </td>
                                               <td style={{ padding: '16px' }}>
                                                 <span className={`provider-badge provider-${ag.provider || 'elevenlabs'}`}>{ag.provider === 'vapi' ? 'Vapi' : 'ElevenLabs'}</span>
@@ -269,8 +284,8 @@ export default function AdminPage() {
                                                   {ag.can_edit ? 'Full Access' : 'View Only'}
                                                 </span>
                                               </td>
-                                              <td style={{ padding: '16px' }}>
-                                                <div style={{ display: 'flex', gap: '8px', alignItems: 'center', justifyContent: 'flex-end' }}>
+                                              <td style={{ padding: '16px', whiteSpace: 'nowrap' }}>
+                                                <div style={{ display: 'flex', gap: '8px', alignItems: 'center', justifyContent: 'flex-end', flexWrap: 'nowrap' }}>
                                                   <button
                                                     className={`btn-icon ${isFeatureExpanded ? 'active' : ''}`}
                                                     onClick={(e) => {

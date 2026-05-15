@@ -8,14 +8,15 @@ interface PageWrapperProps {
 }
 
 export function PageWrapper({ children }: PageWrapperProps) {
-  // Check sessionStorage so the intro only shows once per browser session
   const [showIntro, setShowIntro] = useState(false)
+  const [introMounted, setIntroMounted] = useState(false)
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
     const alreadyEntered = sessionStorage.getItem('dialix-intro-done')
     if (!alreadyEntered) {
       setShowIntro(true)
+      setIntroMounted(true)
     }
     setMounted(true)
   }, [])
@@ -23,27 +24,22 @@ export function PageWrapper({ children }: PageWrapperProps) {
   const handleEnter = () => {
     sessionStorage.setItem('dialix-intro-done', '1')
     setShowIntro(false)
+    // Keep intro mounted so cubes can finish their exit animation,
+    // then unmount after animation completes
+    setTimeout(() => setIntroMounted(false), 1500)
   }
 
-  // Avoid flash: don't render until we know whether to show intro
   if (!mounted) return null
 
   return (
     <>
-      {/* Intro overlay — renders on top of everything */}
-      {showIntro && (
+      {/* Main site content — ALWAYS visible, sits behind the z-9999 intro */}
+      {children}
+
+      {/* Intro overlay — fixed on top, stays mounted during exit animation */}
+      {introMounted && (
         <IntroScreen onEnter={handleEnter} />
       )}
-
-      {/* Main site content — always in DOM so it's ready when intro fades */}
-      <div
-        className={`
-          transition-opacity duration-500 ease-out
-          ${showIntro ? 'opacity-0' : 'opacity-100'}
-        `}
-      >
-        {children}
-      </div>
     </>
   )
 }

@@ -8,8 +8,9 @@ import { Icon } from '@/components/dashboard/shared/Icon';
 import { CustomSelect, type SelectOption } from '@/components/dashboard/shared/CustomSelect';
 import { SkeletonRows } from '@/components/dashboard/shared/SkeletonRows';
 import { api } from '@/lib/api';
-import { FALLBACK_LLM_OPTIONS, FALLBACK_TTS_MODEL_OPTIONS, FALLBACK_LANGUAGE_OPTIONS, VAPI_MODEL_PROVIDERS, VAPI_LLM_OPTIONS, VAPI_VOICE_PROVIDERS, VAPI_TRANSCRIBER_PROVIDERS, VAPI_FIRST_MESSAGE_MODES, VAPI_BACKGROUND_SOUNDS, VAPI_TRANSCRIBER_MODELS } from '@/lib/constants';
+import { FALLBACK_LLM_OPTIONS, FALLBACK_TTS_MODEL_OPTIONS, FALLBACK_LANGUAGE_OPTIONS, VAPI_MODEL_PROVIDERS, VAPI_LLM_OPTIONS, VAPI_VOICE_PROVIDERS, VAPI_TRANSCRIBER_PROVIDERS, VAPI_FIRST_MESSAGE_MODES, VAPI_BACKGROUND_SOUNDS, VAPI_TRANSCRIBER_MODELS, VAPI_VOICEMAIL_DETECTION, VAPI_VOICE_MODELS, VAPI_VOICE_SPEED_PROVIDERS, GEMINI_VOICES, GEMINI_MODELS, GEMINI_THINKING_LEVELS, GEMINI_MEDIA_RESOLUTIONS } from '@/lib/constants';
 import TestCallView from '@/components/dashboard/TestCallView';
+import { SlidePanel } from '@/components/dashboard/shared/SlidePanel';
 import { SneakyButton } from '@/components/ui/sneaky-button';
 
 /* ────────────────────────────────────────────────────────── */
@@ -38,7 +39,8 @@ export default function AgentDetailPage() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [analytics, setAnalytics] = useState<any>(null);
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
-  const [provider, setProvider] = useState<'elevenlabs' | 'vapi'>('elevenlabs');
+  const [provider, setProvider] = useState<'elevenlabs' | 'vapi' | 'gemini'>('elevenlabs');
+  const [allowedFeatures, setAllowedFeatures] = useState<Record<string, boolean> | null>(null);
 
   // Live dropdown options from ElevenLabs API (falls back to constants)
   const [liveLLMs, setLiveLLMs] = useState<SelectOption[]>(FALLBACK_LLM_OPTIONS);
@@ -134,13 +136,35 @@ export default function AgentDetailPage() {
   const [monitorControlEnabled, setMonitorControlEnabled] = useState(false);
   const [serverUrl, setServerUrl] = useState('');
   const [keypadEnabled, setKeypadEnabled] = useState(false);
+  const [endCallFunctionEnabled, setEndCallFunctionEnabled] = useState(true);
+  const [backgroundDenoisingEnabled, setBackgroundDenoisingEnabled] = useState(false);
+  const [voicemailDetection, setVoicemailDetection] = useState('off');
+  const [transcriberLanguage, setTranscriberLanguage] = useState('en');
+  const [transcriberKeywords, setTranscriberKeywords] = useState<string[]>([]);
+  const [transcriberEndpointing, setTranscriberEndpointing] = useState<number | undefined>(undefined);
+  const [transcriberConfidenceThreshold, setTranscriberConfidenceThreshold] = useState<number | undefined>(undefined);
+  const [transcriberSmartFormat, setTranscriberSmartFormat] = useState(false);
+  const [fillerInjectionEnabled, setFillerInjectionEnabled] = useState(false);
+  const [voiceModel, setVoiceModel] = useState('');
+  const [voiceSpeed, setVoiceSpeed] = useState(1.0);
+  const [slidePanel, setSlidePanel] = useState<'voice' | 'transcriber' | null>(null);
+
+  // Gemini-specific state
+  const [thinkingLevel, setThinkingLevel] = useState('none');
+  const [mediaResolution, setMediaResolution] = useState('medium');
+  const [maxContextSize, setMaxContextSize] = useState(128000);
+  const [targetContextSize, setTargetContextSize] = useState(64000);
+  const [groundingGoogleSearch, setGroundingGoogleSearch] = useState(false);
+  const [affectiveDialog, setAffectiveDialog] = useState(false);
+  const [proactiveAudio, setProactiveAudio] = useState(false);
 
   const loadAgent = useCallback(async () => {
     try {
-      const data = await api<{ config: AgentConfig }>(`/agents/${agentId}`, { token: token! });
+      const data = await api<{ config: AgentConfig; allowed_features?: Record<string, boolean> | null }>(`/agents/${agentId}`, { token: token! });
       const a = data.config;
       setConfig(a);
-      setProvider((a.provider as 'elevenlabs' | 'vapi') || 'elevenlabs');
+      setAllowedFeatures(data.allowed_features || null);
+      setProvider((a.provider as 'elevenlabs' | 'vapi' | 'gemini') || 'elevenlabs');
       setName((a.name as string) || '');
       setFirstMessage((a.first_message as string) || '');
       // Vapi-specific
@@ -170,16 +194,39 @@ export default function AgentDetailPage() {
         setMonitorControlEnabled(!!a.monitor_control_enabled);
         setServerUrl((a.server_url as string) || '');
         setKeypadEnabled(!!a.keypad_enabled);
+        setEndCallFunctionEnabled(a.end_call_function_enabled !== false);
+        setBackgroundDenoisingEnabled(!!a.background_denoising_enabled);
+        setVoicemailDetection((a.voicemail_detection as string) || 'off');
+        setTranscriberLanguage((a.transcriber_language as string) || 'en');
+        setTranscriberKeywords(Array.isArray(a.transcriber_keywords) ? a.transcriber_keywords as string[] : []);
+        setTranscriberEndpointing(a.transcriber_endpointing as number | undefined);
+        setTranscriberConfidenceThreshold(a.transcriber_confidence_threshold as number | undefined);
+        setTranscriberSmartFormat(!!a.transcriber_smart_format);
+        setFillerInjectionEnabled(!!a.voice_filler_injection_enabled);
+        setVoiceModel((a.voice_model as string) || '');
+        setVoiceSpeed((a.voice_speed as number) ?? 1.0);
+      }
+      // Gemini-specific: map gemini fields to shared state
+      if (a.provider === 'gemini') {
+        setLlm((a.gemini_model as string) || 'models/gemini-3.1-flash-live-preview');
+        setVoiceId((a.gemini_voice as string) || 'Kore');
+        setThinkingLevel((a.thinking_level as string) || 'none');
+        setMediaResolution((a.media_resolution as string) || 'medium');
+        setMaxContextSize((a.max_context_size as number) ?? 128000);
+        setTargetContextSize((a.target_context_size as number) ?? 64000);
+        setGroundingGoogleSearch(!!a.grounding_google_search);
+        setAffectiveDialog(!!a.affective_dialog);
+        setProactiveAudio(!!a.proactive_audio);
       }
       setLanguage((a.language as string) || 'en');
       setDisableFirstMsgInterrupt(!!a.disable_first_message_interruptions);
       setPrompt(typeof a.prompt === 'string' ? a.prompt : '');
-      setLlm((a.llm as string) || 'gpt-4o-mini');
+      if (a.provider !== 'gemini') setLlm((a.llm as string) || 'gpt-4o-mini');
       setTemperature((a.temperature as number) ?? 0.7);
       setMaxTokens((a.max_tokens as number) ?? -1);
       setIgnoreDefaultPersonality(!!a.ignore_default_personality);
       setTtsModel((a.tts_model_id as string) || 'eleven_v3_conversational');
-      setVoiceId((a.voice_id as string) || '');
+      if (a.provider !== 'gemini') setVoiceId((a.voice_id as string) || '');
       setStability((a.stability as number) ?? 0.5);
       setSpeed((a.speed as number) ?? 1.0);
       setStreamingLatency((a.optimize_streaming_latency as number) ?? 0);
@@ -337,20 +384,36 @@ export default function AgentDetailPage() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      const commonFields = { name, first_message: firstMessage, prompt, llm, temperature, max_tokens: maxTokens };
+      const commonFields: Record<string, unknown> = { name, first_message: firstMessage, prompt, llm, temperature };
+      if (maxTokens >= 50) commonFields.max_tokens = maxTokens; // Vapi requires >= 50; skip otherwise
 
-      const body = provider === 'vapi'
+      const body = provider === 'gemini'
+        ? {
+            ...commonFields,
+            gemini_voice: voiceId || config?.gemini_voice || 'Kore',
+            gemini_model: llm || config?.gemini_model || 'models/gemini-3.1-flash-live-preview',
+            language,
+            max_duration_seconds: maxDuration,
+            thinking_level: thinkingLevel,
+            media_resolution: mediaResolution,
+            max_context_size: maxContextSize,
+            target_context_size: targetContextSize,
+            grounding_google_search: groundingGoogleSearch,
+            affective_dialog: affectiveDialog,
+            proactive_audio: proactiveAudio,
+          }
+        : provider === 'vapi'
         ? {
             ...commonFields,
             model_provider: modelProvider,
             voice_id: voiceId || undefined,
             voice_provider: voiceProvider,
+            ...(voiceModel ? { voice_model: voiceModel } : {}),
+            ...(VAPI_VOICE_SPEED_PROVIDERS.includes(voiceProvider) ? { voice_speed: voiceSpeed } : {}),
+            voice_filler_injection_enabled: fillerInjectionEnabled,
             transcriber_provider: transcriberProvider,
             transcriber_model: transcriberModel,
             max_duration_seconds: maxDuration,
-            silence_timeout_seconds: Number(silenceEndCall),
-            end_call_after_silence_seconds: Number(silenceEndCall),
-            stability, speed,
             first_message_mode: firstMessageMode,
             first_message_interruptions_enabled: firstMsgInterruptionsEnabled,
             end_call_message: endCallMessage || undefined,
@@ -372,6 +435,14 @@ export default function AgentDetailPage() {
             monitor_control_enabled: monitorControlEnabled,
             server_url: serverUrl || undefined,
             keypad_enabled: keypadEnabled,
+            end_call_function_enabled: endCallFunctionEnabled,
+            background_denoising_enabled: backgroundDenoisingEnabled,
+            voicemail_detection: voicemailDetection,
+            transcriber_language: transcriberLanguage,
+            ...(transcriberKeywords.length ? { transcriber_keywords: transcriberKeywords } : {}),
+            ...(transcriberEndpointing !== undefined ? { transcriber_endpointing: transcriberEndpointing } : {}),
+            ...(transcriberConfidenceThreshold !== undefined ? { transcriber_confidence_threshold: transcriberConfidenceThreshold } : {}),
+            transcriber_smart_format: transcriberSmartFormat,
           }
         : {
             ...commonFields,
@@ -413,7 +484,57 @@ export default function AgentDetailPage() {
 
 
 
-  const tabs = provider === 'vapi'
+  // Helper: check if a feature is visible for the current client
+  const isFeatureVisible = (key: string) => {
+    if (!allowedFeatures) return true; // null = no restrictions
+    return allowedFeatures[key] !== false;
+  };
+
+  // Map feature keys to tab IDs for filtering — every tab is covered
+  const tabFeatureMap: Record<string, string[]> = provider === 'gemini'
+    ? {
+        'prompt': ['prompt', 'llm', 'temperature'],
+        'voice': ['voice'],
+        'gemini-settings': ['call_behavior'],
+      }
+    : provider === 'vapi'
+    ? {
+        'prompt': ['prompt', 'llm', 'temperature'],
+        'voice': ['voice'],
+        'call-behavior': ['call_behavior'],
+        'speaking': ['speaking'],
+        'compliance': ['compliance', 'safety'],
+        'recording': ['recording'],
+        'webhooks': ['webhooks'],
+        'analytics': ['analytics'],
+      }
+    : {
+        'prompt': ['prompt', 'llm', 'temperature'],
+        'voice': ['voice'],
+        'call-behavior': ['call_behavior'],
+        'asr': ['asr'],
+        'safety': ['safety'],
+        'advanced': ['advanced'],
+        'privacy': ['privacy'],
+      };
+
+  const isTabVisible = (tabId: string) => {
+    const features = tabFeatureMap[tabId];
+    if (!features) return true; // general tab is always visible
+    return features.some(f => isFeatureVisible(f));
+  };
+
+  // Count how many features are restricted
+  const restrictedCount = allowedFeatures ? Object.values(allowedFeatures).filter(v => v === false).length : 0;
+
+  const tabs = (provider === 'gemini'
+    ? [
+        { id: 'general', label: 'General', icon: 'settings' },
+        { id: 'prompt', label: 'Prompt', icon: 'file-text' },
+        { id: 'voice', label: 'Voice', icon: 'mic' },
+        { id: 'gemini-settings', label: 'Gemini Settings', icon: 'sliders' },
+      ]
+    : provider === 'vapi'
     ? [
         { id: 'general', label: 'General', icon: 'settings' },
         { id: 'prompt', label: 'Prompt', icon: 'file-text' },
@@ -434,7 +555,8 @@ export default function AgentDetailPage() {
         { id: 'safety', label: 'Safety', icon: 'shield' },
         { id: 'advanced', label: 'Advanced', icon: 'sliders' },
         { id: 'privacy', label: 'Privacy', icon: 'lock' },
-      ];
+      ]
+  ).filter(t => isTabVisible(t.id));
 
   const Toggle = ({ value, onChange, label, desc }: { value: boolean; onChange: (v: boolean) => void; label: string; desc?: string }) => (
     <div className="form-group" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 12 }}>
@@ -453,16 +575,24 @@ export default function AgentDetailPage() {
         <div className="detail-sep" />
         <div className="detail-agent-info">
           <span className="detail-agent-name">{name || config.name as string}</span>
-          <span className={`provider-badge provider-${provider}`}>{provider === 'vapi' ? 'Vapi' : 'ElevenLabs'}</span>
+          <span className={`provider-badge provider-${provider}`}>{provider === 'vapi' ? 'Vapi' : provider === 'gemini' ? 'Gemini' : 'ElevenLabs'}</span>
           <span className="detail-agent-id">{agentId.slice(0, 24)}...</span>
         </div>
         <div style={{ flex: 1 }} />
-        <SneakyButton text="Test Call" onClick={promptTestCall} />
+        {isFeatureVisible('test_call') && <SneakyButton text="Test Call" onClick={promptTestCall} />}
         <SneakyButton text={saving ? 'Saving...' : 'Save Changes'} onClick={handleSave} loading={saving} disabled={saving} />
       </div>
 
+      {/* Restricted access banner */}
+      {restrictedCount > 0 && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 32px', background: 'rgba(251,191,36,0.06)', borderBottom: '1px solid rgba(251,191,36,0.15)' }}>
+          <Icon name="shield" size={14} style={{ color: '#fbbf24' }} />
+          <span style={{ fontSize: 12, color: '#fbbf24', fontWeight: 500 }}>Some features are restricted by your administrator</span>
+        </div>
+      )}
+
       {/* Quick Call bar */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 32px', borderBottom: '1px solid var(--border-default)', background: 'var(--bg-secondary)' }}>
+      {isFeatureVisible('call') && <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 32px', borderBottom: '1px solid var(--border-default)', background: 'var(--bg-secondary)' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1 }}>
           <span style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-quaternary)' }}>Lead Name</span>
           <input className="form-input" value={leadName} onChange={e => setLeadName(e.target.value)} placeholder="e.g. John" style={{ padding: '6px 10px', fontSize: 13 }} />
@@ -483,7 +613,7 @@ export default function AgentDetailPage() {
           <input className="form-input" value={callToNumber} onChange={e => setCallToNumber(e.target.value)} placeholder="+1 234 567 8900" style={{ padding: '6px 10px', fontSize: 13 }} />
         </div>
         <SneakyButton text={calling ? 'Calling...' : 'Call Now'} onClick={handleCall} loading={calling} disabled={calling || !callPhoneId || !callToNumber} />
-      </div>
+      </div>}
 
       {/* Tab strip */}
       <div className="config-tabs">
@@ -502,39 +632,182 @@ export default function AgentDetailPage() {
             <div className="config-section">
               <div className="config-section-title"><Icon name="user" size={14} /> Agent Identity</div>
               <div className="form-group"><label className="form-label">Name</label><input className="form-input" value={name} onChange={e => set(setName)(e.target.value)} /></div>
-              {provider === 'elevenlabs' && <div className="form-group" style={{ marginTop: 12 }}><label className="form-label">Language</label><CustomSelect value={language} onChange={e => set(setLanguage)(e.target.value)} options={liveLanguages} /></div>}
-              <div className="form-group" style={{ marginTop: 12 }}><label className="form-label">First Message</label><div style={{ fontSize: 11, color: 'var(--text-quaternary)', marginBottom: 4 }}>The agent&apos;s opening greeting.</div><textarea className="form-input" value={firstMessage} onChange={e => set(setFirstMessage)(e.target.value)} rows={3} style={{ resize: 'vertical' }} /></div>
-              {provider === 'elevenlabs' && <Toggle value={disableFirstMsgInterrupt} onChange={set(setDisableFirstMsgInterrupt)} label="Block Interruptions" desc="Prevent users from interrupting the first message." />}
+              {(provider === 'elevenlabs' || provider === 'gemini') && isFeatureVisible('language') && <div className="form-group" style={{ marginTop: 12 }}><label className="form-label">Language</label><CustomSelect value={language} onChange={e => set(setLanguage)(e.target.value)} options={liveLanguages} /></div>}
+              {isFeatureVisible('first_message') && <div className="form-group" style={{ marginTop: 12 }}><label className="form-label">First Message</label><div style={{ fontSize: 11, color: 'var(--text-quaternary)', marginBottom: 4 }}>The agent&apos;s opening greeting.</div><textarea className="form-input" value={firstMessage} onChange={e => set(setFirstMessage)(e.target.value)} rows={3} style={{ resize: 'vertical' }} /></div>}
+              {provider === 'elevenlabs' && isFeatureVisible('first_message') && <Toggle value={disableFirstMsgInterrupt} onChange={set(setDisableFirstMsgInterrupt)} label="Block Interruptions" desc="Prevent users from interrupting the first message." />}
+            </div>
+
+            {/* Agent Overview Card — keeps page from looking empty */}
+            <div className="config-section" style={{ marginTop: 24 }}>
+              <div className="config-section-title"><Icon name="info" size={14} /> Agent Overview</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 12, marginTop: 8 }}>
+                <div style={{ padding: '14px 16px', borderRadius: 8, background: 'var(--bg-overlay)', border: '1px solid var(--border-default)' }}>
+                  <div style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-quaternary)', marginBottom: 4 }}>Provider</div>
+                  <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span className={`provider-badge provider-${provider}`} style={{ fontSize: 11 }}>{provider === 'vapi' ? 'Vapi' : provider === 'gemini' ? 'Gemini' : 'ElevenLabs'}</span>
+                  </div>
+                </div>
+                <div style={{ padding: '14px 16px', borderRadius: 8, background: 'var(--bg-overlay)', border: '1px solid var(--border-default)' }}>
+                  <div style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-quaternary)', marginBottom: 4 }}>Agent ID</div>
+                  <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}>{agentId}</div>
+                </div>
+                <div style={{ padding: '14px 16px', borderRadius: 8, background: 'var(--bg-overlay)', border: '1px solid var(--border-default)' }}>
+                  <div style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-quaternary)', marginBottom: 4 }}>Language</div>
+                  <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--text-primary)' }}>{language || 'en'}</div>
+                </div>
+                <div style={{ padding: '14px 16px', borderRadius: 8, background: 'var(--bg-overlay)', border: '1px solid var(--border-default)' }}>
+                  <div style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-quaternary)', marginBottom: 4 }}>AI Model</div>
+                  <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--text-primary)' }}>{llm || 'gpt-4o-mini'}</div>
+                </div>
+              </div>
             </div>
           </>)}
 
           {activeTab === 'prompt' && (<>
             <div className="config-section">
               <div className="config-section-title"><Icon name="brain" size={14} /> AI Model</div>
-              {provider === 'vapi' && (
-                <div className="form-group"><label className="form-label">Model Provider</label><CustomSelect value={modelProvider} onChange={e => { set(setModelProvider)(e.target.value); const models = VAPI_LLM_OPTIONS[e.target.value]; if (models?.length) set(setLlm)(models[0].value); }} options={VAPI_MODEL_PROVIDERS.map(p => ({ value: p.value, label: p.label }))} /></div>
+              {isFeatureVisible('llm') && provider === 'vapi' && (
+                <div className="form-group"><label className="form-label">Model Provider</label><CustomSelect value={modelProvider} onChange={e => { set(setModelProvider)(e.target.value); const models = VAPI_LLM_OPTIONS[e.target.value]; if (models?.length) set(setLlm)(models[0].value); }} options={(() => { const opts = VAPI_MODEL_PROVIDERS.map(p => ({ value: p.value, label: p.label })); if (modelProvider && !opts.find(o => o.value === modelProvider)) opts.unshift({ value: modelProvider, label: modelProvider }); return opts; })()} /></div>
               )}
-              <div className="form-group" style={{ marginTop: 12 }}><label className="form-label">LLM</label><CustomSelect value={llm} onChange={e => set(setLlm)(e.target.value)} options={provider === 'vapi' ? (VAPI_LLM_OPTIONS[modelProvider] || []) : liveLLMs} /></div>
-              <div className="form-group" style={{ marginTop: 12 }}><label className="form-label">System Prompt</label><textarea className="form-input" value={prompt} onChange={e => set(setPrompt)(e.target.value)} rows={10} style={{ resize: 'vertical', fontFamily: 'var(--font-mono)', fontSize: 13 }} placeholder="You are a helpful AI assistant..." /></div>
-              <div className="form-group" style={{ marginTop: 12 }}><label className="form-label">Temperature: {temperature.toFixed(2)}</label><input type="range" className="config-slider" min="0" max="1" step="0.01" value={temperature} onChange={e => set(setTemperature)(parseFloat(e.target.value))} /></div>
-              {provider === 'elevenlabs' && <Toggle value={ignoreDefaultPersonality} onChange={set(setIgnoreDefaultPersonality)} label="Ignore Default Personality" desc="Disables ElevenLabs default personality traits." />}
+              {isFeatureVisible('llm') && <div className="form-group" style={{ marginTop: 12 }}><label className="form-label">{provider === 'gemini' ? 'Model' : 'LLM'}</label><CustomSelect value={llm} onChange={e => set(setLlm)(e.target.value)} options={(() => { const opts = provider === 'gemini' ? GEMINI_MODELS : provider === 'vapi' ? (VAPI_LLM_OPTIONS[modelProvider] || []) : liveLLMs; if ((provider === 'vapi' || provider === 'gemini') && llm && !opts.find(o => o.value === llm)) return [{ value: llm, label: llm }, ...opts]; return opts; })()} /></div>}
+              {isFeatureVisible('prompt') && <div className="form-group" style={{ marginTop: 12 }}><label className="form-label">System Prompt</label><textarea className="form-input" value={prompt} onChange={e => set(setPrompt)(e.target.value)} rows={10} style={{ resize: 'vertical', fontFamily: 'var(--font-mono)', fontSize: 13 }} placeholder="You are a helpful AI assistant..." /></div>}
+              {isFeatureVisible('temperature') && <div className="form-group" style={{ marginTop: 12 }}><label className="form-label">Temperature: {temperature.toFixed(2)}</label><input type="range" className="config-slider" min="0" max={provider === 'gemini' ? '2' : '1'} step="0.01" value={temperature} onChange={e => set(setTemperature)(parseFloat(e.target.value))} />{provider === 'gemini' && <div style={{ fontSize: 11, color: 'var(--text-quaternary)', marginTop: 4 }}>Recommended: 1.0 for Gemini 3 models</div>}</div>}
+              {isFeatureVisible('temperature') && provider === 'elevenlabs' && <Toggle value={ignoreDefaultPersonality} onChange={set(setIgnoreDefaultPersonality)} label="Ignore Default Personality" desc="Disables ElevenLabs default personality traits." />}
             </div>
           </>)}
 
           {activeTab === 'voice' && (<>
             {provider === 'vapi' ? (<>
-              <div className="config-section">
-                <div className="config-section-title"><Icon name="mic" size={14} /> Voice Configuration</div>
-                <div className="form-group"><label className="form-label">Voice Provider</label><CustomSelect value={voiceProvider} onChange={e => set(setVoiceProvider)(e.target.value)} options={VAPI_VOICE_PROVIDERS.map(p => ({ value: p.value, label: p.label }))} /></div>
-                <div className="form-group" style={{ marginTop: 12 }}><label className="form-label">Voice ID</label><input className="form-input" value={voiceId} onChange={e => set(setVoiceId)(e.target.value)} placeholder="Enter voice ID from your voice provider" /><div style={{ fontSize: 11, color: 'var(--text-quaternary)', marginTop: 4 }}>The voice ID from your selected voice provider.</div></div>
-                <div className="form-group" style={{ marginTop: 12 }}><label className="form-label">Stability: {stability.toFixed(2)}</label><input type="range" className="config-slider" min="0" max="1" step="0.01" value={stability} onChange={e => set(setStability)(parseFloat(e.target.value))} /></div>
-                <div className="form-group" style={{ marginTop: 12 }}><label className="form-label">Speed: {speed.toFixed(2)}</label><input type="range" className="config-slider" min="0.7" max="1.2" step="0.05" value={speed} onChange={e => set(setSpeed)(parseFloat(e.target.value))} /></div>
+              {/* ── Summary Cards ── */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 24 }}>
+                {/* Voice Card */}
+                <div
+                  onClick={() => setSlidePanel('voice')}
+                  className="vt-card"
+                  style={{ cursor: 'pointer', position: 'relative', padding: '22px 24px', background: 'linear-gradient(135deg, rgba(16,185,129,0.04) 0%, transparent 60%)', borderRadius: 14, border: '1px solid rgba(255,255,255,0.06)', transition: 'all 0.25s cubic-bezier(0.16,1,0.3,1)', overflow: 'hidden' }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(16,185,129,0.35)'; e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 8px 30px rgba(16,185,129,0.08), 0 0 0 1px rgba(16,185,129,0.15)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)'; e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = 'none'; }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <div style={{ width: 30, height: 30, borderRadius: 8, background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <Icon name="mic" size={14} />
+                      </div>
+                      <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-quaternary)' }}>VOICE</span>
+                    </div>
+                    <div style={{ width: 28, height: 28, borderRadius: 7, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s' }}>
+                      <Icon name="chevron-right" size={13} />
+                    </div>
+                  </div>
+                  <div style={{ fontSize: 15, fontWeight: 650, color: 'var(--text-primary)', letterSpacing: '-0.01em' }}>{(VAPI_VOICE_PROVIDERS.find(p => p.value === voiceProvider)?.label) || voiceProvider || 'Not set'}</div>
+                  <div style={{ fontSize: 11.5, color: 'var(--text-tertiary)', marginTop: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{voiceId ? voiceId.substring(0, 22) + (voiceId.length > 22 ? '...' : '') : 'No voice selected'}</div>
+                  {voiceModel && <div style={{ fontSize: 10, fontWeight: 500, color: 'rgba(16,185,129,0.8)', marginTop: 8, padding: '3px 8px', background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.12)', borderRadius: 6, display: 'inline-block' }}>{voiceModel}</div>}
+                </div>
+
+                {/* Transcriber Card */}
+                <div
+                  onClick={() => setSlidePanel('transcriber')}
+                  className="vt-card"
+                  style={{ cursor: 'pointer', position: 'relative', padding: '22px 24px', background: 'linear-gradient(135deg, rgba(245,158,11,0.04) 0%, transparent 60%)', borderRadius: 14, border: '1px solid rgba(255,255,255,0.06)', transition: 'all 0.25s cubic-bezier(0.16,1,0.3,1)', overflow: 'hidden' }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(245,158,11,0.35)'; e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 8px 30px rgba(245,158,11,0.08), 0 0 0 1px rgba(245,158,11,0.15)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)'; e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = 'none'; }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <div style={{ width: 30, height: 30, borderRadius: 8, background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <Icon name="audio-lines" size={14} />
+                      </div>
+                      <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-quaternary)' }}>TRANSCRIBER</span>
+                    </div>
+                    <div style={{ width: 28, height: 28, borderRadius: 7, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s' }}>
+                      <Icon name="chevron-right" size={13} />
+                    </div>
+                  </div>
+                  <div style={{ fontSize: 15, fontWeight: 650, color: 'var(--text-primary)', letterSpacing: '-0.01em' }}>{(VAPI_TRANSCRIBER_PROVIDERS.find(p => p.value === transcriberProvider)?.label) || transcriberProvider}</div>
+                  <div style={{ fontSize: 11.5, color: 'var(--text-tertiary)', marginTop: 4 }}>{(VAPI_TRANSCRIBER_MODELS[transcriberProvider]?.find(m => m.value === transcriberModel)?.label) || transcriberModel}</div>
+                  <div style={{ fontSize: 10, fontWeight: 500, color: 'rgba(245,158,11,0.8)', marginTop: 8, padding: '3px 8px', background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.12)', borderRadius: 6, display: 'inline-block' }}>{transcriberLanguage}</div>
+                </div>
               </div>
-              <div className="config-section" style={{ marginTop: 20 }}>
-                <div className="config-section-title"><Icon name="audio-lines" size={14} /> Transcriber</div>
-                <div className="form-group"><label className="form-label">Transcriber Provider</label><CustomSelect value={transcriberProvider} onChange={e => set(setTranscriberProvider)(e.target.value)} options={VAPI_TRANSCRIBER_PROVIDERS.map(p => ({ value: p.value, label: p.label }))} /></div>
-                <div className="form-group" style={{ marginTop: 12 }}><label className="form-label">Transcriber Model</label><input className="form-input" value={transcriberModel} onChange={e => set(setTranscriberModel)(e.target.value)} placeholder="e.g. nova-2" /></div>
+
+              {/* ── Voice Settings Slide Panel ── */}
+              <SlidePanel open={slidePanel === 'voice'} onClose={() => setSlidePanel(null)} title="Voice Settings" subtitle="Configure the text-to-speech voice your assistant uses to speak." icon="mic" accentColor="#10b981">
+                {/* Provider & Voice section */}
+                <div style={{ background: 'rgba(255,255,255,0.02)', borderRadius: 12, border: '1px solid rgba(255,255,255,0.05)', padding: '20px', display: 'flex', flexDirection: 'column', gap: 18 }}>
+                  <div className="form-group"><label className="form-label">Provider</label><CustomSelect value={voiceProvider} onChange={e => set(setVoiceProvider)(e.target.value)} options={(() => { const opts = VAPI_VOICE_PROVIDERS.map(p => ({ value: p.value, label: p.label })); if (voiceProvider && !opts.find(o => o.value === voiceProvider)) opts.unshift({ value: voiceProvider, label: voiceProvider }); return opts; })()} /></div>
+
+                  <div className="form-group"><label className="form-label">Voice</label><input className="form-input" value={voiceId} onChange={e => set(setVoiceId)(e.target.value)} placeholder="Enter voice ID from your provider" /><div style={{ fontSize: 11, color: 'var(--text-quaternary)', marginTop: 6, lineHeight: 1.5 }}>The unique voice identifier from your selected provider.</div></div>
+                </div>
+
+                {/* Model & Speed section */}
+                {(VAPI_VOICE_MODELS[voiceProvider] || VAPI_VOICE_SPEED_PROVIDERS.includes(voiceProvider)) && (
+                  <div style={{ background: 'rgba(255,255,255,0.02)', borderRadius: 12, border: '1px solid rgba(255,255,255,0.05)', padding: '20px', marginTop: 16, display: 'flex', flexDirection: 'column', gap: 18 }}>
+                    {VAPI_VOICE_MODELS[voiceProvider] && (
+                      <div className="form-group"><label className="form-label">Voice Model</label><CustomSelect value={voiceModel} onChange={e => set(setVoiceModel)(e.target.value)} options={(() => { const opts = VAPI_VOICE_MODELS[voiceProvider] || []; if (voiceModel && !opts.find(o => o.value === voiceModel)) return [{ value: voiceModel, label: voiceModel }, ...opts]; return opts; })()} /><div style={{ fontSize: 11, color: 'var(--text-quaternary)', marginTop: 6, lineHeight: 1.5 }}>This is the model that will be used.</div></div>
+                    )}
+
+                    {VAPI_VOICE_SPEED_PROVIDERS.includes(voiceProvider) && (
+                      <div className="form-group">
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                          <label className="form-label" style={{ margin: 0 }}><Icon name="gauge" size={12} style={{ marginRight: 6, opacity: 0.5 }} />Speed</label>
+                          <span style={{ fontSize: 13, fontWeight: 700, color: '#10b981', fontFeatureSettings: '"tnum"', background: 'rgba(16,185,129,0.08)', padding: '3px 12px', borderRadius: 8, border: '1px solid rgba(16,185,129,0.15)', letterSpacing: '-0.01em' }}>{voiceSpeed.toFixed(2)}</span>
+                        </div>
+                        <div style={{ fontSize: 11, color: 'var(--text-quaternary)', marginBottom: 10, lineHeight: 1.5 }}>The speed of the voice output.</div>
+                        <input type="range" min="0.25" max="2.0" step="0.05" value={voiceSpeed} onChange={e => set(setVoiceSpeed)(parseFloat(e.target.value))} />
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: 'var(--text-quaternary)', marginTop: 8 }}><span>Slower</span><span>Faster</span></div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Additional Configuration */}
+                <div style={{ marginTop: 24, paddingTop: 20, borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+                    <Icon name="settings" size={13} style={{ opacity: 0.4 }} />
+                    <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-quaternary)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Additional Configuration</span>
+                  </div>
+                  <div style={{ background: 'rgba(255,255,255,0.02)', borderRadius: 12, border: '1px solid rgba(255,255,255,0.05)', padding: '16px 20px' }}>
+                    <Toggle value={voiceCachingEnabled} onChange={set(setVoiceCachingEnabled)} label="Voice Caching" desc="Cache voice responses for faster playback on repeated phrases." />
+                    <div style={{ height: 1, background: 'rgba(255,255,255,0.04)', margin: '4px 0' }} />
+                    <Toggle value={fillerInjectionEnabled} onChange={set(setFillerInjectionEnabled)} label="Filler Injection" desc="Add natural filler words (um, uh) during processing pauses." />
+                  </div>
+                </div>
+              </SlidePanel>
+
+              {/* ── Transcriber Settings Slide Panel ── */}
+              <SlidePanel open={slidePanel === 'transcriber'} onClose={() => setSlidePanel(null)} title="Transcriber Settings" subtitle="Configure how speech is converted to text." icon="audio-lines" accentColor="#f59e0b">
+                {/* Provider & Model section */}
+                <div style={{ background: 'rgba(255,255,255,0.02)', borderRadius: 12, border: '1px solid rgba(255,255,255,0.05)', padding: '20px', display: 'flex', flexDirection: 'column', gap: 18 }}>
+                  <div className="form-group"><label className="form-label">Provider</label><CustomSelect value={transcriberProvider} onChange={e => { set(setTranscriberProvider)(e.target.value); const models = VAPI_TRANSCRIBER_MODELS[e.target.value]; if (models?.length) set(setTranscriberModel)(models[0].value); }} options={VAPI_TRANSCRIBER_PROVIDERS.map(p => ({ value: p.value, label: p.label }))} /></div>
+
+                  <div className="form-group"><label className="form-label">Model</label><CustomSelect value={transcriberModel} onChange={e => set(setTranscriberModel)(e.target.value)} options={VAPI_TRANSCRIBER_MODELS[transcriberProvider] || [{ value: transcriberModel, label: transcriberModel }]} /><div style={{ fontSize: 11, color: 'var(--text-quaternary)', marginTop: 6, lineHeight: 1.5 }}>The speech recognition model.</div></div>
+
+                  <div className="form-group"><label className="form-label">Language</label><input className="form-input" value={transcriberLanguage} onChange={e => set(setTranscriberLanguage)(e.target.value)} placeholder="en" /><div style={{ fontSize: 11, color: 'var(--text-quaternary)', marginTop: 6, lineHeight: 1.5 }}>BCP-47 language code (e.g. en, es, fr, de).</div></div>
+                </div>
+
+                {/* Additional Configuration */}
+                <div style={{ marginTop: 24, paddingTop: 20, borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+                    <Icon name="settings" size={13} style={{ opacity: 0.4 }} />
+                    <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-quaternary)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Additional Configuration</span>
+                  </div>
+                  <div style={{ background: 'rgba(255,255,255,0.02)', borderRadius: 12, border: '1px solid rgba(255,255,255,0.05)', padding: '16px 20px' }}>
+                    <Toggle value={transcriberSmartFormat} onChange={set(setTranscriberSmartFormat)} label="Smart Format" desc="Automatically format transcriptions with punctuation and casing." />
+                  </div>
+                </div>
+              </SlidePanel>
+            </>) : provider === 'gemini' ? (<>
+            {/* Gemini Voice Selection */}
+            <div className="config-section">
+              <div className="config-section-title"><Icon name="mic" size={14} /> Gemini Voice</div>
+              <div className="form-group">
+                <label className="form-label">Voice</label>
+                <CustomSelect value={voiceId || (config?.gemini_voice as string) || 'Kore'} onChange={e => set(setVoiceId)(e.target.value)} options={GEMINI_VOICES} />
               </div>
+              <div className="form-group" style={{ marginTop: 12 }}>
+                <label className="form-label">Max Duration (seconds)</label>
+                <input className="form-input" type="number" value={maxDuration} onChange={e => set(setMaxDuration)(parseInt(e.target.value))} min={30} max={3600} />
+              </div>
+            </div>
             </>) : (<>
             {/* ElevenLabs Voice Selection */}
             <div className="config-section">
@@ -703,6 +976,49 @@ export default function AgentDetailPage() {
             </>)}
           </>)}
 
+          {activeTab === 'gemini-settings' && provider === 'gemini' && (<>
+            {/* ── Thinking & Reasoning ── */}
+            <div className="config-section">
+              <div className="config-section-title"><Icon name="brain" size={14} /> Thinking & Reasoning</div>
+              <div className="form-group">
+                <label className="form-label">Thinking Level</label>
+                <div style={{ fontSize: 11, color: 'var(--text-quaternary)', marginBottom: 4 }}>Controls the depth of internal reasoning before responding. Higher levels improve complex tasks but add latency.</div>
+                <CustomSelect value={thinkingLevel} onChange={e => set(setThinkingLevel)(e.target.value)} options={GEMINI_THINKING_LEVELS} />
+              </div>
+              <div className="form-group" style={{ marginTop: 12 }}>
+                <label className="form-label">Media Resolution</label>
+                <div style={{ fontSize: 11, color: 'var(--text-quaternary)', marginBottom: 4 }}>Controls the number of tokens per image for vision processing.</div>
+                <CustomSelect value={mediaResolution} onChange={e => set(setMediaResolution)(e.target.value)} options={GEMINI_MEDIA_RESOLUTIONS} />
+              </div>
+            </div>
+
+            {/* ── Session Context ── */}
+            <div className="config-section" style={{ marginTop: 24 }}>
+              <div className="config-section-title"><Icon name="database" size={14} /> Session Context</div>
+              <div className="form-group">
+                <label className="form-label">Max Context Size: {maxContextSize.toLocaleString()} tokens</label>
+                <input type="range" className="config-slider" min={8000} max={128000} step={1000} value={maxContextSize} onChange={e => set(setMaxContextSize)(parseInt(e.target.value))} />
+              </div>
+              <div className="form-group" style={{ marginTop: 12 }}>
+                <label className="form-label">Target Context Size: {targetContextSize.toLocaleString()} tokens</label>
+                <div style={{ fontSize: 11, color: 'var(--text-quaternary)', marginBottom: 4 }}>Target size after context window compression kicks in.</div>
+                <input type="range" className="config-slider" min={4000} max={maxContextSize} step={1000} value={targetContextSize} onChange={e => set(setTargetContextSize)(parseInt(e.target.value))} />
+              </div>
+            </div>
+
+            {/* ── Tools & Capabilities ── */}
+            <div className="config-section" style={{ marginTop: 24 }}>
+              <div className="config-section-title"><Icon name="tool" size={14} /> Tools & Capabilities</div>
+              <Toggle value={groundingGoogleSearch} onChange={set(setGroundingGoogleSearch)} label="Grounding with Google Search" desc="Allow the model to search the web for up-to-date information during conversations." />
+              <div style={{ marginTop: 12 }}>
+                <Toggle value={affectiveDialog} onChange={set(setAffectiveDialog)} label="Affective Dialog" desc="Adapts response style and tone to match the user's input expression. (v1alpha)" />
+              </div>
+              <div style={{ marginTop: 12 }}>
+                <Toggle value={proactiveAudio} onChange={set(setProactiveAudio)} label="Proactive Audio" desc="Model proactively decides not to respond when content is not relevant. (v1alpha)" />
+              </div>
+            </div>
+          </>)}
+
           {activeTab === 'call-behavior' && (<>
             <div className="config-section">
               <div className="config-section-title"><Icon name="phone-call" size={14} /> Call Behavior</div>
@@ -758,8 +1074,15 @@ export default function AgentDetailPage() {
                   <CustomSelect value={backgroundSound} onChange={e => set(setBackgroundSound)(e.target.value)} options={VAPI_BACKGROUND_SOUNDS} />
                 </div>
 
+                <div className="form-group" style={{ marginTop: 16 }}>
+                  <label className="form-label">Voicemail Detection</label>
+                  <div style={{ fontSize: 11, color: 'var(--text-quaternary)', marginBottom: 4 }}>Provider used to detect when a voicemail answers the call.</div>
+                  <CustomSelect value={voicemailDetection} onChange={e => set(setVoicemailDetection)(e.target.value)} options={VAPI_VOICEMAIL_DETECTION} />
+                </div>
+
+                <Toggle value={endCallFunctionEnabled} onChange={set(setEndCallFunctionEnabled)} label="End Call Function" desc="Allow the AI to programmatically end the call." />
                 <Toggle value={emotionRecognitionEnabled} onChange={set(setEmotionRecognitionEnabled)} label="Emotion Recognition" desc="Detect caller emotions and adjust responses." />
-                <Toggle value={voiceCachingEnabled} onChange={set(setVoiceCachingEnabled)} label="Voice Caching" desc="Cache voice responses for lower latency on repeated phrases." />
+                <Toggle value={backgroundDenoisingEnabled} onChange={set(setBackgroundDenoisingEnabled)} label="Background Denoising" desc="Remove background noise from the caller's audio." />
               </>)}
             </div>
           </>)}

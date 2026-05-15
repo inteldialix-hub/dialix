@@ -89,7 +89,7 @@ export default function VoiceAIOS() {
   const current = features[activeFeature];
 
   return (
-    <section id="platform" className="section-pad bg-zinc-50/50 dark:bg-zinc-900/30">
+    <section id="platform" className="section-pad section-alt">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <Reveal>

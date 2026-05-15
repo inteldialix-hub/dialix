@@ -17,10 +17,12 @@ const NAV_ITEMS = [
   { href: '/dashboard/agents', icon: 'bot', label: 'Agents' },
   { href: '/dashboard/phone-numbers', icon: 'phone', label: 'Phone Numbers' },
   { href: '/dashboard/history', icon: 'bar-chart-2', label: 'Analysis' },
+  { href: '/dashboard/billing', icon: 'credit-card', label: 'Billing' },
 ];
 
 const ADMIN_ITEMS = [
-  { href: '/dashboard/admin', icon: 'shield', label: 'Admin Panel' },
+  { href: '/dashboard/admin', icon: 'shield', label: 'Admin Panel', exact: true },
+  { href: '/dashboard/admin/pricing', icon: 'credit-card', label: 'Pricing Plans' },
 ];
 
 export function Sidebar() {
@@ -34,7 +36,7 @@ export function Sidebar() {
   };
 
   return (
-    <aside className="sidebar">
+    <aside className="sidebar" aria-label="Dashboard navigation">
       {/* Logo */}
       <div className="sidebar-logo">
         <Link href="/dashboard" style={{ display: 'flex', alignItems: 'center', gap: '10px', textDecoration: 'none', color: 'inherit' }}>
@@ -44,7 +46,7 @@ export function Sidebar() {
       </div>
 
       {/* Navigation */}
-      <nav>
+      <nav aria-label="Main navigation">
         <div className="nav-section-label">Workspace</div>
         {NAV_ITEMS.map(item => (
           <Link
@@ -66,7 +68,7 @@ export function Sidebar() {
               <Link
                 key={item.href}
                 href={item.href}
-                className={`nav-item ${isActive(item.href) ? 'active' : ''}`}
+                className={`nav-item ${isActive(item.href, item.exact) ? 'active' : ''}`}
               >
                 <Icon name={item.icon} size={18} className="icon" />
                 <span>{item.label}</span>
@@ -95,13 +97,15 @@ export function Sidebar() {
           </div>
           <span className="user-name">{client?.name || 'User'}</span>
           <div style={{ flex: 1 }} />
-          <div
+          <button
             className="btn-icon"
             onClick={logout}
             title="Sign out"
+            aria-label="Sign out"
+            type="button"
           >
             <Icon name="log-out" size={14} />
-          </div>
+          </button>
         </div>
       </div>
     </aside>

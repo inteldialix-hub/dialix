@@ -180,7 +180,8 @@ export default function HeroSection() {
     <section className="relative min-h-[100dvh] hero-gradient overflow-hidden">
       <BackgroundPaths />
       <OrganicBranches />
-      <div className="absolute inset-0 dot-grid opacity-20 pointer-events-none" aria-hidden="true" />
+      <div className="absolute inset-0 dot-grid opacity-40 dark:opacity-20 pointer-events-none" aria-hidden="true" />
+      <div className="absolute inset-0 grid-lines opacity-30 dark:opacity-10 pointer-events-none" aria-hidden="true" />
 
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 lg:pt-32 pb-20">
         {/* Eyebrow */}

@@ -74,7 +74,7 @@ const industries = [
 
 export default function IndustryAgents() {
   return (
-    <section id="industries" className="section-pad">
+    <section id="industries" className="section-pad section-alt">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <Reveal>
           <span className="eyebrow-badge mb-6 inline-flex">

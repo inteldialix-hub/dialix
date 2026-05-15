@@ -36,7 +36,8 @@ async function pgRun(sql, params = []) {
   let { text, values } = mapQuery(sql, params);
   
   // For INSERT statements, add RETURNING id to get the inserted row ID
-  if (text.trim().toUpperCase().startsWith('INSERT')) {
+  // (only if not already present to avoid double RETURNING)
+  if (text.trim().toUpperCase().startsWith('INSERT') && !/RETURNING\s/i.test(text)) {
     text += ' RETURNING id';
   }
   
@@ -47,7 +48,27 @@ async function pgRun(sql, params = []) {
   };
 }
 
+let persistTimer = null;
+
 function persist() {
+  // Debounce: coalesce rapid writes into a single async flush (100ms)
+  if (persistTimer) clearTimeout(persistTimer);
+  persistTimer = setTimeout(() => {
+    persistTimer = null;
+    if (db) {
+      try {
+        const data = db.export();
+        const buffer = Buffer.from(data);
+        fs.writeFileSync(DB_PATH, buffer);
+      } catch (err) {
+        console.error('[DB] persist() failed:', err.message);
+      }
+    }
+  }, 100);
+}
+
+// Synchronous persist for init/seed — only used during startup
+function persistSync() {
   if (db) {
     const data = db.export();
     const buffer = Buffer.from(data);
@@ -91,20 +112,20 @@ async function initSqliteDb() {
 
   try {
     db.run('ALTER TABLE client_agents ADD COLUMN can_edit INTEGER DEFAULT 1');
-    persist();
+    persistSync();
     console.log('✓ Migrated: added can_edit column to client_agents');
   } catch (e) {}
 
   try {
     db.run('ALTER TABLE client_agents ADD COLUMN allowed_features TEXT DEFAULT NULL');
-    persist();
+    persistSync();
     console.log('✓ Migrated: added allowed_features column to client_agents');
   } catch (e) {}
 
   // Vapi provider support: track which provider each agent uses
   try {
     db.run("ALTER TABLE client_agents ADD COLUMN provider TEXT DEFAULT 'elevenlabs'");
-    persist();
+    persistSync();
     console.log('✓ Migrated: added provider column to client_agents');
   } catch (e) {}
 
@@ -123,8 +144,14 @@ async function initSqliteDb() {
 
   try {
     db.run('ALTER TABLE clients ADD COLUMN must_change_password INTEGER DEFAULT 0');
-    persist();
+    persistSync();
     console.log('✓ Migrated: added must_change_password column to clients');
+  } catch (e) {}
+
+  try {
+    db.run("ALTER TABLE clients ADD COLUMN updated_at TEXT DEFAULT (datetime('now'))");
+    persistSync();
+    console.log('✓ Migrated: added updated_at column to clients');
   } catch (e) {}
 
   db.run(`
@@ -180,6 +207,86 @@ async function initSqliteDb() {
     )
   `);
 
+  // ─── Pricing Plans ──────────────────────────────────────────────
+  db.run(`
+    CREATE TABLE IF NOT EXISTS pricing_plans (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      slug TEXT UNIQUE NOT NULL,
+      price REAL NOT NULL DEFAULT 0,
+      billing_period TEXT NOT NULL DEFAULT 'monthly',
+      max_agents INTEGER DEFAULT -1,
+      max_calls_per_month INTEGER DEFAULT -1,
+      max_phone_numbers INTEGER DEFAULT -1,
+      features TEXT DEFAULT '{}',
+      is_default INTEGER DEFAULT 0,
+      is_active INTEGER DEFAULT 1,
+      sort_order INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    )
+  `);
+
+  // Add plan_id column to clients
+  try {
+    db.run('ALTER TABLE clients ADD COLUMN plan_id INTEGER DEFAULT NULL REFERENCES pricing_plans(id)');
+    persistSync();
+    console.log('✓ Migrated: added plan_id column to clients');
+  } catch (e) {}
+
+  // Seed default pricing plans if none exist
+  const existingPlans = db.exec('SELECT COUNT(*) FROM pricing_plans');
+  const planCount = existingPlans[0]?.values[0]?.[0] || 0;
+  if (planCount === 0) {
+    db.run(`INSERT INTO pricing_plans (name, slug, price, billing_period, max_agents, max_calls_per_month, max_phone_numbers, features, is_default, sort_order)
+      VALUES ('Starter', 'starter', 0, 'monthly', 1, 100, 1, '{"dashboard":true,"basic_analytics":true}', 1, 0)`);
+    db.run(`INSERT INTO pricing_plans (name, slug, price, billing_period, max_agents, max_calls_per_month, max_phone_numbers, features, sort_order)
+      VALUES ('Professional', 'professional', 49, 'monthly', 5, 1000, 5, '{"dashboard":true,"basic_analytics":true,"advanced_analytics":true,"webhooks":true,"call_recording":true}', 1)`);
+    db.run(`INSERT INTO pricing_plans (name, slug, price, billing_period, max_agents, max_calls_per_month, max_phone_numbers, features, sort_order)
+      VALUES ('Business', 'business', 149, 'monthly', 20, 5000, 20, '{"dashboard":true,"basic_analytics":true,"advanced_analytics":true,"webhooks":true,"call_recording":true,"priority_support":true,"api_access":true}', 2)`);
+    db.run(`INSERT INTO pricing_plans (name, slug, price, billing_period, max_agents, max_calls_per_month, max_phone_numbers, features, sort_order)
+      VALUES ('Enterprise', 'enterprise', 499, 'monthly', -1, -1, -1, '{"dashboard":true,"basic_analytics":true,"advanced_analytics":true,"webhooks":true,"call_recording":true,"priority_support":true,"api_access":true,"custom_integrations":true,"sla":true}', 3)`);
+    persistSync();
+    console.log('✓ Seeded default pricing plans');
+  }
+
+  // ─── Gemini Agents (local config storage) ────────────────────────
+  db.run(`
+    CREATE TABLE IF NOT EXISTS gemini_agents (
+      agent_id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      system_prompt TEXT DEFAULT 'You are a helpful AI assistant.',
+      voice TEXT DEFAULT 'Kore',
+      model TEXT DEFAULT 'models/gemini-3.1-flash-live-preview',
+      temperature REAL DEFAULT 1.0,
+      language TEXT DEFAULT 'en',
+      max_duration_seconds INTEGER DEFAULT 600,
+      first_message TEXT DEFAULT '',
+      thinking_level TEXT DEFAULT 'none',
+      media_resolution TEXT DEFAULT 'medium',
+      max_context_size INTEGER DEFAULT 128000,
+      target_context_size INTEGER DEFAULT 64000,
+      grounding_google_search INTEGER DEFAULT 0,
+      affective_dialog INTEGER DEFAULT 0,
+      proactive_audio INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    )
+  `);
+  // Migrate existing gemini_agents tables missing new columns
+  const geminiNewCols = [
+    ["thinking_level", "TEXT DEFAULT 'none'"],
+    ["media_resolution", "TEXT DEFAULT 'medium'"],
+    ["max_context_size", "INTEGER DEFAULT 128000"],
+    ["target_context_size", "INTEGER DEFAULT 64000"],
+    ["grounding_google_search", "INTEGER DEFAULT 0"],
+    ["affective_dialog", "INTEGER DEFAULT 0"],
+    ["proactive_audio", "INTEGER DEFAULT 0"],
+  ];
+  for (const [col, def] of geminiNewCols) {
+    try { db.run(`ALTER TABLE gemini_agents ADD COLUMN ${col} ${def}`); } catch {}
+  }
+
   // Performance indexes
   try {
     db.run('CREATE INDEX IF NOT EXISTS idx_clients_email ON clients(email)');
@@ -194,24 +301,53 @@ async function initSqliteDb() {
     db.run('CREATE INDEX IF NOT EXISTS idx_webhook_subscriptions_client_id ON webhook_subscriptions(client_id)');
     db.run('CREATE INDEX IF NOT EXISTS idx_webhook_subscriptions_event ON webhook_subscriptions(event)');
     db.run('CREATE INDEX IF NOT EXISTS idx_call_metrics_conversation_id ON call_metrics(conversation_id)');
-    persist();
+    db.run('CREATE INDEX IF NOT EXISTS idx_gemini_agents_agent_id ON gemini_agents(agent_id)');
+    persistSync();
     console.log('✓ Database: Performance indexes created');
   } catch (e) {
     console.log('⚠ Database: Indexes may already exist');
   }
-  // ─── Seed default admin account if none exists ─────────────────
-  const adminEmail = process.env.ADMIN_EMAIL || 'admin@dialix.ai';
-  const adminPassword = process.env.ADMIN_PASSWORD || 'dialix2024';
-  const existingAdmin = db.exec(`SELECT id FROM clients WHERE email = '${adminEmail}'`);
-  if (!existingAdmin.length || !existingAdmin[0].values.length) {
-    const hash = bcrypt.hashSync(adminPassword, 12);
-    db.run(
-      `INSERT INTO clients (name, email, password_hash, is_admin) VALUES ('Admin', '${adminEmail}', '${hash}', 1)`
-    );
-    console.log(`✓ Seeded admin account: ${adminEmail}`);
+  // ─── Normalize existing emails to lowercase ─────────────────
+  try {
+    const rows = db.exec('SELECT id, email FROM clients');
+    if (rows.length && rows[0].values.length) {
+      let fixed = 0;
+      for (const [id, email] of rows[0].values) {
+        const lower = String(email).toLowerCase().trim();
+        if (lower !== email) {
+          db.run('UPDATE clients SET email = ? WHERE id = ?', [lower, id]);
+          fixed++;
+        }
+      }
+      if (fixed > 0) {
+        persistSync();
+        console.log(`✓ Migrated: normalized ${fixed} email(s) to lowercase`);
+      }
+    }
+  } catch (e) {
+    console.log('⚠ Email normalization migration skipped:', e.message);
   }
 
-  persist();
+  // ─── Seed default admin account if none exists ─────────────────
+  const adminEmail = process.env.ADMIN_EMAIL || 'admin@dialix.ai';
+  const adminPassword = process.env.ADMIN_PASSWORD || ('Dialix@2024!' + crypto.randomBytes(4).toString('hex'));
+  const stmt = db.prepare('SELECT id FROM clients WHERE email = ?');
+  stmt.bind([adminEmail]);
+  const adminExists = stmt.step();
+  stmt.free();
+  if (!adminExists) {
+    const hash = bcrypt.hashSync(adminPassword, 12);
+    db.run(
+      'INSERT INTO clients (name, email, password_hash, is_admin) VALUES (?, ?, ?, 1)',
+      ['Admin', adminEmail, hash]
+    );
+    console.log(`✓ Seeded admin account: ${adminEmail}`);
+    if (!process.env.ADMIN_PASSWORD) {
+      console.log(`  ⚠ Generated password: ${adminPassword} — set ADMIN_PASSWORD env var to use your own`);
+    }
+  }
+
+  persistSync();
 }
 
 async function initPostgresDb() {
@@ -335,6 +471,67 @@ async function initPostgresDb() {
     )
   `);
 
+  // ─── Pricing Plans ──────────────────────────────────────────────
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS pricing_plans (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      slug TEXT UNIQUE NOT NULL,
+      price REAL NOT NULL DEFAULT 0,
+      billing_period TEXT NOT NULL DEFAULT 'monthly',
+      max_agents INTEGER DEFAULT -1,
+      max_calls_per_month INTEGER DEFAULT -1,
+      max_phone_numbers INTEGER DEFAULT -1,
+      features TEXT DEFAULT '{}',
+      is_default INTEGER DEFAULT 0,
+      is_active INTEGER DEFAULT 1,
+      sort_order INTEGER DEFAULT 0,
+      created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  await pool.query(`
+    ALTER TABLE clients ADD COLUMN IF NOT EXISTS plan_id INTEGER DEFAULT NULL REFERENCES pricing_plans(id)
+  `);
+
+  // ─── Gemini Agents (local config storage) ────────────────────────
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS gemini_agents (
+      agent_id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      system_prompt TEXT DEFAULT 'You are a helpful AI assistant.',
+      voice TEXT DEFAULT 'Kore',
+      model TEXT DEFAULT 'models/gemini-3.1-flash-live-preview',
+      temperature REAL DEFAULT 1.0,
+      language TEXT DEFAULT 'en',
+      max_duration_seconds INTEGER DEFAULT 600,
+      first_message TEXT DEFAULT '',
+      thinking_level TEXT DEFAULT 'none',
+      media_resolution TEXT DEFAULT 'medium',
+      max_context_size INTEGER DEFAULT 128000,
+      target_context_size INTEGER DEFAULT 64000,
+      grounding_google_search INTEGER DEFAULT 0,
+      affective_dialog INTEGER DEFAULT 0,
+      proactive_audio INTEGER DEFAULT 0,
+      created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  // Migrate existing gemini_agents tables
+  const pgGeminiCols = [
+    ['thinking_level', "TEXT DEFAULT 'none'"],
+    ['media_resolution', "TEXT DEFAULT 'medium'"],
+    ['max_context_size', 'INTEGER DEFAULT 128000'],
+    ['target_context_size', 'INTEGER DEFAULT 64000'],
+    ['grounding_google_search', 'INTEGER DEFAULT 0'],
+    ['affective_dialog', 'INTEGER DEFAULT 0'],
+    ['proactive_audio', 'INTEGER DEFAULT 0'],
+  ];
+  for (const [col, def] of pgGeminiCols) {
+    try { await pool.query(`ALTER TABLE gemini_agents ADD COLUMN IF NOT EXISTS ${col} ${def}`); } catch {}
+  }
+
   // Performance indexes
   try {
     await pool.query('CREATE INDEX IF NOT EXISTS idx_clients_email ON clients(email)');
@@ -349,6 +546,7 @@ async function initPostgresDb() {
     await pool.query('CREATE INDEX IF NOT EXISTS idx_webhook_subscriptions_client_id ON webhook_subscriptions(client_id)');
     await pool.query('CREATE INDEX IF NOT EXISTS idx_webhook_subscriptions_event ON webhook_subscriptions(event)');
     await pool.query('CREATE INDEX IF NOT EXISTS idx_call_metrics_conversation_id ON call_metrics(conversation_id)');
+    await pool.query('CREATE INDEX IF NOT EXISTS idx_gemini_agents_agent_id ON gemini_agents(agent_id)');
     console.log('✓ Database: Performance indexes created');
   } catch (e) {
     console.log('⚠ Database: Indexes may already exist');

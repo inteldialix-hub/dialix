@@ -36,7 +36,7 @@ const telephonyCards = [
 
 export default function TelephonySection() {
   return (
-    <section className="section-pad bg-zinc-50/60 dark:bg-zinc-900/30">
+    <section className="section-pad bg-purple-50/40 dark:bg-zinc-900/30">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header row */}
         <div className="grid lg:grid-cols-2 gap-6 lg:gap-16 mb-12">

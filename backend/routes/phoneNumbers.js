@@ -8,6 +8,7 @@ const {
   phoneNumberAssignSchema,
 } = require('../lib/schemas');
 const elevenlabs = require('../services/elevenlabs');
+const { checkPhoneNumberLimit } = require('../lib/plan-limits');
 
 const router = express.Router();
 
@@ -56,6 +57,12 @@ router.get('/', authenticate, async (req, res) => {
  */
 router.post('/twilio', authenticate, validateSchema(twilioPhoneNumberSchema), async (req, res) => {
   try {
+    // Enforce plan phone number limit
+    const limitCheck = await checkPhoneNumberLimit(req.client.id);
+    if (!limitCheck.allowed) {
+      return res.status(403).json({ error: limitCheck.reason });
+    }
+
     const { label, phone_number, account_sid, auth_token, phone_number_sid } = req.body;
 
     // Auto-fetch Phone Number SID from Twilio if not provided
@@ -117,6 +124,12 @@ router.post('/twilio', authenticate, validateSchema(twilioPhoneNumberSchema), as
  */
 router.post('/sip', authenticate, validateSchema(sipPhoneNumberSchema), async (req, res) => {
   try {
+    // Enforce plan phone number limit
+    const limitCheck = await checkPhoneNumberLimit(req.client.id);
+    if (!limitCheck.allowed) {
+      return res.status(403).json({ error: limitCheck.reason });
+    }
+
     const { label, phone_number, termination_uri, username, password, transport } = req.body;
 
     const result = await elevenlabs.createPhoneNumber({

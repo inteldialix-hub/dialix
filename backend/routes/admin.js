@@ -11,6 +11,7 @@ const {
 } = require('../lib/schemas');
 const elevenlabs = require('../services/elevenlabs');
 const securityLogger = require('../lib/security-logger');
+const { checkAgentLimit } = require('../lib/plan-limits');
 
 const router = express.Router();
 router.use(authenticate, requireAdmin);
@@ -44,16 +45,17 @@ router.get('/clients', async (req, res) => {
 router.post('/clients', validateSchema(adminCreateClientSchema), async (req, res) => {
   try {
     const { name, email, password } = req.body;
+    const normalizedEmail = String(email).toLowerCase().trim();
 
-    const existing = await get('SELECT id FROM clients WHERE email = ?', [email]);
+    const existing = await get('SELECT id FROM clients WHERE email = ?', [normalizedEmail]);
     if (existing) {
       return res.status(409).json({ error: 'Email already exists' });
     }
 
-    const hash = bcrypt.hashSync(password, 10);
+    const hash = bcrypt.hashSync(password, 12);
     const result = await run(
       'INSERT INTO clients (name, email, password_hash) VALUES (?, ?, ?)',
-      [name, email, hash]
+      [name.trim(), normalizedEmail, hash]
     );
 
     const client = await get(
@@ -83,9 +85,12 @@ router.patch('/clients/:id', validateSchema(adminUpdateClientSchema), async (req
       return res.status(404).json({ error: 'Client not found' });
     }
 
+    // Normalize email for case-insensitive matching
+    const normalizedEmail = email ? String(email).toLowerCase().trim() : null;
+
     // Check email uniqueness if changing email
-    if (email && email !== client.email) {
-      const existing = await get('SELECT id FROM clients WHERE email = ? AND id != ?', [email, id]);
+    if (normalizedEmail && normalizedEmail !== client.email) {
+      const existing = await get('SELECT id FROM clients WHERE email = ? AND id != ?', [normalizedEmail, id]);
       if (existing) {
         return res.status(409).json({ error: 'Email already in use by another client' });
       }
@@ -95,10 +100,10 @@ router.patch('/clients/:id', validateSchema(adminUpdateClientSchema), async (req
     const updates = [];
     const params = [];
 
-    if (name) { updates.push('name = ?'); params.push(name); }
-    if (email) { updates.push('email = ?'); params.push(email); }
+    if (name) { updates.push('name = ?'); params.push(name.trim()); }
+    if (normalizedEmail) { updates.push('email = ?'); params.push(normalizedEmail); }
     if (password) {
-      const hash = bcrypt.hashSync(password, 10);
+      const hash = bcrypt.hashSync(password, 12);
       updates.push('password_hash = ?');
       params.push(hash);
     }
@@ -177,7 +182,12 @@ router.get('/clients/:id/agents', async (req, res) => {
       'SELECT * FROM client_agents WHERE client_id = ?',
       [req.params.id]
     );
-    res.json({ agents });
+    // Parse allowed_features JSON string back into an object
+    const parsed = agents.map(a => ({
+      ...a,
+      allowed_features: a.allowed_features ? (() => { try { return JSON.parse(a.allowed_features); } catch { return null; } })() : null,
+    }));
+    res.json({ agents: parsed });
   } catch (err) {
     console.error('GET /api/admin/clients/:id/agents error:', err);
     res.status(500).json({ error: 'Failed to fetch client agents' });
@@ -197,6 +207,12 @@ router.post('/clients/:id/agents', validateSchema(adminAssignAgentSchema), async
     const client = await get('SELECT id FROM clients WHERE id = ?', [id]);
     if (!client) {
       return res.status(404).json({ error: 'Client not found' });
+    }
+
+    // Enforce plan agent limit
+    const limitCheck = await checkAgentLimit(parseInt(id));
+    if (!limitCheck.allowed) {
+      return res.status(403).json({ error: limitCheck.reason });
     }
 
     const existing = await get(

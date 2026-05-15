@@ -66,7 +66,7 @@ export default function BellFramework() {
 
   return (
     <section className="section-pad relative">
-      <div className="absolute inset-0 dot-grid opacity-20" />
+      <div className="absolute inset-0 dot-grid opacity-40 dark:opacity-20" />
 
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}

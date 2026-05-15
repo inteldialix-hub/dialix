@@ -15,9 +15,29 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Dialix - Enterprise Voice AI Agents",
+  title: {
+    default: "Dialix - Enterprise Voice AI Agents",
+    template: "%s | Dialix",
+  },
   description:
     "Enterprise-ready Voice AI agents for automated phone calls. Deploy AI voice agents with speed, precision, and trust.",
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://dialix.ai'),
+  openGraph: {
+    title: "Dialix - Enterprise Voice AI Agents",
+    description: "Deploy AI voice agents with speed, precision, and trust.",
+    type: "website",
+    locale: "en_US",
+    siteName: "Dialix",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Dialix - Enterprise Voice AI Agents",
+    description: "Deploy AI voice agents with speed, precision, and trust.",
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
 };
 
 export default function RootLayout({
@@ -35,10 +55,15 @@ export default function RootLayout({
         suppressHydrationWarning
         className="antialiased font-[family-name:var(--font-geist-sans)]"
       >
+        <a
+          href="#main-content"
+          className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[9999] focus:px-4 focus:py-2 focus:bg-[var(--brand-accent,#5E6AD2)] focus:text-white focus:rounded-md focus:text-sm focus:font-medium"
+        >
+          Skip to main content
+        </a>
         <ThemeProvider
           attribute="class"
           defaultTheme="dark"
-          forcedTheme="dark"
           enableSystem
           disableTransitionOnChange
         >
