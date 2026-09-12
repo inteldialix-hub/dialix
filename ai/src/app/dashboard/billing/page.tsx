@@ -54,13 +54,13 @@ export default function BillingPage() {
       setError(null);
       
       const [plansRes, myPlanRes, historyRes] = await Promise.all([
-        api.get('/api/pricing/plans').catch(() => ({ data: [] })),
-        api.get('/api/pricing/my-plan').catch(() => null),
-        api.get('/api/paypal/billing-history').catch(() => ({ data: [] }))
+        api('/pricing/plans', { token }).catch(() => []),
+        api('/pricing/my-plan', { token }).catch(() => null),
+        api('/paypal/billing-history', { token }).catch(() => [])
       ]);
 
-      if (plansRes.data && plansRes.data.length > 0) {
-        setPlans(plansRes.data);
+      if (plansRes && (plansRes.data ? plansRes.data.length > 0 : plansRes.length > 0)) {
+        setPlans(plansRes.data || plansRes);
       } else {
         // Fallback plans for UI purposes if API fails
         setPlans([
@@ -72,13 +72,13 @@ export default function BillingPage() {
       }
 
       if (myPlanRes) {
-        setCurrentPlan(myPlanRes);
+        setCurrentPlan(myPlanRes.data || myPlanRes);
       } else {
         setCurrentPlan({ planId: 'starter', status: 'active', renewalDate: new Date().toISOString() });
       }
 
-      if (historyRes.data) {
-        setPaymentHistory(historyRes.data);
+      if (historyRes) {
+        setPaymentHistory(historyRes.data || historyRes);
       }
 
     } catch (err: any) {
@@ -91,7 +91,7 @@ export default function BillingPage() {
   const handleUpgrade = async (planId: string) => {
     try {
       setActionLoading(planId);
-      const res = await api.post('/api/paypal/create-subscription', { planId });
+      const res = await api('/paypal/create-subscription', { method: 'POST', body: { planId }, token });
       if (res && res.approvalUrl) {
         window.location.href = res.approvalUrl;
       }
@@ -105,7 +105,7 @@ export default function BillingPage() {
   const handleCancelSubscription = async () => {
     try {
       setActionLoading('cancel');
-      await api.post('/api/paypal/cancel-subscription', {});
+      await api('/paypal/cancel-subscription', { method: 'POST', body: {}, token });
       setShowCancelModal(false);
       fetchBillingData();
     } catch (err: any) {

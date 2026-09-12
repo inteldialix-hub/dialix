@@ -46,9 +46,9 @@ export default function AuditLogsPage() {
         ...(search && { search })
       });
       
-      const response = await api.get(`/api/audit?${queryParams}`);
-      if (response && response.data) {
-        setLogs(response.data);
+      const response = await api(`/audit?${queryParams}`, { token });
+      if (response) {
+        setLogs(response.logs || response.data || (Array.isArray(response) ? response : []));
         setTotalPages(response.totalPages || 1);
       } else {
         setLogs([]);

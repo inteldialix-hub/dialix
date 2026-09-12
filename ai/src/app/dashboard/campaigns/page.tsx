@@ -8,7 +8,7 @@ import '@/styles/dashboard.css';
 import { FiPlus, FiPlay, FiPause, FiSquare, FiCopy, FiTrash2, FiChevronDown, FiChevronUp, FiPhoneCall, FiAlertTriangle } from 'react-icons/fi';
 
 export default function CampaignsPage() {
-  const { isAuthenticated } = useAuth();
+  const { token, isAuthenticated } = useAuth();
   
   const [campaigns, setCampaigns] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -53,8 +53,8 @@ export default function CampaignsPage() {
   const fetchCampaigns = async () => {
     try {
       setLoading(true);
-      const res = await api.get('/api/campaigns').catch(() => ({ data: [] }));
-      setCampaigns(res.data || []);
+      const res = await api('/campaigns', { token }).catch(() => []);
+      setCampaigns(res.data || res || []);
     } catch (err: any) {
       setError(err.message || 'Failed to load campaigns');
     } finally {
@@ -65,13 +65,13 @@ export default function CampaignsPage() {
   const loadWizardData = async () => {
     try {
       const [cRes, aRes, pRes] = await Promise.all([
-        api.get('/api/contacts').catch(() => ({ data: [] })),
-        api.get('/api/agents/all').catch(() => ({ data: [] })),
-        api.get('/api/phone-numbers').catch(() => ({ data: [] }))
+        api('/contacts', { token }).catch(() => []),
+        api('/agents/all', { token }).catch(() => []),
+        api('/phone-numbers', { token }).catch(() => [])
       ]);
-      setContacts(cRes.data || []);
-      setAgents(aRes.data || []);
-      setPhoneNumbers(pRes.data || []);
+      setContacts(cRes.contacts || cRes.data || cRes || []);
+      setAgents(aRes.data || aRes || []);
+      setPhoneNumbers(pRes.data || pRes || []);
     } catch (e) {
       console.error(e);
     }
@@ -79,7 +79,7 @@ export default function CampaignsPage() {
 
   const handleAction = async (id: string, action: string) => {
     try {
-      await api.post(`/api/campaigns/${id}/${action}`, {});
+      await api(`/campaigns/${id}/${action}`, { method: 'POST', body: {}, token });
       fetchCampaigns();
     } catch (err: any) {
       alert(`Action failed: ${err.message}`);
@@ -103,7 +103,7 @@ export default function CampaignsPage() {
 
   const submitWizard = async () => {
     try {
-      await api.post('/api/campaigns', wizardData);
+      await api('/campaigns', { method: 'POST', body: wizardData, token });
       closeWizard();
       fetchCampaigns();
     } catch (err: any) {

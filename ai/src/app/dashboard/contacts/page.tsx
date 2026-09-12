@@ -22,7 +22,7 @@ interface Contact {
 }
 
 export default function ContactsPage() {
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [loading, setLoading] = useState(true);
   const [total, setTotal] = useState(0);
@@ -64,10 +64,10 @@ export default function ContactsPage() {
         ...(statusFilter && { status: statusFilter }),
       });
       
-      const res = await api.get(`/api/contacts?${query.toString()}`);
-      if (res.data) {
-        setContacts(res.data.contacts);
-        setTotal(res.data.total);
+      const res = await api(`/contacts?${query.toString()}`, { token });
+      if (res) {
+        setContacts(res.contacts || []);
+        setTotal(res.total || 0);
       }
     } catch (err) {
       console.error('Failed to load contacts', err);
@@ -80,9 +80,9 @@ export default function ContactsPage() {
     e.preventDefault();
     try {
       if (editingContact) {
-        await api.put(`/api/contacts/${editingContact.id}`, formData);
+        await api(`/contacts/${editingContact.id}`, { method: 'PUT', body: formData, token });
       } else {
-        await api.post('/api/contacts', formData);
+        await api('/contacts', { method: 'POST', body: formData, token });
       }
       setIsModalOpen(false);
       fetchContacts();
@@ -95,7 +95,7 @@ export default function ContactsPage() {
   const handleDelete = async (id: number) => {
     if (confirm('Are you sure you want to delete this contact?')) {
       try {
-        await api.delete(`/api/contacts/${id}`);
+        await api(`/contacts/${id}`, { method: 'DELETE', token });
         fetchContacts();
       } catch (err) {
         console.error('Delete failed', err);
@@ -107,7 +107,7 @@ export default function ContactsPage() {
     if (selectedIds.size === 0) return;
     if (confirm(`Delete ${selectedIds.size} contacts?`)) {
       try {
-        await api.post('/api/contacts/bulk-delete', { ids: Array.from(selectedIds) });
+        await api('/contacts/bulk-delete', { method: 'POST', body: { ids: Array.from(selectedIds) }, token });
         setSelectedIds(new Set());
         fetchContacts();
       } catch (err) {
@@ -119,9 +119,9 @@ export default function ContactsPage() {
   const toggleDnc = async (contact: Contact) => {
     try {
       if (contact.do_not_call) {
-        await api.delete(`/api/contacts/${contact.id}/dnc`);
+        await api(`/contacts/${contact.id}/dnc`, { method: 'DELETE', token });
       } else {
-        await api.post(`/api/contacts/${contact.id}/dnc`, { reason: 'Manual toggle' });
+        await api(`/contacts/${contact.id}/dnc`, { method: 'POST', body: { reason: 'Manual toggle' }, token });
       }
       fetchContacts();
     } catch (err) {
@@ -203,8 +203,8 @@ export default function ContactsPage() {
           rows.push(row);
         }
 
-        const res = await api.post('/api/contacts/import', { rows });
-        alert(`Imported: ${res.data.imported}, Updated: ${res.data.updated}, Skipped: ${res.data.skipped}, Invalid: ${res.data.invalid}`);
+        const res = await api('/contacts/import', { method: 'POST', body: { rows }, token });
+        alert(`Imported: ${res.imported}, Updated: ${res.updated}, Skipped: ${res.skipped}, Invalid: ${res.invalid}`);
         fetchContacts();
         setIsImportModalOpen(false);
       } catch (err) {
