@@ -156,6 +156,31 @@ const createAgentSchema = z.object({
   proactive_audio: z.union([z.boolean(), z.number().int().min(0).max(1)]).optional(),
 });
 
+const createContactSchema = z.object({
+  first_name: z.string().trim().min(1).max(100),
+  last_name: z.string().trim().max(100).optional(),
+  company: z.string().trim().max(200).optional(),
+  phone: z.string().trim().min(6).max(20),
+  email: z.string().trim().email().optional().or(z.literal('')),
+  language: z.string().max(10).optional(),
+  country: z.string().max(2).optional(),
+  timezone: z.string().max(50).optional(),
+  tags: z.array(z.string()).optional(),
+  status: z.enum(['active', 'inactive', 'lead', 'customer', 'archived']).optional(),
+  consent_status: z.enum(['unknown', 'given', 'withdrawn', 'pending']).optional(),
+  consent_source: z.string().max(100).optional(),
+  source: z.string().max(100).optional(),
+  notes: z.string().max(5000).optional(),
+  custom_fields: z.record(z.string()).optional(),
+});
+
+const updateContactSchema = createContactSchema.partial();
+
+const importContactsSchema = z.object({
+  rows: z.array(z.record(z.string())).min(1).max(10000),
+  column_mapping: z.record(z.string()).optional(),
+});
+
 module.exports = {
   loginSchema,
   registerSchema,
@@ -176,4 +201,7 @@ module.exports = {
   updatePlanSchema,
   assignPlanSchema,
   createAgentSchema,
+  createContactSchema,
+  updateContactSchema,
+  importContactsSchema,
 };

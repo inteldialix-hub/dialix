@@ -38,7 +38,9 @@ export async function api<T = Record<string, unknown>>(
     };
 
     // Auto-logout on expired/invalid token — redirect to login
-    if (res.status === 401 && typeof window !== 'undefined') {
+    // BUT skip this for auth endpoints (login/register) where 401 means "wrong credentials"
+    const isAuthEndpoint = path.startsWith('/auth/login') || path.startsWith('/auth/register');
+    if (res.status === 401 && typeof window !== 'undefined' && !isAuthEndpoint) {
       localStorage.removeItem('dialix_token');
       localStorage.removeItem('dialix_client');
       window.location.href = '/login';

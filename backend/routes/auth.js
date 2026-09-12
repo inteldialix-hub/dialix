@@ -221,11 +221,35 @@ router.post('/forgot-password', ipBruteForceLimiter, sensitiveOperationLimiter, 
     const { email } = req.body;
     const normalizedEmail = String(email).toLowerCase().trim();
 
-    // Check if user exists (don't reveal if email exists or not for security)
-    const client = await get('SELECT id FROM clients WHERE email = ?', [normalizedEmail]);
+    const client = await get('SELECT id, email FROM clients WHERE email = ?', [normalizedEmail]);
+
+    if (client) {
+      // Generate a secure reset token
+      const crypto = require('crypto');
+      const resetToken = crypto.randomBytes(32).toString('hex');
+      const resetTokenHash = crypto.createHash('sha256').update(resetToken).digest('hex');
+      // Token expires in 1 hour
+      const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+
+      await run('UPDATE clients SET reset_token = ?, reset_token_expires = ? WHERE id = ?',
+        [resetTokenHash, expiresAt, client.id]);
+
+      // Build reset URL
+      const frontendUrl = process.env.FRONTEND_URL || process.env.APP_BASE_URL || 'http://localhost:3000';
+      const resetUrl = `${frontendUrl}/reset-password?token=${resetToken}&email=${encodeURIComponent(normalizedEmail)}`;
+
+      // If SMTP is configured, send email. Otherwise log to console for dev.
+      if (process.env.SMTP_HOST || process.env.SENDGRID_API_KEY) {
+        // TODO: integrate email service when credentials are available
+        console.log(`[AUTH] Password reset email would be sent to ${normalizedEmail}`);
+      } else {
+        console.log(`[AUTH] Password reset link for ${normalizedEmail}: ${resetUrl}`);
+      }
+
+      securityLogger.logAuthFailure(normalizedEmail, 'password_reset_generated', req);
+    }
 
     // Always return success to prevent email enumeration
-    securityLogger.logAuthFailure(normalizedEmail, 'password_reset_attempted', req);
     res.json({ message: 'If an account with this email exists, a reset link has been sent.' });
   } catch (err) {
     console.error('Forgot password error:', err);
@@ -233,7 +257,59 @@ router.post('/forgot-password', ipBruteForceLimiter, sensitiveOperationLimiter, 
   }
 });
 
-// NOTE: reset-password and verify-otp routes removed — they were non-functional stubs
-// returning 501. Re-implement when email/OTP infrastructure is available.
+/**
+ * POST /api/auth/reset-password
+ * Body: { token, new_password }
+ * Resets password with token validation and rate limiting
+ */
+router.post('/reset-password', ipBruteForceLimiter, sensitiveOperationLimiter, validateSchema(resetPasswordSchema), async (req, res) => {
+  try {
+    const { token, new_password } = req.body;
+    const crypto = require('crypto');
+
+    // Hash the provided token to compare against stored hash
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+
+    // Find client with matching non-expired reset token
+    const client = await get(
+      'SELECT id, email FROM clients WHERE reset_token = ? AND reset_token_expires > ?',
+      [tokenHash, new Date().toISOString()]
+    );
+
+    if (!client) {
+      securityLogger.logAuthFailure('unknown', 'invalid_or_expired_reset_token', req);
+      return res.status(400).json({ error: 'Invalid or expired reset link. Please request a new one.' });
+    }
+
+    // Update password and clear reset token
+    const newHash = bcrypt.hashSync(new_password, 12);
+    await run(
+      'UPDATE clients SET password_hash = ?, reset_token = NULL, reset_token_expires = NULL, must_change_password = 0 WHERE id = ?',
+      [newHash, client.id]
+    );
+
+    securityLogger.logPasswordChange(client.email, req);
+    res.json({ success: true, message: 'Password reset successfully. You can now sign in.' });
+  } catch (err) {
+    console.error('Reset password error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/**
+ * POST /api/auth/verify-otp
+ * Body: { email, otp_code }
+ * Verifies OTP code with rate limiting
+ */
+router.post('/verify-otp', otpLimiter, otpHourlyLimiter, validateSchema(otpSchema), async (req, res) => {
+  try {
+    const { email, otp_code } = req.body;
+    securityLogger.logAuthFailure(email, 'otp_verification_attempted', req);
+    res.status(501).json({ error: 'OTP verification not yet implemented' });
+  } catch (err) {
+    console.error('OTP verification error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
 
 module.exports = router;

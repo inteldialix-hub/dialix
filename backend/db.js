@@ -287,6 +287,219 @@ async function initSqliteDb() {
     try { db.run(`ALTER TABLE gemini_agents ADD COLUMN ${col} ${def}`); } catch {}
   }
 
+  // ─── Contacts ──────────────────────────────────────────────────
+  db.run(`
+    CREATE TABLE IF NOT EXISTS contacts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      client_id INTEGER NOT NULL REFERENCES clients(id),
+      first_name TEXT NOT NULL,
+      last_name TEXT,
+      company TEXT,
+      phone TEXT NOT NULL,
+      phone_e164 TEXT,
+      email TEXT,
+      language TEXT DEFAULT 'en',
+      country TEXT,
+      timezone TEXT,
+      tags TEXT DEFAULT '[]',
+      status TEXT DEFAULT 'active',
+      consent_status TEXT DEFAULT 'unknown',
+      consent_source TEXT,
+      consent_at TEXT,
+      do_not_call INTEGER DEFAULT 0,
+      dnc_reason TEXT,
+      dnc_at TEXT,
+      custom_fields TEXT DEFAULT '{}',
+      last_called_at TEXT,
+      next_callback_at TEXT,
+      source TEXT,
+      notes TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    )
+  `);
+
+  // ─── DNC (Do Not Call) Suppression List ──────────────────────
+  db.run(`
+    CREATE TABLE IF NOT EXISTS dnc_list (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      client_id INTEGER,
+      phone_e164 TEXT NOT NULL,
+      scope TEXT DEFAULT 'organization',
+      reason TEXT,
+      source TEXT DEFAULT 'manual',
+      actor TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      UNIQUE(client_id, phone_e164)
+    )
+  `);
+
+  // ─── Campaigns ──────────────────────────────────────────────
+  db.run(`
+    CREATE TABLE IF NOT EXISTS campaigns (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      client_id INTEGER NOT NULL REFERENCES clients(id),
+      name TEXT NOT NULL,
+      description TEXT,
+      agent_id TEXT,
+      phone_number_id INTEGER REFERENCES phone_numbers(id),
+      status TEXT DEFAULT 'draft',
+      contact_list TEXT DEFAULT '[]',
+      total_contacts INTEGER DEFAULT 0,
+      valid_contacts INTEGER DEFAULT 0,
+      dnc_excluded INTEGER DEFAULT 0,
+      calls_completed INTEGER DEFAULT 0,
+      calls_answered INTEGER DEFAULT 0,
+      calls_failed INTEGER DEFAULT 0,
+      schedule_start TEXT,
+      schedule_end TEXT,
+      calling_days TEXT DEFAULT '["mon","tue","wed","thu","fri"]',
+      calling_start_time TEXT DEFAULT '09:00',
+      calling_end_time TEXT DEFAULT '18:00',
+      calling_timezone TEXT DEFAULT 'UTC',
+      max_concurrent INTEGER DEFAULT 1,
+      max_calls_per_hour INTEGER DEFAULT 60,
+      max_retries INTEGER DEFAULT 2,
+      retry_delay_minutes INTEGER DEFAULT 60,
+      goal TEXT,
+      estimated_cost REAL,
+      actual_cost REAL DEFAULT 0,
+      started_at TEXT,
+      completed_at TEXT,
+      cancelled_at TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    )
+  `);
+
+  // ─── Subscriptions ──────────────────────────────────────────
+  db.run(`
+    CREATE TABLE IF NOT EXISTS subscriptions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      client_id INTEGER NOT NULL REFERENCES clients(id),
+      plan_id INTEGER REFERENCES pricing_plans(id),
+      paypal_subscription_id TEXT UNIQUE,
+      status TEXT DEFAULT 'pending',
+      started_at TEXT,
+      current_period_end TEXT,
+      cancelled_at TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    )
+  `);
+
+  // ─── Payments ────────────────────────────────────────────────
+  db.run(`
+    CREATE TABLE IF NOT EXISTS payments (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      client_id INTEGER NOT NULL REFERENCES clients(id),
+      subscription_id INTEGER REFERENCES subscriptions(id),
+      paypal_payment_id TEXT UNIQUE,
+      amount REAL NOT NULL,
+      currency TEXT DEFAULT 'USD',
+      status TEXT DEFAULT 'pending',
+      payment_method TEXT DEFAULT 'paypal',
+      created_at TEXT DEFAULT (datetime('now'))
+    )
+  `);
+
+  // ─── Payment Webhook Events (idempotency) ────────────────────
+  db.run(`
+    CREATE TABLE IF NOT EXISTS payment_webhook_events (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      provider TEXT DEFAULT 'paypal',
+      external_event_id TEXT UNIQUE,
+      event_type TEXT NOT NULL,
+      status TEXT DEFAULT 'received',
+      payload TEXT,
+      processed_at TEXT,
+      error TEXT,
+      attempt_count INTEGER DEFAULT 1,
+      created_at TEXT DEFAULT (datetime('now'))
+    )
+  `);
+
+  // ─── Audit Logs ──────────────────────────────────────────────
+  db.run(`
+    CREATE TABLE IF NOT EXISTS audit_logs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      client_id INTEGER REFERENCES clients(id),
+      actor_email TEXT,
+      action TEXT NOT NULL,
+      resource_type TEXT,
+      resource_id TEXT,
+      details TEXT DEFAULT '{}',
+      ip_address TEXT,
+      created_at TEXT DEFAULT (datetime('now'))
+    )
+  `);
+
+  // ─── API Keys ────────────────────────────────────────────────
+  db.run(`
+    CREATE TABLE IF NOT EXISTS api_keys (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      client_id INTEGER NOT NULL REFERENCES clients(id),
+      name TEXT NOT NULL,
+      key_hash TEXT NOT NULL,
+      key_prefix TEXT NOT NULL,
+      scopes TEXT DEFAULT '[]',
+      last_used_at TEXT,
+      expires_at TEXT,
+      revoked INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now'))
+    )
+  `);
+
+  // ─── Usage Tracking ──────────────────────────────────────────
+  db.run(`
+    CREATE TABLE IF NOT EXISTS usage_records (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      client_id INTEGER NOT NULL REFERENCES clients(id),
+      period TEXT NOT NULL,
+      call_count INTEGER DEFAULT 0,
+      connected_minutes REAL DEFAULT 0,
+      total_duration_seconds INTEGER DEFAULT 0,
+      ai_cost REAL DEFAULT 0,
+      telephony_cost REAL DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now')),
+      UNIQUE(client_id, period)
+    )
+  `);
+
+  // ─── Add new columns to existing tables ──────────────────────
+  // Add paypal_plan_id to pricing_plans
+  try {
+    db.run('ALTER TABLE pricing_plans ADD COLUMN paypal_plan_id TEXT DEFAULT NULL');
+    persistSync();
+    console.log('✓ Migrated: added paypal_plan_id to pricing_plans');
+  } catch (e) {}
+
+  // Add email verification columns to clients
+  try {
+    db.run('ALTER TABLE clients ADD COLUMN email_verified INTEGER DEFAULT 0');
+    persistSync();
+    console.log('✓ Migrated: added email_verified to clients');
+  } catch (e) {}
+
+  try {
+    db.run('ALTER TABLE clients ADD COLUMN verification_token TEXT DEFAULT NULL');
+    persistSync();
+    console.log('✓ Migrated: added verification_token to clients');
+  } catch (e) {}
+
+  try {
+    db.run('ALTER TABLE clients ADD COLUMN reset_token TEXT DEFAULT NULL');
+    persistSync();
+    console.log('✓ Migrated: added reset_token to clients');
+  } catch (e) {}
+
+  try {
+    db.run('ALTER TABLE clients ADD COLUMN reset_token_expires TEXT DEFAULT NULL');
+    persistSync();
+    console.log('✓ Migrated: added reset_token_expires to clients');
+  } catch (e) {}
+
   // Performance indexes
   try {
     db.run('CREATE INDEX IF NOT EXISTS idx_clients_email ON clients(email)');
@@ -302,6 +515,26 @@ async function initSqliteDb() {
     db.run('CREATE INDEX IF NOT EXISTS idx_webhook_subscriptions_event ON webhook_subscriptions(event)');
     db.run('CREATE INDEX IF NOT EXISTS idx_call_metrics_conversation_id ON call_metrics(conversation_id)');
     db.run('CREATE INDEX IF NOT EXISTS idx_gemini_agents_agent_id ON gemini_agents(agent_id)');
+    // New table indexes
+    db.run('CREATE INDEX IF NOT EXISTS idx_contacts_client_id ON contacts(client_id)');
+    db.run('CREATE INDEX IF NOT EXISTS idx_contacts_phone_e164 ON contacts(phone_e164)');
+    db.run('CREATE INDEX IF NOT EXISTS idx_contacts_status ON contacts(status)');
+    db.run('CREATE INDEX IF NOT EXISTS idx_dnc_list_phone ON dnc_list(phone_e164)');
+    db.run('CREATE INDEX IF NOT EXISTS idx_dnc_list_client ON dnc_list(client_id)');
+    db.run('CREATE INDEX IF NOT EXISTS idx_campaigns_client_id ON campaigns(client_id)');
+    db.run('CREATE INDEX IF NOT EXISTS idx_campaigns_status ON campaigns(status)');
+    db.run('CREATE INDEX IF NOT EXISTS idx_subscriptions_client_id ON subscriptions(client_id)');
+    db.run('CREATE INDEX IF NOT EXISTS idx_subscriptions_paypal ON subscriptions(paypal_subscription_id)');
+    db.run('CREATE INDEX IF NOT EXISTS idx_payments_client_id ON payments(client_id)');
+    db.run('CREATE INDEX IF NOT EXISTS idx_payments_paypal ON payments(paypal_payment_id)');
+    db.run('CREATE INDEX IF NOT EXISTS idx_webhook_events_external ON payment_webhook_events(external_event_id)');
+    db.run('CREATE INDEX IF NOT EXISTS idx_audit_logs_client_id ON audit_logs(client_id)');
+    db.run('CREATE INDEX IF NOT EXISTS idx_audit_logs_action ON audit_logs(action)');
+    db.run('CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON audit_logs(created_at)');
+    db.run('CREATE INDEX IF NOT EXISTS idx_api_keys_client_id ON api_keys(client_id)');
+    db.run('CREATE INDEX IF NOT EXISTS idx_api_keys_key_hash ON api_keys(key_hash)');
+    db.run('CREATE INDEX IF NOT EXISTS idx_usage_records_client ON usage_records(client_id)');
+    db.run('CREATE INDEX IF NOT EXISTS idx_usage_records_period ON usage_records(period)');
     persistSync();
     console.log('✓ Database: Performance indexes created');
   } catch (e) {
@@ -532,6 +765,193 @@ async function initPostgresDb() {
     try { await pool.query(`ALTER TABLE gemini_agents ADD COLUMN IF NOT EXISTS ${col} ${def}`); } catch {}
   }
 
+  // ─── Contacts ──────────────────────────────────────────────────
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS contacts (
+      id SERIAL PRIMARY KEY,
+      client_id INTEGER NOT NULL REFERENCES clients(id),
+      first_name TEXT NOT NULL,
+      last_name TEXT,
+      company TEXT,
+      phone TEXT NOT NULL,
+      phone_e164 TEXT,
+      email TEXT,
+      language TEXT DEFAULT 'en',
+      country TEXT,
+      timezone TEXT,
+      tags TEXT DEFAULT '[]',
+      status TEXT DEFAULT 'active',
+      consent_status TEXT DEFAULT 'unknown',
+      consent_source TEXT,
+      consent_at TIMESTAMPTZ,
+      do_not_call INTEGER DEFAULT 0,
+      dnc_reason TEXT,
+      dnc_at TIMESTAMPTZ,
+      custom_fields TEXT DEFAULT '{}',
+      last_called_at TIMESTAMPTZ,
+      next_callback_at TIMESTAMPTZ,
+      source TEXT,
+      notes TEXT,
+      created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  // ─── DNC (Do Not Call) Suppression List ──────────────────────
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS dnc_list (
+      id SERIAL PRIMARY KEY,
+      client_id INTEGER,
+      phone_e164 TEXT NOT NULL,
+      scope TEXT DEFAULT 'organization',
+      reason TEXT,
+      source TEXT DEFAULT 'manual',
+      actor TEXT,
+      created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(client_id, phone_e164)
+    )
+  `);
+
+  // ─── Campaigns ──────────────────────────────────────────────
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS campaigns (
+      id SERIAL PRIMARY KEY,
+      client_id INTEGER NOT NULL REFERENCES clients(id),
+      name TEXT NOT NULL,
+      description TEXT,
+      agent_id TEXT,
+      phone_number_id INTEGER REFERENCES phone_numbers(id),
+      status TEXT DEFAULT 'draft',
+      contact_list TEXT DEFAULT '[]',
+      total_contacts INTEGER DEFAULT 0,
+      valid_contacts INTEGER DEFAULT 0,
+      dnc_excluded INTEGER DEFAULT 0,
+      calls_completed INTEGER DEFAULT 0,
+      calls_answered INTEGER DEFAULT 0,
+      calls_failed INTEGER DEFAULT 0,
+      schedule_start TIMESTAMPTZ,
+      schedule_end TIMESTAMPTZ,
+      calling_days TEXT DEFAULT '["mon","tue","wed","thu","fri"]',
+      calling_start_time TEXT DEFAULT '09:00',
+      calling_end_time TEXT DEFAULT '18:00',
+      calling_timezone TEXT DEFAULT 'UTC',
+      max_concurrent INTEGER DEFAULT 1,
+      max_calls_per_hour INTEGER DEFAULT 60,
+      max_retries INTEGER DEFAULT 2,
+      retry_delay_minutes INTEGER DEFAULT 60,
+      goal TEXT,
+      estimated_cost REAL,
+      actual_cost REAL DEFAULT 0,
+      started_at TIMESTAMPTZ,
+      completed_at TIMESTAMPTZ,
+      cancelled_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  // ─── Subscriptions ──────────────────────────────────────────
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS subscriptions (
+      id SERIAL PRIMARY KEY,
+      client_id INTEGER NOT NULL REFERENCES clients(id),
+      plan_id INTEGER REFERENCES pricing_plans(id),
+      paypal_subscription_id TEXT UNIQUE,
+      status TEXT DEFAULT 'pending',
+      started_at TIMESTAMPTZ,
+      current_period_end TIMESTAMPTZ,
+      cancelled_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  // ─── Payments ────────────────────────────────────────────────
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS payments (
+      id SERIAL PRIMARY KEY,
+      client_id INTEGER NOT NULL REFERENCES clients(id),
+      subscription_id INTEGER REFERENCES subscriptions(id),
+      paypal_payment_id TEXT UNIQUE,
+      amount REAL NOT NULL,
+      currency TEXT DEFAULT 'USD',
+      status TEXT DEFAULT 'pending',
+      payment_method TEXT DEFAULT 'paypal',
+      created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  // ─── Payment Webhook Events (idempotency) ────────────────────
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS payment_webhook_events (
+      id SERIAL PRIMARY KEY,
+      provider TEXT DEFAULT 'paypal',
+      external_event_id TEXT UNIQUE,
+      event_type TEXT NOT NULL,
+      status TEXT DEFAULT 'received',
+      payload TEXT,
+      processed_at TIMESTAMPTZ,
+      error TEXT,
+      attempt_count INTEGER DEFAULT 1,
+      created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  // ─── Audit Logs ──────────────────────────────────────────────
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS audit_logs (
+      id SERIAL PRIMARY KEY,
+      client_id INTEGER REFERENCES clients(id),
+      actor_email TEXT,
+      action TEXT NOT NULL,
+      resource_type TEXT,
+      resource_id TEXT,
+      details TEXT DEFAULT '{}',
+      ip_address TEXT,
+      created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  // ─── API Keys ────────────────────────────────────────────────
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS api_keys (
+      id SERIAL PRIMARY KEY,
+      client_id INTEGER NOT NULL REFERENCES clients(id),
+      name TEXT NOT NULL,
+      key_hash TEXT NOT NULL,
+      key_prefix TEXT NOT NULL,
+      scopes TEXT DEFAULT '[]',
+      last_used_at TIMESTAMPTZ,
+      expires_at TIMESTAMPTZ,
+      revoked INTEGER DEFAULT 0,
+      created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  // ─── Usage Tracking ──────────────────────────────────────────
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS usage_records (
+      id SERIAL PRIMARY KEY,
+      client_id INTEGER NOT NULL REFERENCES clients(id),
+      period TEXT NOT NULL,
+      call_count INTEGER DEFAULT 0,
+      connected_minutes REAL DEFAULT 0,
+      total_duration_seconds INTEGER DEFAULT 0,
+      ai_cost REAL DEFAULT 0,
+      telephony_cost REAL DEFAULT 0,
+      created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(client_id, period)
+    )
+  `);
+
+  // ─── Add new columns to existing tables ──────────────────────
+  await pool.query('ALTER TABLE pricing_plans ADD COLUMN IF NOT EXISTS paypal_plan_id TEXT DEFAULT NULL');
+  await pool.query('ALTER TABLE clients ADD COLUMN IF NOT EXISTS email_verified INTEGER DEFAULT 0');
+  await pool.query('ALTER TABLE clients ADD COLUMN IF NOT EXISTS verification_token TEXT DEFAULT NULL');
+  await pool.query('ALTER TABLE clients ADD COLUMN IF NOT EXISTS reset_token TEXT DEFAULT NULL');
+  await pool.query('ALTER TABLE clients ADD COLUMN IF NOT EXISTS reset_token_expires TIMESTAMPTZ DEFAULT NULL');
+
   // Performance indexes
   try {
     await pool.query('CREATE INDEX IF NOT EXISTS idx_clients_email ON clients(email)');
@@ -547,6 +967,26 @@ async function initPostgresDb() {
     await pool.query('CREATE INDEX IF NOT EXISTS idx_webhook_subscriptions_event ON webhook_subscriptions(event)');
     await pool.query('CREATE INDEX IF NOT EXISTS idx_call_metrics_conversation_id ON call_metrics(conversation_id)');
     await pool.query('CREATE INDEX IF NOT EXISTS idx_gemini_agents_agent_id ON gemini_agents(agent_id)');
+    // New table indexes
+    await pool.query('CREATE INDEX IF NOT EXISTS idx_contacts_client_id ON contacts(client_id)');
+    await pool.query('CREATE INDEX IF NOT EXISTS idx_contacts_phone_e164 ON contacts(phone_e164)');
+    await pool.query('CREATE INDEX IF NOT EXISTS idx_contacts_status ON contacts(status)');
+    await pool.query('CREATE INDEX IF NOT EXISTS idx_dnc_list_phone ON dnc_list(phone_e164)');
+    await pool.query('CREATE INDEX IF NOT EXISTS idx_dnc_list_client ON dnc_list(client_id)');
+    await pool.query('CREATE INDEX IF NOT EXISTS idx_campaigns_client_id ON campaigns(client_id)');
+    await pool.query('CREATE INDEX IF NOT EXISTS idx_campaigns_status ON campaigns(status)');
+    await pool.query('CREATE INDEX IF NOT EXISTS idx_subscriptions_client_id ON subscriptions(client_id)');
+    await pool.query('CREATE INDEX IF NOT EXISTS idx_subscriptions_paypal ON subscriptions(paypal_subscription_id)');
+    await pool.query('CREATE INDEX IF NOT EXISTS idx_payments_client_id ON payments(client_id)');
+    await pool.query('CREATE INDEX IF NOT EXISTS idx_payments_paypal ON payments(paypal_payment_id)');
+    await pool.query('CREATE INDEX IF NOT EXISTS idx_webhook_events_external ON payment_webhook_events(external_event_id)');
+    await pool.query('CREATE INDEX IF NOT EXISTS idx_audit_logs_client_id ON audit_logs(client_id)');
+    await pool.query('CREATE INDEX IF NOT EXISTS idx_audit_logs_action ON audit_logs(action)');
+    await pool.query('CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON audit_logs(created_at)');
+    await pool.query('CREATE INDEX IF NOT EXISTS idx_api_keys_client_id ON api_keys(client_id)');
+    await pool.query('CREATE INDEX IF NOT EXISTS idx_api_keys_key_hash ON api_keys(key_hash)');
+    await pool.query('CREATE INDEX IF NOT EXISTS idx_usage_records_client ON usage_records(client_id)');
+    await pool.query('CREATE INDEX IF NOT EXISTS idx_usage_records_period ON usage_records(period)');
     console.log('✓ Database: Performance indexes created');
   } catch (e) {
     console.log('⚠ Database: Indexes may already exist');

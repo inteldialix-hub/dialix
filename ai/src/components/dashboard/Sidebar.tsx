@@ -15,9 +15,12 @@ import { Icon } from './shared/Icon';
 const NAV_ITEMS = [
   { href: '/dashboard', icon: 'layout-dashboard', label: 'Dashboard', exact: true },
   { href: '/dashboard/agents', icon: 'bot', label: 'Agents' },
+  { href: '/dashboard/contacts', icon: 'users', label: 'Contacts' },
+  { href: '/dashboard/campaigns', icon: 'megaphone', label: 'Campaigns' },
   { href: '/dashboard/phone-numbers', icon: 'phone', label: 'Phone Numbers' },
   { href: '/dashboard/history', icon: 'bar-chart-2', label: 'Analysis' },
   { href: '/dashboard/billing', icon: 'credit-card', label: 'Billing' },
+  { href: '/dashboard/audit-logs', icon: 'scroll-text', label: 'Audit Logs' },
 ];
 
 const ADMIN_ITEMS = [

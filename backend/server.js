@@ -28,6 +28,8 @@ if (!JWT_SECRET) {
 const allowedOrigins = [
   FRONTEND_URL,
   'https://dialix-frontend.fly.dev',
+  'https://inteldialix.online',
+  'https://www.inteldialix.online',
   'http://localhost:3000',
 ].filter(Boolean);
 
@@ -52,6 +54,10 @@ app.use(helmet.hsts({
 }));
 app.use(helmet.noSniff());
 app.use(helmet.referrerPolicy({ policy: 'same-origin' }));
+// ─── PayPal webhook needs raw body for signature verification ──
+// Must be registered BEFORE the global JSON parser
+app.post('/api/webhooks/paypal', express.raw({ type: 'application/json' }));
+
 app.use(webSecurity.securityHeaders);
 app.use(webSecurity.createRequestSizeLimiter('10mb'));
 app.use(webSecurity.sanitizeMiddleware);
@@ -82,6 +88,11 @@ app.use('/api/webhooks', require('./routes/webhooks'));
 app.use('/api/admin', require('./routes/admin'));
 app.use('/api/pricing', require('./routes/pricing'));
 app.use('/api/stats', require('./routes/stats'));
+app.use('/api/contacts', require('./routes/contacts'));
+app.use('/api/paypal', require('./routes/paypal'));
+app.use('/api/campaigns', require('./routes/campaigns'));
+app.use('/api/audit', require('./routes/audit'));
+app.use('/api/api-keys', require('./routes/api-keys'));
 
 // ─── Health check ───────────────────────────────────────────────
 app.get('/api/health', (req, res) => {
