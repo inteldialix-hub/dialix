@@ -35,7 +35,17 @@ const allowedOrigins = [
 
 // ─── CORS ───────────────────────────────────────────────────────
 app.use(cors({
-  origin: allowedOrigins,
+  origin: function (reqOrigin, callback) {
+    // Allow requests with no origin (mobile apps, curl, etc.)
+    if (!reqOrigin) return callback(null, true);
+    // Allow exact matches
+    if (allowedOrigins.includes(reqOrigin)) return callback(null, true);
+    // Allow any *.vercel.app preview deployments
+    if (reqOrigin.endsWith('.vercel.app')) return callback(null, true);
+    // Allow any *.onrender.com domains
+    if (reqOrigin.endsWith('.onrender.com')) return callback(null, true);
+    callback(new Error('Not allowed by CORS'));
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],

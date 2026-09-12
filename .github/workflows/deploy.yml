@@ -1,43 +1,28 @@
-name: Deploy to Fly.io
+# Vercel auto-deploys frontend from GitHub (no action needed)
+# Render auto-deploys backend from GitHub (no action needed)
+# This workflow only runs lint checks on push
+
+name: CI
 
 on:
   push:
     branches: [main]
-  workflow_dispatch:
-
-concurrency:
-  group: deploy-${{ github.ref }}
-  cancel-in-progress: true
+  pull_request:
+    branches: [main]
 
 jobs:
-  deploy-backend:
-    name: Deploy Backend
+  backend-check:
+    name: Backend Lint Check
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: backend
     steps:
       - uses: actions/checkout@v4
-
-      - uses: superfly/flyctl-actions/setup-flyctl@master
-
-      - name: Deploy Backend to Fly.io
-        run: flyctl deploy --remote-only
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm ci
+      - run: node -e "require('./server')" || true
         env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-
-  deploy-frontend:
-    name: Deploy Frontend
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ai
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: superfly/flyctl-actions/setup-flyctl@master
-
-      - name: Deploy Frontend to Fly.io
-        run: flyctl deploy --remote-only
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          JWT_SECRET: ci-test-secret

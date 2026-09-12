@@ -584,15 +584,27 @@ async function initSqliteDb() {
 }
 
 async function initPostgresDb() {
-  const config = {
-    host: process.env.PG_HOST || 'localhost',
-    port: Number(process.env.PG_PORT || 5432),
-    user: process.env.PG_USER,
-    password: process.env.PG_PASSWORD,
-    database: process.env.PG_DATABASE,
-  };
-  if (!config.user || !config.password || !config.database) {
-    throw new Error('Postgres configuration requires PG_USER, PG_PASSWORD, and PG_DATABASE');
+  let config;
+
+  // Supabase and most cloud providers give a single DATABASE_URL
+  if (process.env.DATABASE_URL) {
+    config = {
+      connectionString: process.env.DATABASE_URL,
+      ssl: { rejectUnauthorized: false },
+    };
+  } else {
+    // Fallback to individual PG_* env vars
+    config = {
+      host: process.env.PG_HOST || 'localhost',
+      port: Number(process.env.PG_PORT || 5432),
+      user: process.env.PG_USER,
+      password: process.env.PG_PASSWORD,
+      database: process.env.PG_DATABASE,
+      ssl: process.env.PG_SSL === 'true' ? { rejectUnauthorized: false } : false,
+    };
+    if (!config.user || !config.password || !config.database) {
+      throw new Error('Postgres configuration requires DATABASE_URL or PG_USER, PG_PASSWORD, and PG_DATABASE');
+    }
   }
 
   pool = new Pool(config);
