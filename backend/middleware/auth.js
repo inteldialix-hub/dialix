@@ -39,6 +39,12 @@ async function authenticate(req, res, next) {
     }
 
     req.client = client;
+    req.user = {
+      ...client,
+      id: client.id,
+      client_id: client.id,
+      clientId: client.id,
+    };
     securityLogger.logAuthSuccess(client.email, req);
     next();
   } catch (err) {
