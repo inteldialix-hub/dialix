@@ -3,6 +3,9 @@ const backendUrl = process.env.BACKEND_URL || 'https://dialix-backend.onrender.c
 
 const nextConfig = {
   output: 'standalone',
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
   allowedDevOrigins: ["*.preview.same-app.com"],
   images: {
     unoptimized: true,

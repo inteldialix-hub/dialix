@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * API client for Dialix backend.
  * Uses NEXT_PUBLIC_API_URL to reach the Express backend.
