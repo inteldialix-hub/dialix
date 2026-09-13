@@ -103,6 +103,8 @@ app.use('/api/paypal', require('./routes/paypal'));
 app.use('/api/campaigns', require('./routes/campaigns'));
 app.use('/api/audit', require('./routes/audit'));
 app.use('/api/api-keys', require('./routes/api-keys'));
+app.use('/api/telemetry', require('./routes/telemetry'));
+app.use('/api/team', require('./routes/team'));
 
 // ─── Health check ───────────────────────────────────────────────
 app.get('/api/health', (req, res) => {
@@ -312,6 +314,10 @@ server.on('upgrade', (request, socket, head) => {
 // ─── Start server (async because sql.js init is async) ──────────
 async function start() {
   await initDb();
+
+  // Start automated campaign dialing worker
+  const campaignWorker = require('./services/campaign-worker');
+  campaignWorker.start();
 
   server.listen(PORT, '0.0.0.0', () => {
     console.log('');

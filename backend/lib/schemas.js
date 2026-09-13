@@ -13,6 +13,8 @@ const registerSchema = z.object({
   email: z.string().trim().email({ message: 'Invalid email address' }),
   password: z.string().min(12, { message: 'Password must be at least 12 characters' }).max(128).regex(passwordRegex, { message: 'Password must include uppercase, lowercase, number, and symbol' }),
   company: z.string().trim().max(100).optional(),
+  invite_token: z.string().trim().optional(),
+  invite: z.string().trim().optional(),
 });
 
 const changePasswordSchema = z.object({

@@ -362,6 +362,28 @@ async function getVapiAnalytics(queries = []) {
   }
 }
 
+/**
+ * Initiate an outbound phone call via Vapi — POST /call/phone
+ */
+async function createCall({ assistantId, phoneNumberId, customer, customerNumber }) {
+  const body = {
+    assistantId,
+  };
+  if (phoneNumberId) {
+    body.phoneNumberId = phoneNumberId;
+  }
+  if (customer) {
+    body.customer = customer;
+  } else if (customerNumber) {
+    body.customer = { number: customerNumber };
+  }
+
+  return vapiFetch('/call/phone', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
 module.exports = {
   listAssistants,
   getAssistant,
@@ -370,6 +392,7 @@ module.exports = {
   deleteAssistant,
   invalidateCache,
   createWebCall,
+  createCall,
   listCalls,
   getCall,
   listPhoneNumbers,

@@ -1894,5 +1894,565 @@ router.get('/:agent_id/vapi/analytics', authenticate, async (req, res) => {
   }
 });
 
+// ═══════════════════════════════════════════════════════════════
+// LIVE PROVIDER SYNC
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * POST /api/agents/:agent_id/sync
+ * Live sync with provider: re-fetches latest configuration from provider API
+ * and updates local database cache without requiring page reload.
+ */
+router.post('/:agent_id/sync', authenticate, async (req, res) => {
+  try {
+    const { agent_id } = req.params;
+
+    // Check assignment & provider
+    let provider = 'elevenlabs';
+    if (agent_id.startsWith('gemini_')) {
+      provider = 'gemini';
+    } else if (req.client.is_admin !== 1) {
+      const assignment = await get(
+        "SELECT id, can_edit, COALESCE(provider, 'elevenlabs') as provider FROM client_agents WHERE client_id = ? AND agent_id = ?",
+        [req.client.id, agent_id]
+      );
+      if (!assignment) {
+        return res.status(403).json({ error: 'Agent not assigned to your account' });
+      }
+      provider = assignment.provider || (agent_id.startsWith('agent_') ? 'elevenlabs' : 'vapi');
+    } else {
+      const assignment = await get(
+        "SELECT COALESCE(provider, 'elevenlabs') as provider FROM client_agents WHERE agent_id = ? LIMIT 1",
+        [agent_id]
+      );
+      if (assignment?.provider) {
+        provider = assignment.provider;
+      } else {
+        provider = agent_id.startsWith('agent_') ? 'elevenlabs' : 'vapi';
+      }
+    }
+
+    let freshConfig = null;
+    let freshName = '';
+
+    if (provider === 'elevenlabs') {
+      const raw = await elevenlabs.getAgent(agent_id);
+      freshName = raw.name || '';
+      freshConfig = {
+        agent_id: raw.agent_id,
+        name: raw.name || '',
+        provider: 'elevenlabs',
+        first_message: raw.conversation_config?.agent?.first_message || '',
+        language: raw.conversation_config?.agent?.language || 'en',
+        prompt: raw.conversation_config?.agent?.prompt?.prompt || '',
+        llm: raw.conversation_config?.agent?.prompt?.llm || 'gpt-4o-mini',
+        temperature: raw.conversation_config?.agent?.prompt?.temperature ?? 0.7,
+        max_tokens: raw.conversation_config?.agent?.prompt?.max_tokens ?? -1,
+        tts_model_id: raw.conversation_config?.tts?.model_id || 'eleven_v3_conversational',
+        voice_id: raw.conversation_config?.tts?.voice_id || '',
+        stability: raw.conversation_config?.tts?.voice_settings?.stability ?? 0.5,
+        speed: raw.conversation_config?.tts?.voice_settings?.speed ?? 1.0,
+        similarity_boost: raw.conversation_config?.tts?.voice_settings?.similarity_boost ?? 0.75,
+        turn_timeout: raw.conversation_config?.turn?.turn_timeout ?? 2.0,
+        silence_end_call_timeout: raw.conversation_config?.turn?.silence_end_call_timeout ?? 10.0,
+        turn_eagerness: raw.conversation_config?.turn?.turn_eagerness || 'normal',
+        max_duration_seconds: raw.conversation_config?.conversation?.max_duration_seconds ?? 300,
+        record_voice: raw.platform_settings?.privacy?.record_voice !== false,
+        retention_days: raw.platform_settings?.privacy?.retention_days ?? 90,
+      };
+    } else if (provider === 'vapi') {
+      const raw = await vapi.getAssistant(agent_id);
+      freshName = raw.name || '';
+      freshConfig = {
+        agent_id: raw.id,
+        name: raw.name || '',
+        provider: 'vapi',
+        first_message: raw.firstMessage || '',
+        first_message_mode: raw.firstMessageMode || 'assistant-speaks-first',
+        language: raw.transcriber?.language || 'en',
+        prompt: (raw.model?.messages || []).find(m => m.role === 'system')?.content || '',
+        llm: raw.model?.model || 'gpt-4o-mini',
+        model_provider: raw.model?.provider || 'openai',
+        temperature: raw.model?.temperature ?? 0.7,
+        voice_provider: raw.voice?.provider || '11labs',
+        voice_id: raw.voice?.voiceId || '',
+        transcriber_provider: raw.transcriber?.provider || 'deepgram',
+        transcriber_model: raw.transcriber?.model || 'nova-2',
+        max_duration_seconds: raw.maxDurationSeconds || 300,
+        recording_enabled: raw.artifactPlan?.recordingEnabled !== false,
+      };
+    } else {
+      // Gemini from DB
+      const geminiData = await get('SELECT * FROM gemini_agents WHERE agent_id = ?', [agent_id]);
+      if (geminiData) {
+        freshName = geminiData.name;
+        freshConfig = {
+          agent_id: geminiData.agent_id,
+          name: geminiData.name,
+          provider: 'gemini',
+          first_message: geminiData.first_message || '',
+          language: geminiData.language || 'en',
+          prompt: geminiData.system_prompt || '',
+          llm: geminiData.model || 'models/gemini-3.1-flash-live-preview',
+          gemini_model: geminiData.model,
+          voice_id: geminiData.voice || 'Kore',
+          gemini_voice: geminiData.voice,
+          temperature: geminiData.temperature ?? 1.0,
+          max_duration_seconds: geminiData.max_duration_seconds ?? 600,
+        };
+      }
+    }
+
+    if (freshName) {
+      await run(
+        'UPDATE client_agents SET agent_name = ? WHERE agent_id = ?',
+        [freshName, agent_id]
+      ).catch(() => {});
+    }
+
+    console.log(`[AgentSync] Live sync completed for ${provider} agent ${agent_id}`);
+
+    res.json({
+      success: true,
+      provider,
+      synced_at: new Date().toISOString(),
+      agent: freshConfig,
+      config: freshConfig,
+    });
+  } catch (err) {
+    console.error('POST /api/agents/:id/sync error:', err);
+    res.status(500).json({ error: err.body || err.message || 'Failed to sync with provider' });
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════
+// AGENT KNOWLEDGE BASE ENDPOINTS
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * GET /api/agents/:agent_id/knowledge
+ * List knowledge base documents for an agent
+ */
+router.get('/:agent_id/knowledge', authenticate, async (req, res) => {
+  try {
+    const { agent_id } = req.params;
+    const documents = await all(
+      'SELECT id, file_name, file_type, file_size, url, status, created_at FROM agent_knowledge WHERE client_id = ? AND agent_id = ? ORDER BY created_at DESC',
+      [req.client.id, agent_id]
+    );
+    res.json({ success: true, documents: documents || [] });
+  } catch (err) {
+    console.error('GET /api/agents/:id/knowledge error:', err);
+    res.status(500).json({ error: 'Failed to fetch knowledge documents' });
+  }
+});
+
+/**
+ * POST /api/agents/:agent_id/knowledge/upload
+ * Upload document (PDF, TXT, DOCX) and attach to provider & agent knowledge base
+ */
+router.post('/:agent_id/knowledge/upload', authenticate, async (req, res) => {
+  try {
+    const { agent_id } = req.params;
+    const { file_name, file_type, file_content_base64, file_size } = req.body;
+
+    if (!file_name || !file_content_base64) {
+      return res.status(400).json({ error: 'file_name and file_content_base64 are required' });
+    }
+
+    // Verify assignment
+    const assignment = await get(
+      "SELECT COALESCE(provider, 'elevenlabs') as provider FROM client_agents WHERE client_id = ? AND agent_id = ?",
+      [req.client.id, agent_id]
+    );
+    if (!assignment && req.client.is_admin !== 1) {
+      return res.status(403).json({ error: 'Agent not assigned to your account' });
+    }
+    const provider = assignment?.provider || 'elevenlabs';
+
+    let externalFileId = null;
+
+    // Direct provider upload if API key configured
+    if (provider === 'elevenlabs' && process.env.ELEVENLABS_API_KEY) {
+      try {
+        const buffer = Buffer.from(file_content_base64, 'base64');
+        const formData = new FormData();
+        const blob = new Blob([buffer], { type: 'application/octet-stream' });
+        formData.append('file', blob, file_name);
+        formData.append('name', file_name);
+
+        const elRes = await fetch('https://api.elevenlabs.io/v1/convai/knowledge-base', {
+          method: 'POST',
+          headers: { 'xi-api-key': process.env.ELEVENLABS_API_KEY },
+          body: formData,
+        });
+
+        if (elRes.ok) {
+          const elData = await elRes.json();
+          externalFileId = elData.id || elData.document_id || null;
+        }
+      } catch (uploadErr) {
+        console.warn('[KnowledgeBase] ElevenLabs upload notice:', uploadErr.message);
+      }
+    } else if (provider === 'vapi' && process.env.VAPI_API_KEY) {
+      try {
+        const buffer = Buffer.from(file_content_base64, 'base64');
+        const formData = new FormData();
+        const blob = new Blob([buffer], { type: 'application/octet-stream' });
+        formData.append('file', blob, file_name);
+
+        const vapiRes = await fetch('https://api.vapi.ai/file', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${process.env.VAPI_API_KEY}` },
+          body: formData,
+        });
+
+        if (vapiRes.ok) {
+          const vapiData = await vapiRes.json();
+          externalFileId = vapiData.id || null;
+        }
+      } catch (uploadErr) {
+        console.warn('[KnowledgeBase] Vapi file upload notice:', uploadErr.message);
+      }
+    }
+
+    const result = await run(
+      `INSERT INTO agent_knowledge (
+        client_id, agent_id, provider, external_file_id, file_name, file_type, file_size, status, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, 'ready', datetime('now'))`,
+      [req.client.id, agent_id, provider, externalFileId, file_name, file_type || 'txt', file_size || 0]
+    );
+
+    const docId = result.lastInsertRowid;
+
+    res.status(201).json({
+      success: true,
+      document: {
+        id: docId,
+        file_name,
+        file_type: file_type || 'txt',
+        file_size: file_size || 0,
+        status: 'ready',
+        created_at: new Date().toISOString(),
+      },
+    });
+  } catch (err) {
+    console.error('POST /api/agents/:id/knowledge/upload error:', err);
+    res.status(500).json({ error: 'Failed to upload knowledge document' });
+  }
+});
+
+/**
+ * POST /api/agents/:agent_id/knowledge/url
+ * Add documentation or website URL to agent knowledge base
+ */
+router.post('/:agent_id/knowledge/url', authenticate, async (req, res) => {
+  try {
+    const { agent_id } = req.params;
+    const { url, name } = req.body;
+
+    if (!url || typeof url !== 'string') {
+      return res.status(400).json({ error: 'Valid URL is required' });
+    }
+
+    const assignment = await get(
+      "SELECT COALESCE(provider, 'elevenlabs') as provider FROM client_agents WHERE client_id = ? AND agent_id = ?",
+      [req.client.id, agent_id]
+    );
+    if (!assignment && req.client.is_admin !== 1) {
+      return res.status(403).json({ error: 'Agent not assigned to your account' });
+    }
+    const provider = assignment?.provider || 'elevenlabs';
+
+    const docName = name || url;
+
+    // ElevenLabs URL Knowledge Base integration
+    if (provider === 'elevenlabs' && process.env.ELEVENLABS_API_KEY) {
+      try {
+        await fetch('https://api.elevenlabs.io/v1/convai/knowledge-base', {
+          method: 'POST',
+          headers: {
+            'xi-api-key': process.env.ELEVENLABS_API_KEY,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ url, name: docName }),
+        });
+      } catch (err) {
+        console.warn('[KnowledgeBase] ElevenLabs URL registration notice:', err.message);
+      }
+    }
+
+    const result = await run(
+      `INSERT INTO agent_knowledge (
+        client_id, agent_id, provider, file_name, file_type, url, status, created_at
+      ) VALUES (?, ?, ?, ?, 'url', ?, 'ready', datetime('now'))`,
+      [req.client.id, agent_id, provider, docName, url]
+    );
+
+    res.status(201).json({
+      success: true,
+      document: {
+        id: result.lastInsertRowid,
+        file_name: docName,
+        file_type: 'url',
+        url,
+        status: 'ready',
+        created_at: new Date().toISOString(),
+      },
+    });
+  } catch (err) {
+    console.error('POST /api/agents/:id/knowledge/url error:', err);
+    res.status(500).json({ error: 'Failed to add knowledge URL' });
+  }
+});
+
+/**
+ * DELETE /api/agents/:agent_id/knowledge/:id
+ * Remove document from knowledge base
+ */
+router.delete('/:agent_id/knowledge/:id', authenticate, async (req, res) => {
+  try {
+    const { agent_id, id } = req.params;
+
+    const doc = await get(
+      'SELECT id, external_file_id, provider FROM agent_knowledge WHERE id = ? AND client_id = ? AND agent_id = ?',
+      [id, req.client.id, agent_id]
+    );
+    if (!doc) {
+      return res.status(404).json({ error: 'Document not found' });
+    }
+
+    // Try deleting from ElevenLabs if external_file_id exists
+    if (doc.provider === 'elevenlabs' && doc.external_file_id && process.env.ELEVENLABS_API_KEY) {
+      try {
+        await fetch(`https://api.elevenlabs.io/v1/convai/knowledge-base/${doc.external_file_id}`, {
+          method: 'DELETE',
+          headers: { 'xi-api-key': process.env.ELEVENLABS_API_KEY },
+        });
+      } catch (e) {
+        // Continue
+      }
+    }
+
+    await run('DELETE FROM agent_knowledge WHERE id = ? AND client_id = ?', [id, req.client.id]);
+    res.json({ success: true, message: 'Document removed from knowledge base' });
+  } catch (err) {
+    console.error('DELETE /api/agents/:id/knowledge/:id error:', err);
+    res.status(500).json({ error: 'Failed to delete knowledge document' });
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════
+// AGENT TOOLS & ACTIONS ENDPOINTS
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * GET /api/agents/:agent_id/tools
+ * List tools configured for an agent
+ */
+router.get('/:agent_id/tools', authenticate, async (req, res) => {
+  try {
+    const { agent_id } = req.params;
+    const tools = await all(
+      'SELECT id, tool_name, tool_type, description, parameters, endpoint_url, is_enabled, created_at FROM agent_tools WHERE client_id = ? AND agent_id = ? ORDER BY created_at DESC',
+      [req.client.id, agent_id]
+    );
+
+    const formattedTools = (tools || []).map(t => ({
+      ...t,
+      parameters: t.parameters ? (typeof t.parameters === 'string' ? JSON.parse(t.parameters) : t.parameters) : {},
+      is_enabled: !!t.is_enabled,
+    }));
+
+    res.json({ success: true, tools: formattedTools });
+  } catch (err) {
+    console.error('GET /api/agents/:id/tools error:', err);
+    res.status(500).json({ error: 'Failed to fetch agent tools' });
+  }
+});
+
+/**
+ * POST /api/agents/:agent_id/tools
+ * Add an action template or custom webhook tool to an agent
+ */
+router.post('/:agent_id/tools', authenticate, async (req, res) => {
+  try {
+    const { agent_id } = req.params;
+    const { tool_name, tool_type, description, parameters, endpoint_url } = req.body;
+
+    if (!tool_name || !tool_type) {
+      return res.status(400).json({ error: 'tool_name and tool_type are required' });
+    }
+
+    const assignment = await get(
+      "SELECT COALESCE(provider, 'elevenlabs') as provider FROM client_agents WHERE client_id = ? AND agent_id = ?",
+      [req.client.id, agent_id]
+    );
+    if (!assignment && req.client.is_admin !== 1) {
+      return res.status(403).json({ error: 'Agent not assigned to your account' });
+    }
+    const provider = assignment?.provider || 'elevenlabs';
+
+    // Provider sync
+    if (provider === 'elevenlabs' && process.env.ELEVENLABS_API_KEY) {
+      try {
+        // Build tool definition for ElevenLabs
+        let elTool;
+        if (tool_type === 'end_call') {
+          elTool = {
+            type: 'system',
+            name: tool_name || 'end_call',
+            description: description || 'End the current call when conversation is finished',
+          };
+        } else if (tool_type === 'transfer_call') {
+          elTool = {
+            type: 'system',
+            name: tool_name || 'transfer_call',
+            description: description || 'Transfer the call to a live agent or support phone number',
+            params: parameters || {},
+          };
+        } else {
+          elTool = {
+            type: tool_type === 'webhook' ? 'webhook' : 'system',
+            name: tool_name,
+            description: description || '',
+            ...(endpoint_url ? { api_schema: { url: endpoint_url, method: 'POST', request_body_schema: parameters || {} } } : {}),
+          };
+        }
+        // Retrieve and update agent tools
+        const agentData = await elevenlabs.getAgent(agent_id);
+        const currentTools = agentData.conversation_config?.agent?.prompt?.tools || [];
+        await elevenlabs.updateAgent(agent_id, {
+          conversation_config: {
+            agent: {
+              prompt: {
+                tools: [...currentTools, elTool],
+              },
+            },
+          },
+        });
+      } catch (err) {
+        console.warn('[Tools] ElevenLabs tool config notice:', err.message);
+      }
+    } else if (provider === 'vapi' && process.env.VAPI_API_KEY) {
+      try {
+        let vapiTool;
+        if (tool_type === 'transfer_call') {
+          vapiTool = {
+            type: 'transferCall',
+            destinations: parameters?.destinations || (parameters?.phone_number ? [{ type: 'number', number: parameters.phone_number }] : []),
+          };
+        } else if (tool_type === 'end_call') {
+          vapiTool = {
+            type: 'endCallFunction',
+          };
+        } else {
+          vapiTool = {
+            type: tool_type === 'webhook' ? 'function' : tool_type,
+            function: {
+              name: tool_name,
+              description: description || '',
+              parameters: parameters || {},
+            },
+            ...(endpoint_url ? { server: { url: endpoint_url } } : {}),
+          };
+        }
+        const assistant = await vapi.getAssistant(agent_id);
+        const currentTools = assistant.model?.tools || [];
+        await vapi.updateAssistant(agent_id, {
+          model: {
+            tools: [...currentTools, vapiTool],
+          },
+        });
+      } catch (err) {
+        console.warn('[Tools] Vapi tool config notice:', err.message);
+      }
+    }
+
+    const result = await run(
+      `INSERT INTO agent_tools (
+        client_id, agent_id, provider, tool_name, tool_type, description, parameters, endpoint_url, is_enabled, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, datetime('now'))`,
+      [
+        req.client.id,
+        agent_id,
+        provider,
+        tool_name,
+        tool_type,
+        description || '',
+        JSON.stringify(parameters || {}),
+        endpoint_url || '',
+      ]
+    );
+
+    res.status(201).json({
+      success: true,
+      tool: {
+        id: result.lastInsertRowid,
+        tool_name,
+        tool_type,
+        description: description || '',
+        parameters: parameters || {},
+        endpoint_url: endpoint_url || '',
+        is_enabled: true,
+        created_at: new Date().toISOString(),
+      },
+    });
+  } catch (err) {
+    console.error('POST /api/agents/:id/tools error:', err);
+    res.status(500).json({ error: 'Failed to add agent tool' });
+  }
+});
+
+/**
+ * DELETE /api/agents/:agent_id/tools/:tool_id
+ * Remove a tool from an agent
+ */
+router.delete('/:agent_id/tools/:tool_id', authenticate, async (req, res) => {
+  try {
+    const { agent_id, tool_id } = req.params;
+
+    const tool = await get(
+      'SELECT id, tool_name FROM agent_tools WHERE id = ? AND client_id = ? AND agent_id = ?',
+      [tool_id, req.client.id, agent_id]
+    );
+    if (!tool) {
+      return res.status(404).json({ error: 'Tool not found' });
+    }
+
+    await run('DELETE FROM agent_tools WHERE id = ? AND client_id = ?', [tool_id, req.client.id]);
+    res.json({ success: true, message: 'Tool removed from agent' });
+  } catch (err) {
+    console.error('DELETE /api/agents/:id/tools/:id error:', err);
+    res.status(500).json({ error: 'Failed to remove agent tool' });
+  }
+});
+
+/**
+ * PATCH /api/agents/:agent_id/tools/:tool_id/toggle
+ * Toggle tool enabled status
+ */
+router.patch('/:agent_id/tools/:tool_id/toggle', authenticate, async (req, res) => {
+  try {
+    const { agent_id, tool_id } = req.params;
+
+    const tool = await get(
+      'SELECT id, is_enabled FROM agent_tools WHERE id = ? AND client_id = ? AND agent_id = ?',
+      [tool_id, req.client.id, agent_id]
+    );
+    if (!tool) {
+      return res.status(404).json({ error: 'Tool not found' });
+    }
+
+    const nextVal = tool.is_enabled ? 0 : 1;
+    await run('UPDATE agent_tools SET is_enabled = ? WHERE id = ?', [nextVal, tool_id]);
+
+    res.json({ success: true, is_enabled: nextVal === 1 });
+  } catch (err) {
+    console.error('PATCH /api/agents/:id/tools/:id/toggle error:', err);
+    res.status(500).json({ error: 'Failed to toggle tool status' });
+  }
+});
+
 module.exports = router;
 

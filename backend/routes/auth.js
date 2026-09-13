@@ -179,6 +179,31 @@ router.post('/register', registerLimiter, validateSchema(registerSchema), async 
 
     const token = createAuthToken(newClient);
 
+    // If registered via team invitation token, link to organization and accept invitation
+    const inviteToken = req.body.invite_token || req.body.invite;
+    if (inviteToken) {
+      try {
+        const inv = await get(
+          "SELECT id, client_id, email, role, expires_at FROM team_invitations WHERE token = ? AND status = 'pending'",
+          [inviteToken]
+        );
+        if (inv && (!inv.expires_at || new Date(inv.expires_at) >= new Date())) {
+          await run(
+            `INSERT INTO team_members (client_id, email, name, role, created_at)
+             VALUES (?, ?, ?, ?, datetime('now'))`,
+            [inv.client_id, trimmedEmail, displayName, inv.role]
+          );
+          await run(
+            "UPDATE team_invitations SET status = 'accepted' WHERE id = ?",
+            [inv.id]
+          );
+          console.log(`[Team] User ${trimmedEmail} joined team #${inv.client_id} with role ${inv.role}`);
+        }
+      } catch (invErr) {
+        console.warn('[Team] Notice redeeming invite token on register:', invErr.message);
+      }
+    }
+
     res.status(201).json({
       token,
       client: {

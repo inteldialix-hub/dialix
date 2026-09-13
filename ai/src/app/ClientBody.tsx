@@ -5,6 +5,7 @@ import "../../lib/i18n";
 import "lenis/dist/lenis.css";
 import SmoothScroll from "@/components/SmoothScroll";
 import { AuthProvider } from "@/lib/auth-context";
+import { GlobalErrorBoundary } from "@/components/GlobalErrorBoundary";
 
 export default function ClientBody({
   children,
@@ -28,8 +29,10 @@ export default function ClientBody({
   }, []);
 
   return (
-    <AuthProvider>
-      <SmoothScroll>{children}</SmoothScroll>
-    </AuthProvider>
+    <GlobalErrorBoundary>
+      <AuthProvider>
+        <SmoothScroll>{children}</SmoothScroll>
+      </AuthProvider>
+    </GlobalErrorBoundary>
   );
 }

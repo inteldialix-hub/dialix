@@ -15,11 +15,100 @@ const DB_PROVIDER = process.env.DB_PROVIDER || 'sqlite';
 let db = null;
 let pool = null;
 
+const CONFLICT_KEYS = {
+  call_metrics: ['conversation_id'],
+  client_agents: ['client_id', 'agent_id'],
+  agent_settings: ['agent_id'],
+  gemini_agents: ['agent_id'],
+  usage_records: ['client_id', 'period'],
+  team_members: ['client_id', 'email'],
+  dnc_list: ['client_id', 'phone_e164'],
+  pricing_plans: ['slug'],
+  clients: ['email'],
+  phone_numbers: ['elevenlabs_phone_number_id'],
+  subscriptions: ['paypal_subscription_id'],
+  payments: ['paypal_payment_id'],
+  payment_webhook_events: ['external_event_id'],
+  team_invitations: ['token'],
+};
+
 function mapQuery(sql, params = []) {
   let index = 0;
-  const text = sql.replace(/\?/g, () => `$${++index}`);
+  let text = sql.replace(/\?/g, () => `$${++index}`);
+
+  // PostgreSQL compatibility: convert SQLite datetime expressions to PostgreSQL syntax
+  text = text.replace(/datetime\(\s*['"]now['"]\s*,\s*['"]start of month['"]\s*\)/gi, "date_trunc('month', NOW())");
+  text = text.replace(/datetime\(\s*['"]now['"]\s*,\s*['"]-([0-9]+)\s*hours?['"]\s*\)/gi, "NOW() - INTERVAL '$1 hours'");
+  text = text.replace(/datetime\(\s*['"]now['"]\s*,\s*['"]\+?([0-9]+)\s*hours?['"]\s*\)/gi, "NOW() + INTERVAL '$1 hours'");
+  text = text.replace(/datetime\(\s*['"]now['"]\s*,\s*['"]-([0-9]+)\s*days?['"]\s*\)/gi, "NOW() - INTERVAL '$1 days'");
+  text = text.replace(/datetime\(\s*['"]now['"]\s*,\s*['"]\+?([0-9]+)\s*days?['"]\s*\)/gi, "NOW() + INTERVAL '$1 days'");
+  text = text.replace(/datetime\(\s*['"]now['"]\s*,\s*['"]-([0-9]+)\s*minutes?['"]\s*\)/gi, "NOW() - INTERVAL '$1 minutes'");
+  text = text.replace(/datetime\(\s*['"]now['"]\s*,\s*['"]\+?([0-9]+)\s*minutes?['"]\s*\)/gi, "NOW() + INTERVAL '$1 minutes'");
+  text = text.replace(/datetime\(\s*['"]now['"]\s*\)/gi, 'NOW()');
+
+  // Handle SQLite INSERT OR IGNORE -> PostgreSQL ON CONFLICT DO NOTHING
+  if (/INSERT\s+OR\s+IGNORE\s+INTO/i.test(text)) {
+    text = text.replace(/INSERT\s+OR\s+IGNORE\s+INTO/i, 'INSERT INTO');
+    if (!/ON\s+CONFLICT/i.test(text)) {
+      if (/RETURNING\s/i.test(text)) {
+        text = text.replace(/(\s+RETURNING\s+.*)$/i, ' ON CONFLICT DO NOTHING$1');
+      } else {
+        text = text.trim() + ' ON CONFLICT DO NOTHING';
+      }
+    }
+  }
+
+  // Handle SQLite INSERT OR REPLACE -> PostgreSQL ON CONFLICT ... DO UPDATE
+  if (/INSERT\s+OR\s+REPLACE\s+INTO/i.test(text)) {
+    const replaceRegex = /INSERT\s+OR\s+REPLACE\s+INTO\s+([a-zA-Z0-9_]+)\s*\(([\s\S]*?)\)\s*VALUES/i;
+    const match = text.match(replaceRegex);
+    text = text.replace(/INSERT\s+OR\s+REPLACE\s+INTO/i, 'INSERT INTO');
+
+    if (match && !/ON\s+CONFLICT/i.test(text)) {
+      const tableName = match[1].toLowerCase();
+      const rawCols = match[2].split(',').map(c => c.trim().replace(/["`]/g, ''));
+      const conflictTarget = CONFLICT_KEYS[tableName] || (rawCols[0] && rawCols[0].endsWith('_id') ? [rawCols[0]] : null);
+
+      if (conflictTarget && conflictTarget.length > 0) {
+        const updateCols = rawCols.filter(c => !conflictTarget.includes(c));
+        if (updateCols.length > 0) {
+          let updateSet = updateCols.map(c => `${c} = EXCLUDED.${c}`).join(', ');
+          if (['call_metrics', 'agent_settings', 'gemini_agents', 'pricing_plans', 'campaigns', 'usage_records'].includes(tableName) && !rawCols.includes('updated_at')) {
+            updateSet += ', updated_at = NOW()';
+          }
+          const conflictClause = ` ON CONFLICT (${conflictTarget.join(', ')}) DO UPDATE SET ${updateSet}`;
+          if (/RETURNING\s/i.test(text)) {
+            text = text.replace(/(\s+RETURNING\s+.*)$/i, `${conflictClause}$1`);
+          } else {
+            text = text.trim() + conflictClause;
+          }
+        } else {
+          const conflictClause = ` ON CONFLICT (${conflictTarget.join(', ')}) DO NOTHING`;
+          if (/RETURNING\s/i.test(text)) {
+            text = text.replace(/(\s+RETURNING\s+.*)$/i, `${conflictClause}$1`);
+          } else {
+            text = text.trim() + conflictClause;
+          }
+        }
+      } else {
+        if (/RETURNING\s/i.test(text)) {
+          text = text.replace(/(\s+RETURNING\s+.*)$/i, ' ON CONFLICT DO NOTHING$1');
+        } else {
+          text = text.trim() + ' ON CONFLICT DO NOTHING';
+        }
+      }
+    } else if (!/ON\s+CONFLICT/i.test(text)) {
+      if (/RETURNING\s/i.test(text)) {
+        text = text.replace(/(\s+RETURNING\s+.*)$/i, ' ON CONFLICT DO NOTHING$1');
+      } else {
+        text = text.trim() + ' ON CONFLICT DO NOTHING';
+      }
+    }
+  }
+
   return { text, values: params };
 }
+
 
 async function pgAll(sql, params = []) {
   const { text, values } = mapQuery(sql, params);
@@ -93,8 +182,10 @@ async function initSqliteDb() {
       email TEXT UNIQUE NOT NULL,
       password_hash TEXT NOT NULL,
       is_admin INTEGER DEFAULT 0,
+      is_active BOOLEAN DEFAULT TRUE,
       must_change_password INTEGER DEFAULT 0,
-      created_at TEXT DEFAULT (datetime('now'))
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
     )
   `);
 
@@ -149,7 +240,14 @@ async function initSqliteDb() {
   } catch (e) {}
 
   try {
-    db.run("ALTER TABLE clients ADD COLUMN updated_at TEXT DEFAULT (datetime('now'))");
+    db.run('ALTER TABLE clients ADD COLUMN is_active BOOLEAN DEFAULT TRUE');
+    persistSync();
+    console.log('✓ Migrated: added is_active column to clients');
+  } catch (e) {}
+
+  try {
+    db.run('ALTER TABLE clients ADD COLUMN updated_at TEXT');
+    db.run("UPDATE clients SET updated_at = datetime('now') WHERE updated_at IS NULL");
     persistSync();
     console.log('✓ Migrated: added updated_at column to clients');
   } catch (e) {}
@@ -179,6 +277,7 @@ async function initSqliteDb() {
     CREATE TABLE IF NOT EXISTS call_history (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       client_id INTEGER NOT NULL REFERENCES clients(id),
+      campaign_id TEXT,
       agent_id TEXT NOT NULL,
       conversation_id TEXT NOT NULL UNIQUE,
       to_number TEXT NOT NULL,
@@ -193,6 +292,12 @@ async function initSqliteDb() {
       created_at TEXT DEFAULT (datetime('now'))
     )
   `);
+
+  try {
+    db.run('ALTER TABLE call_history ADD COLUMN campaign_id TEXT');
+    persistSync();
+    console.log('✓ Migrated: added campaign_id column to call_history');
+  } catch (e) {}
 
   db.run(`
     CREATE TABLE IF NOT EXISTS call_metrics (
@@ -467,6 +572,81 @@ async function initSqliteDb() {
     )
   `);
 
+  // ─── System Error Logs (Real-time error telemetry & bug tracking) ─
+  db.run(`
+    CREATE TABLE IF NOT EXISTS system_error_logs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      client_id INTEGER REFERENCES clients(id),
+      error_message TEXT NOT NULL,
+      stack_trace TEXT,
+      component_name TEXT,
+      url TEXT,
+      user_agent TEXT,
+      status TEXT DEFAULT 'unresolved',
+      created_at TEXT DEFAULT (datetime('now'))
+    )
+  `);
+
+  // ─── Team Invitations & Members ─────────────────────────────
+  db.run(`
+    CREATE TABLE IF NOT EXISTS team_invitations (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      client_id INTEGER NOT NULL REFERENCES clients(id),
+      email TEXT NOT NULL,
+      role TEXT NOT NULL DEFAULT 'viewer',
+      token TEXT UNIQUE NOT NULL,
+      status TEXT DEFAULT 'pending',
+      expires_at TEXT,
+      created_at TEXT DEFAULT (datetime('now'))
+    )
+  `);
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS team_members (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      client_id INTEGER NOT NULL REFERENCES clients(id),
+      email TEXT NOT NULL,
+      name TEXT,
+      role TEXT NOT NULL DEFAULT 'viewer',
+      created_at TEXT DEFAULT (datetime('now')),
+      UNIQUE(client_id, email)
+    )
+  `);
+
+  // ─── Agent Knowledge Base & Tools ───────────────────────────
+  db.run(`
+    CREATE TABLE IF NOT EXISTS agent_knowledge (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      client_id INTEGER NOT NULL REFERENCES clients(id),
+      agent_id TEXT NOT NULL,
+      provider TEXT DEFAULT 'elevenlabs',
+      external_file_id TEXT,
+      file_name TEXT NOT NULL,
+      file_type TEXT,
+      file_size INTEGER DEFAULT 0,
+      url TEXT,
+      status TEXT DEFAULT 'ready',
+      created_at TEXT DEFAULT (datetime('now'))
+    )
+  `);
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS agent_tools (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      client_id INTEGER NOT NULL REFERENCES clients(id),
+      agent_id TEXT NOT NULL,
+      provider TEXT DEFAULT 'elevenlabs',
+      external_tool_id TEXT,
+      tool_name TEXT NOT NULL,
+      tool_type TEXT NOT NULL,
+      description TEXT,
+      parameters TEXT DEFAULT '{}',
+      endpoint_url TEXT,
+      is_enabled INTEGER DEFAULT 1,
+      created_at TEXT DEFAULT (datetime('now'))
+    )
+  `);
+
   // ─── Add new columns to existing tables ──────────────────────
   // Add paypal_plan_id to pricing_plans
   try {
@@ -508,6 +688,7 @@ async function initSqliteDb() {
     db.run('CREATE INDEX IF NOT EXISTS idx_phone_numbers_client_id ON phone_numbers(client_id)');
     db.run('CREATE INDEX IF NOT EXISTS idx_phone_numbers_agent_id ON phone_numbers(assigned_agent_id)');
     db.run('CREATE INDEX IF NOT EXISTS idx_call_history_client_id ON call_history(client_id)');
+    db.run('CREATE INDEX IF NOT EXISTS idx_call_history_campaign_id ON call_history(campaign_id)');
     db.run('CREATE INDEX IF NOT EXISTS idx_call_history_agent_id ON call_history(agent_id)');
     db.run('CREATE INDEX IF NOT EXISTS idx_call_history_conversation_id ON call_history(conversation_id)');
     db.run('CREATE INDEX IF NOT EXISTS idx_call_history_created_at ON call_history(created_at)');
@@ -535,6 +716,16 @@ async function initSqliteDb() {
     db.run('CREATE INDEX IF NOT EXISTS idx_api_keys_key_hash ON api_keys(key_hash)');
     db.run('CREATE INDEX IF NOT EXISTS idx_usage_records_client ON usage_records(client_id)');
     db.run('CREATE INDEX IF NOT EXISTS idx_usage_records_period ON usage_records(period)');
+    db.run('CREATE INDEX IF NOT EXISTS idx_error_logs_client ON system_error_logs(client_id)');
+    db.run('CREATE INDEX IF NOT EXISTS idx_error_logs_status ON system_error_logs(status)');
+    db.run('CREATE INDEX IF NOT EXISTS idx_team_invitations_client ON team_invitations(client_id)');
+    db.run('CREATE INDEX IF NOT EXISTS idx_team_invitations_token ON team_invitations(token)');
+    db.run('CREATE INDEX IF NOT EXISTS idx_team_members_client ON team_members(client_id)');
+    db.run('CREATE INDEX IF NOT EXISTS idx_team_members_email ON team_members(email)');
+    db.run('CREATE INDEX IF NOT EXISTS idx_agent_knowledge_agent ON agent_knowledge(agent_id)');
+    db.run('CREATE INDEX IF NOT EXISTS idx_agent_knowledge_client ON agent_knowledge(client_id)');
+    db.run('CREATE INDEX IF NOT EXISTS idx_agent_tools_agent ON agent_tools(agent_id)');
+    db.run('CREATE INDEX IF NOT EXISTS idx_agent_tools_client ON agent_tools(client_id)');
     persistSync();
     console.log('✓ Database: Performance indexes created');
   } catch (e) {
@@ -617,8 +808,10 @@ async function initPostgresDb() {
       email TEXT UNIQUE NOT NULL,
       password_hash TEXT NOT NULL,
       is_admin INTEGER DEFAULT 0,
+      is_active BOOLEAN DEFAULT TRUE,
       must_change_password INTEGER DEFAULT 0,
-      created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+      created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
     )
   `);
 
@@ -660,6 +853,12 @@ async function initPostgresDb() {
   `);
 
   await pool.query(`
+    ALTER TABLE clients ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE
+  `);
+  await pool.query(`
+    ALTER TABLE clients ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+  `);
+  await pool.query(`
     ALTER TABLE clients ADD COLUMN IF NOT EXISTS must_change_password INTEGER DEFAULT 0
   `);
 
@@ -688,6 +887,7 @@ async function initPostgresDb() {
     CREATE TABLE IF NOT EXISTS call_history (
       id SERIAL PRIMARY KEY,
       client_id INTEGER NOT NULL REFERENCES clients(id),
+      campaign_id TEXT,
       agent_id TEXT NOT NULL,
       conversation_id TEXT NOT NULL UNIQUE,
       to_number TEXT NOT NULL,
@@ -701,6 +901,10 @@ async function initPostgresDb() {
       ended_at TIMESTAMPTZ,
       created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
     )
+  `);
+
+  await pool.query(`
+    ALTER TABLE call_history ADD COLUMN IF NOT EXISTS campaign_id TEXT
   `);
 
   await pool.query(`
@@ -739,6 +943,27 @@ async function initPostgresDb() {
   await pool.query(`
     ALTER TABLE clients ADD COLUMN IF NOT EXISTS plan_id INTEGER DEFAULT NULL REFERENCES pricing_plans(id)
   `);
+
+  // ─── Seed default pricing plans if none exist (Postgres) ────────
+  try {
+    const existingPlans = await pool.query('SELECT COUNT(*) FROM pricing_plans');
+    const planCount = parseInt(existingPlans.rows[0]?.count || '0', 10);
+    if (planCount === 0) {
+      await pool.query(`
+        INSERT INTO pricing_plans (id, name, slug, price, billing_period, max_agents, max_calls_per_month, max_phone_numbers, features, is_default, is_active, sort_order)
+        VALUES 
+          (1, 'Free', 'free', 0, 'monthly', 1, 100, 1, '{"dashboard":true,"basic_analytics":true}', 1, 1, 0),
+          (2, 'Starter', 'starter', 29, 'monthly', 3, 500, 2, '{"dashboard":true,"basic_analytics":true,"webhooks":true}', 0, 1, 1),
+          (3, 'Growth', 'growth', 99, 'monthly', 10, 2500, 5, '{"dashboard":true,"basic_analytics":true,"advanced_analytics":true,"webhooks":true,"call_recording":true}', 0, 1, 2),
+          (4, 'Enterprise', 'enterprise', 299, 'monthly', -1, -1, -1, '{"dashboard":true,"basic_analytics":true,"advanced_analytics":true,"webhooks":true,"call_recording":true,"priority_support":true,"api_access":true,"custom_integrations":true,"sla":true}', 0, 1, 3)
+        ON CONFLICT (id) DO NOTHING
+      `);
+      await pool.query(`SELECT setval(pg_get_serial_sequence('pricing_plans', 'id'), (SELECT COALESCE(MAX(id), 1) FROM pricing_plans))`);
+      console.log('✓ Seeded default pricing plans in Postgres');
+    }
+  } catch (err) {
+    console.error('⚠ Failed to seed pricing plans in Postgres:', err.message);
+  }
 
   // ─── Gemini Agents (local config storage) ────────────────────────
   await pool.query(`
@@ -957,6 +1182,81 @@ async function initPostgresDb() {
     )
   `);
 
+  // ─── System Error Logs (Real-time error telemetry & bug tracking) ─
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS system_error_logs (
+      id SERIAL PRIMARY KEY,
+      client_id INTEGER REFERENCES clients(id),
+      error_message TEXT NOT NULL,
+      stack_trace TEXT,
+      component_name TEXT,
+      url TEXT,
+      user_agent TEXT,
+      status TEXT DEFAULT 'unresolved',
+      created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  // ─── Team Invitations & Members ─────────────────────────────
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS team_invitations (
+      id SERIAL PRIMARY KEY,
+      client_id INTEGER NOT NULL REFERENCES clients(id),
+      email TEXT NOT NULL,
+      role TEXT NOT NULL DEFAULT 'viewer',
+      token TEXT UNIQUE NOT NULL,
+      status TEXT DEFAULT 'pending',
+      expires_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS team_members (
+      id SERIAL PRIMARY KEY,
+      client_id INTEGER NOT NULL REFERENCES clients(id),
+      email TEXT NOT NULL,
+      name TEXT,
+      role TEXT NOT NULL DEFAULT 'viewer',
+      created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(client_id, email)
+    )
+  `);
+
+  // ─── Agent Knowledge Base & Tools ───────────────────────────
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS agent_knowledge (
+      id SERIAL PRIMARY KEY,
+      client_id INTEGER NOT NULL REFERENCES clients(id),
+      agent_id TEXT NOT NULL,
+      provider TEXT DEFAULT 'elevenlabs',
+      external_file_id TEXT,
+      file_name TEXT NOT NULL,
+      file_type TEXT,
+      file_size INTEGER DEFAULT 0,
+      url TEXT,
+      status TEXT DEFAULT 'ready',
+      created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS agent_tools (
+      id SERIAL PRIMARY KEY,
+      client_id INTEGER NOT NULL REFERENCES clients(id),
+      agent_id TEXT NOT NULL,
+      provider TEXT DEFAULT 'elevenlabs',
+      external_tool_id TEXT,
+      tool_name TEXT NOT NULL,
+      tool_type TEXT NOT NULL,
+      description TEXT,
+      parameters TEXT DEFAULT '{}',
+      endpoint_url TEXT,
+      is_enabled INTEGER DEFAULT 1,
+      created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
   // ─── Add new columns to existing tables ──────────────────────
   await pool.query('ALTER TABLE pricing_plans ADD COLUMN IF NOT EXISTS paypal_plan_id TEXT DEFAULT NULL');
   await pool.query('ALTER TABLE clients ADD COLUMN IF NOT EXISTS email_verified INTEGER DEFAULT 0');
@@ -972,6 +1272,7 @@ async function initPostgresDb() {
     await pool.query('CREATE INDEX IF NOT EXISTS idx_phone_numbers_client_id ON phone_numbers(client_id)');
     await pool.query('CREATE INDEX IF NOT EXISTS idx_phone_numbers_agent_id ON phone_numbers(assigned_agent_id)');
     await pool.query('CREATE INDEX IF NOT EXISTS idx_call_history_client_id ON call_history(client_id)');
+    await pool.query('CREATE INDEX IF NOT EXISTS idx_call_history_campaign_id ON call_history(campaign_id)');
     await pool.query('CREATE INDEX IF NOT EXISTS idx_call_history_agent_id ON call_history(agent_id)');
     await pool.query('CREATE INDEX IF NOT EXISTS idx_call_history_conversation_id ON call_history(conversation_id)');
     await pool.query('CREATE INDEX IF NOT EXISTS idx_call_history_created_at ON call_history(created_at)');
@@ -999,6 +1300,16 @@ async function initPostgresDb() {
     await pool.query('CREATE INDEX IF NOT EXISTS idx_api_keys_key_hash ON api_keys(key_hash)');
     await pool.query('CREATE INDEX IF NOT EXISTS idx_usage_records_client ON usage_records(client_id)');
     await pool.query('CREATE INDEX IF NOT EXISTS idx_usage_records_period ON usage_records(period)');
+    await pool.query('CREATE INDEX IF NOT EXISTS idx_error_logs_client ON system_error_logs(client_id)');
+    await pool.query('CREATE INDEX IF NOT EXISTS idx_error_logs_status ON system_error_logs(status)');
+    await pool.query('CREATE INDEX IF NOT EXISTS idx_team_invitations_client ON team_invitations(client_id)');
+    await pool.query('CREATE INDEX IF NOT EXISTS idx_team_invitations_token ON team_invitations(token)');
+    await pool.query('CREATE INDEX IF NOT EXISTS idx_team_members_client ON team_members(client_id)');
+    await pool.query('CREATE INDEX IF NOT EXISTS idx_team_members_email ON team_members(email)');
+    await pool.query('CREATE INDEX IF NOT EXISTS idx_agent_knowledge_agent ON agent_knowledge(agent_id)');
+    await pool.query('CREATE INDEX IF NOT EXISTS idx_agent_knowledge_client ON agent_knowledge(client_id)');
+    await pool.query('CREATE INDEX IF NOT EXISTS idx_agent_tools_agent ON agent_tools(agent_id)');
+    await pool.query('CREATE INDEX IF NOT EXISTS idx_agent_tools_client ON agent_tools(client_id)');
     console.log('✓ Database: Performance indexes created');
   } catch (e) {
     console.log('⚠ Database: Indexes may already exist');
@@ -1012,7 +1323,7 @@ async function initPostgresDb() {
     if (existingAdmin.rows.length === 0) {
       const hash = bcrypt.hashSync(adminPassword, 12);
       await pool.query(
-        'INSERT INTO clients (name, email, password_hash, is_admin, is_active, plan_id) VALUES ($1, $2, $3, 1, 1, 4)',
+        'INSERT INTO clients (name, email, password_hash, is_admin, is_active, plan_id) VALUES ($1, $2, $3, 1, TRUE, 4)',
         ['Dialix Admin', adminEmail, hash]
       );
       console.log(`✓ Seeded admin account in Postgres: ${adminEmail}`);
@@ -1072,5 +1383,6 @@ module.exports = {
   all,
   get,
   run,
+  mapQuery,
   getDb: () => (DB_PROVIDER === 'postgres' ? pool : db),
 };

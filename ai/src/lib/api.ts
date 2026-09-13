@@ -26,17 +26,62 @@ export async function api<T = any>(
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const res = await fetch(`${API_BASE}/api${path}`, {
-    method,
-    headers,
-    body: body ? JSON.stringify(body) : undefined,
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE}/api${path}`, {
+      method,
+      headers,
+      body: body ? JSON.stringify(body) : undefined,
+    });
+  } catch (networkErr: any) {
+    if (!path.includes('/telemetry/errors')) {
+      try {
+        fetch(`${API_BASE}/api/telemetry/errors`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify({
+            error_message: `Network failure on ${method} ${path}: ${networkErr?.message || 'Network error'}`,
+            component_name: 'api_client',
+            url: typeof window !== 'undefined' ? window.location.href : undefined,
+          }),
+          keepalive: true,
+        }).catch(() => {});
+      } catch {
+        // ignore
+      }
+    }
+    throw networkErr;
+  }
 
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({})) as {
       error?: string;
       issues?: { path: string; message: string }[];
     };
+
+    // Automatically report server-side 500s to telemetry
+    if (res.status >= 500 && !path.includes('/telemetry/errors')) {
+      try {
+        fetch(`${API_BASE}/api/telemetry/errors`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify({
+            error_message: `API ${res.status} on ${method} ${path}: ${errorData.error || res.statusText}`,
+            component_name: 'api_client',
+            url: typeof window !== 'undefined' ? window.location.href : undefined,
+          }),
+          keepalive: true,
+        }).catch(() => {});
+      } catch {
+        // ignore
+      }
+    }
 
     // Auto-logout on expired/invalid token — redirect to login
     // BUT skip this for auth endpoints (login/register) where 401 means "wrong credentials"

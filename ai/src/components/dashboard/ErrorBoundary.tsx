@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { sendTelemetryError } from '@/components/GlobalErrorBoundary';
 
 interface ErrorBoundaryState {
   hasError: boolean;
@@ -22,6 +23,12 @@ export class DashboardErrorBoundary extends React.Component<
 
   componentDidCatch(error: Error, info: React.ErrorInfo) {
     console.error('[DashboardErrorBoundary]', error, info.componentStack);
+    sendTelemetryError({
+      errorMessage: error.message || 'Dashboard unhandled crash',
+      stackTrace: error.stack || null,
+      componentName: 'DashboardErrorBoundary',
+      url: typeof window !== 'undefined' ? window.location.href : undefined,
+    });
   }
 
   render() {

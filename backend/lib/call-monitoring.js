@@ -84,6 +84,10 @@ class CallMonitor extends EventEmitter {
           `UPDATE call_history SET status = ? WHERE conversation_id = ?`,
           [status, conversationId]
         );
+        const ch = await get('SELECT campaign_id FROM call_history WHERE conversation_id = ?', [conversationId]);
+        if (ch?.campaign_id) {
+          await run("UPDATE campaigns SET calls_answered = calls_answered + 1, updated_at = datetime('now') WHERE id = ?", [ch.campaign_id]).catch(() => {});
+        }
       } else if (status === 'completed' || status === 'failed') {
         const success = status === 'completed' ? 1 : 0;
         const qualityScore = metrics.quality_score || null;
@@ -94,6 +98,13 @@ class CallMonitor extends EventEmitter {
            WHERE conversation_id = ?`,
           [status, call.duration, success, qualityScore, conversationId]
         );
+
+        if (status === 'completed' && call.duration > 0) {
+          const ch = await get('SELECT campaign_id FROM call_history WHERE conversation_id = ?', [conversationId]);
+          if (ch?.campaign_id) {
+            await run("UPDATE campaigns SET calls_answered = calls_answered + 1, updated_at = datetime('now') WHERE id = ?", [ch.campaign_id]).catch(() => {});
+          }
+        }
 
         // Store detailed metrics
         await run(

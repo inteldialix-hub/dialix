@@ -32,21 +32,22 @@ router.get('/scopes', (req, res) => {
 });
 
 // GET / - List API keys
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
   try {
     const { client_id } = req.user;
-    const keys = all(
+    const keys = await all(
       'SELECT id, name, key_prefix, scopes, last_used_at, expires_at, revoked, created_at FROM api_keys WHERE client_id = ? AND revoked = 0 ORDER BY created_at DESC',
       [client_id]
     );
     
     // Parse scopes
-    const formattedKeys = keys.map(k => ({
+    const formattedKeys = (keys || []).map(k => ({
       ...k,
-      scopes: k.scopes ? JSON.parse(k.scopes) : []
+      prefix: k.key_prefix,
+      scopes: k.scopes ? (typeof k.scopes === 'string' ? JSON.parse(k.scopes) : k.scopes) : []
     }));
     
-    res.json({ data: formattedKeys });
+    res.json({ data: formattedKeys, keys: formattedKeys });
   } catch (error) {
     console.error('Error fetching API keys:', error);
     res.status(500).json({ error: 'Failed to fetch API keys' });
@@ -54,7 +55,7 @@ router.get('/', (req, res) => {
 });
 
 // POST / - Create API key
-router.post('/', (req, res) => {
+router.post('/', async (req, res) => {
   try {
     const { client_id, email } = req.user;
     const parsed = apiKeySchema.safeParse(req.body);
@@ -69,7 +70,7 @@ router.post('/', (req, res) => {
     const keyPrefix = rawKey.substring(0, 10) + '...';
     const keyHash = crypto.createHash('sha256').update(rawKey).digest('hex');
 
-    const result = run(
+    const result = await run(
       `INSERT INTO api_keys (client_id, name, key_hash, key_prefix, scopes, revoked, created_at)
        VALUES (?, ?, ?, ?, ?, 0, datetime('now'))`,
       [client_id, name, keyHash, keyPrefix, JSON.stringify(scopes)]
@@ -82,12 +83,17 @@ router.post('/', (req, res) => {
     }
 
     res.status(201).json({ 
+      message: 'API key created successfully',
+      key: rawKey,
+      api_key: rawKey,
       data: {
         id: result.lastInsertRowid,
         name,
+        prefix: keyPrefix,
         key_prefix: keyPrefix,
         scopes,
-        raw_key: rawKey // Only returned once!
+        raw_key: rawKey, // Only returned once!
+        key: rawKey,
       }
     });
   } catch (error) {
@@ -97,16 +103,16 @@ router.post('/', (req, res) => {
 });
 
 // DELETE /:id - Revoke API key
-router.delete('/:id', (req, res) => {
+router.delete('/:id', async (req, res) => {
   try {
     const { client_id, email } = req.user;
     const keyId = req.params.id;
 
-    const key = get('SELECT * FROM api_keys WHERE id = ? AND client_id = ?', [keyId, client_id]);
+    const key = await get('SELECT * FROM api_keys WHERE id = ? AND client_id = ?', [keyId, client_id]);
     if (!key) return res.status(404).json({ error: 'API key not found' });
     if (key.revoked) return res.status(400).json({ error: 'API key is already revoked' });
 
-    run('UPDATE api_keys SET revoked = 1 WHERE id = ?', [keyId]);
+    await run('UPDATE api_keys SET revoked = 1 WHERE id = ?', [keyId]);
 
     // Audit log
     const { logAudit } = require('./audit');

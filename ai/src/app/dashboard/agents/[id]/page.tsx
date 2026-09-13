@@ -158,6 +158,46 @@ export default function AgentDetailPage() {
   const [affectiveDialog, setAffectiveDialog] = useState(false);
   const [proactiveAudio, setProactiveAudio] = useState(false);
 
+  // ── Live Provider Sync State ──
+  const [syncing, setSyncing] = useState(false);
+
+  // ── Knowledge Base State ──
+  interface KnowledgeDoc {
+    id: number;
+    file_name: string;
+    file_type: string;
+    file_size: number;
+    url?: string;
+    status: string;
+    created_at: string;
+  }
+  const [knowledgeDocs, setKnowledgeDocs] = useState<KnowledgeDoc[]>([]);
+  const [loadingKnowledge, setLoadingKnowledge] = useState(false);
+  const [uploadingDoc, setUploadingDoc] = useState(false);
+  const [knowledgeUrl, setKnowledgeUrl] = useState('');
+  const [knowledgeUrlName, setKnowledgeUrlName] = useState('');
+  const [addingUrl, setAddingUrl] = useState(false);
+
+  // ── Tools & Actions State ──
+  interface AgentToolItem {
+    id: number;
+    tool_name: string;
+    tool_type: string;
+    description: string;
+    parameters: Record<string, unknown>;
+    endpoint_url: string;
+    is_enabled: boolean;
+    created_at: string;
+  }
+  const [toolsList, setToolsList] = useState<AgentToolItem[]>([]);
+  const [loadingTools, setLoadingTools] = useState(false);
+  const [newToolName, setNewToolName] = useState('');
+  const [newToolType, setNewToolType] = useState<'transfer_call' | 'end_call' | 'webhook'>('webhook');
+  const [newToolDesc, setNewToolDesc] = useState('');
+  const [newToolUrl, setNewToolUrl] = useState('');
+  const [transferTargetPhone, setTransferTargetPhone] = useState('');
+  const [savingTool, setSavingTool] = useState(false);
+
   const loadAgent = useCallback(async () => {
     try {
       const data = await api<{ config: AgentConfig; allowed_features?: Record<string, boolean> | null }>(`/agents/${agentId}`, { token: token! });
@@ -255,6 +295,214 @@ export default function AgentDetailPage() {
     } finally { setLoading(false); }
   }, [agentId, token, addToast]);
 
+  // ── Live Provider Sync Handler ──
+  const handleSyncWithProvider = async () => {
+    if (!token || !agentId) return;
+    setSyncing(true);
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const res = await api<{ success: boolean; config: any; agent: any; synced_at: string }>(`/agents/${agentId}/sync`, {
+        method: 'POST',
+        token,
+      });
+      const fresh = res?.config || res?.agent;
+      if (fresh) {
+        setConfig(fresh);
+        if (fresh.name) setName(fresh.name);
+        if (fresh.first_message !== undefined) setFirstMessage(fresh.first_message);
+        if (fresh.language !== undefined) setLanguage(fresh.language);
+        if (fresh.prompt !== undefined) setPrompt(fresh.prompt);
+        if (fresh.llm !== undefined) setLlm(fresh.llm);
+        if (fresh.temperature !== undefined) setTemperature(fresh.temperature);
+        if (fresh.voice_id !== undefined) setVoiceId(fresh.voice_id);
+        addToast('Agent in lockstep: fresh configuration synced from provider!', 'success');
+        setDirty(false);
+      }
+    } catch (err) {
+      addToast(err instanceof Error ? err.message : 'Failed to sync with provider', 'error');
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  // ── Knowledge Base Handlers ──
+  const loadKnowledgeDocs = useCallback(async () => {
+    if (!token || !agentId) return;
+    setLoadingKnowledge(true);
+    try {
+      const res = await api<{ documents: KnowledgeDoc[] }>(`/agents/${agentId}/knowledge`, { token });
+      setKnowledgeDocs(res.documents || []);
+    } catch {
+      // non-critical
+    } finally {
+      setLoadingKnowledge(false);
+    }
+  }, [token, agentId]);
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 10 * 1024 * 1024) {
+      addToast('File exceeds 10MB limit', 'error');
+      return;
+    }
+
+    setUploadingDoc(true);
+    try {
+      const reader = new FileReader();
+      reader.onload = async () => {
+        try {
+          const base64Content = (reader.result as string).split(',')[1];
+          const ext = file.name.split('.').pop()?.toLowerCase() || 'txt';
+          await api(`/agents/${agentId}/knowledge/upload`, {
+            method: 'POST',
+            token: token!,
+            body: {
+              file_name: file.name,
+              file_type: ext,
+              file_content_base64: base64Content,
+              file_size: file.size,
+            },
+          });
+          addToast(`Document "${file.name}" added to knowledge base!`, 'success');
+          loadKnowledgeDocs();
+        } catch (err) {
+          addToast(err instanceof Error ? err.message : 'Upload failed', 'error');
+        } finally {
+          setUploadingDoc(false);
+        }
+      };
+      reader.readAsDataURL(file);
+    } catch (err) {
+      setUploadingDoc(false);
+      addToast(err instanceof Error ? err.message : 'Failed to read file', 'error');
+    }
+  };
+
+  const handleAddKnowledgeUrl = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!knowledgeUrl.trim()) return;
+    setAddingUrl(true);
+    try {
+      await api(`/agents/${agentId}/knowledge/url`, {
+        method: 'POST',
+        token: token!,
+        body: {
+          url: knowledgeUrl.trim(),
+          name: knowledgeUrlName.trim() || knowledgeUrl.trim(),
+        },
+      });
+      addToast('Website URL added to knowledge base!', 'success');
+      setKnowledgeUrl('');
+      setKnowledgeUrlName('');
+      loadKnowledgeDocs();
+    } catch (err) {
+      addToast(err instanceof Error ? err.message : 'Failed to add URL', 'error');
+    } finally {
+      setAddingUrl(false);
+    }
+  };
+
+  const handleDeleteKnowledgeDoc = async (id: number) => {
+    if (!confirm('Remove this document from knowledge base?')) return;
+    try {
+      await api(`/agents/${agentId}/knowledge/${id}`, {
+        method: 'DELETE',
+        token: token!,
+      });
+      addToast('Document removed', 'success');
+      loadKnowledgeDocs();
+    } catch (err) {
+      addToast(err instanceof Error ? err.message : 'Failed to remove document', 'error');
+    }
+  };
+
+  // ── Tools & Actions Handlers ──
+  const loadToolsList = useCallback(async () => {
+    if (!token || !agentId) return;
+    setLoadingTools(true);
+    try {
+      const res = await api<{ tools: AgentToolItem[] }>(`/agents/${agentId}/tools`, { token });
+      setToolsList(res.tools || []);
+    } catch {
+      // non-critical
+    } finally {
+      setLoadingTools(false);
+    }
+  }, [token, agentId]);
+
+  const handleAddTool = async (typeOverride?: 'transfer_call' | 'end_call' | 'webhook') => {
+    const selectedType = typeOverride || newToolType;
+    let toolName = newToolName.trim();
+    let desc = newToolDesc.trim();
+    let endpointUrl = newToolUrl.trim();
+
+    if (selectedType === 'transfer_call') {
+      toolName = toolName || 'transfer_to_supervisor';
+      desc = desc || `Transfer the caller to phone number: ${transferTargetPhone || '+1234567890'}`;
+      endpointUrl = transferTargetPhone;
+    } else if (selectedType === 'end_call') {
+      toolName = toolName || 'end_call';
+      desc = desc || 'Politely conclude and hang up the phone call';
+    }
+
+    if (!toolName) {
+      addToast('Tool name is required', 'error');
+      return;
+    }
+
+    setSavingTool(true);
+    try {
+      await api(`/agents/${agentId}/tools`, {
+        method: 'POST',
+        token: token!,
+        body: {
+          tool_name: toolName,
+          tool_type: selectedType,
+          description: desc,
+          endpoint_url: endpointUrl,
+        },
+      });
+      addToast(`Tool "${toolName}" added to agent!`, 'success');
+      setNewToolName('');
+      setNewToolDesc('');
+      setNewToolUrl('');
+      setTransferTargetPhone('');
+      loadToolsList();
+    } catch (err) {
+      addToast(err instanceof Error ? err.message : 'Failed to add tool', 'error');
+    } finally {
+      setSavingTool(false);
+    }
+  };
+
+  const handleDeleteTool = async (id: number) => {
+    if (!confirm('Remove this tool from agent?')) return;
+    try {
+      await api(`/agents/${agentId}/tools/${id}`, {
+        method: 'DELETE',
+        token: token!,
+      });
+      addToast('Tool removed', 'success');
+      loadToolsList();
+    } catch (err) {
+      addToast(err instanceof Error ? err.message : 'Failed to remove tool', 'error');
+    }
+  };
+
+  const handleToggleTool = async (id: number) => {
+    try {
+      await api(`/agents/${agentId}/tools/${id}/toggle`, {
+        method: 'PATCH',
+        token: token!,
+      });
+      loadToolsList();
+    } catch (err) {
+      addToast(err instanceof Error ? err.message : 'Failed to toggle tool', 'error');
+    }
+  };
+
   // Voice preview — use the preview_url from ElevenLabs API
   const playVoicePreview = (vid: string) => {
     if (previewingId === vid) {
@@ -346,6 +594,15 @@ export default function AgentDetailPage() {
         .finally(() => setAnalyticsLoading(false));
     }
   }, [activeTab, provider, token, agentId, analytics]);
+
+  // Load Knowledge Docs and Tools when switching to their tabs
+  useEffect(() => {
+    if (activeTab === 'knowledge') {
+      loadKnowledgeDocs();
+    } else if (activeTab === 'tools') {
+      loadToolsList();
+    }
+  }, [activeTab, loadKnowledgeDocs, loadToolsList]);
 
   // Dynamically filter/annotate TTS models based on selected language
   // Models that don't support the chosen language get marked "incompatible" and sorted to the bottom
@@ -496,6 +753,8 @@ export default function AgentDetailPage() {
         'prompt': ['prompt', 'llm', 'temperature'],
         'voice': ['voice'],
         'gemini-settings': ['call_behavior'],
+        'knowledge': ['knowledge'],
+        'tools': ['tools'],
       }
     : provider === 'vapi'
     ? {
@@ -506,6 +765,8 @@ export default function AgentDetailPage() {
         'compliance': ['compliance', 'safety'],
         'recording': ['recording'],
         'webhooks': ['webhooks'],
+        'knowledge': ['knowledge'],
+        'tools': ['tools'],
         'analytics': ['analytics'],
       }
     : {
@@ -516,6 +777,8 @@ export default function AgentDetailPage() {
         'safety': ['safety'],
         'advanced': ['advanced'],
         'privacy': ['privacy'],
+        'knowledge': ['knowledge'],
+        'tools': ['tools'],
       };
 
   const isTabVisible = (tabId: string) => {
@@ -533,6 +796,8 @@ export default function AgentDetailPage() {
         { id: 'prompt', label: 'Prompt', icon: 'file-text' },
         { id: 'voice', label: 'Voice', icon: 'mic' },
         { id: 'gemini-settings', label: 'Gemini Settings', icon: 'sliders' },
+        { id: 'knowledge', label: 'Knowledge Base', icon: 'book' },
+        { id: 'tools', label: 'Tools & Actions', icon: 'wrench' },
       ]
     : provider === 'vapi'
     ? [
@@ -544,6 +809,8 @@ export default function AgentDetailPage() {
         { id: 'compliance', label: 'Compliance', icon: 'shield' },
         { id: 'recording', label: 'Recording', icon: 'disc' },
         { id: 'webhooks', label: 'Webhooks', icon: 'globe' },
+        { id: 'knowledge', label: 'Knowledge Base', icon: 'book' },
+        { id: 'tools', label: 'Tools & Actions', icon: 'wrench' },
         { id: 'analytics', label: 'Analytics', icon: 'bar-chart-2' },
       ]
     : [
@@ -555,6 +822,8 @@ export default function AgentDetailPage() {
         { id: 'safety', label: 'Safety', icon: 'shield' },
         { id: 'advanced', label: 'Advanced', icon: 'sliders' },
         { id: 'privacy', label: 'Privacy', icon: 'lock' },
+        { id: 'knowledge', label: 'Knowledge Base', icon: 'book' },
+        { id: 'tools', label: 'Tools & Actions', icon: 'wrench' },
       ]
   ).filter(t => isTabVisible(t.id));
 
@@ -579,6 +848,30 @@ export default function AgentDetailPage() {
           <span className="detail-agent-id">{agentId.slice(0, 24)}...</span>
         </div>
         <div style={{ flex: 1 }} />
+        <button
+          type="button"
+          className="btn-ghost"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 6,
+            padding: '7px 14px',
+            fontSize: 12,
+            fontWeight: 500,
+            borderRadius: 'var(--radius-md)',
+            border: '1px solid var(--border-default)',
+            background: 'var(--bg-secondary)',
+            color: 'var(--text-secondary)',
+            cursor: syncing ? 'not-allowed' : 'pointer',
+            marginRight: 8,
+          }}
+          onClick={handleSyncWithProvider}
+          disabled={syncing}
+          title="Sync configuration with provider"
+        >
+          <Icon name="refresh-cw" size={13} style={{ animation: syncing ? 'spin 1s linear infinite' : 'none' }} />
+          {syncing ? 'Syncing...' : 'Sync with Provider'}
+        </button>
         {isFeatureVisible('test_call') && <SneakyButton text="Test Call" onClick={promptTestCall} />}
         <SneakyButton text={saving ? 'Saving...' : 'Save Changes'} onClick={handleSave} loading={saving} disabled={saving} />
       </div>
@@ -1211,6 +1504,422 @@ export default function AgentDetailPage() {
               <Toggle value={zeroRetention} onChange={set(setZeroRetention)} label="Zero Retention Mode" desc="No data is stored after the call ends." />
             </div>
           </>)}
+
+          {/* ── Knowledge Base Tab ── */}
+          {activeTab === 'knowledge' && (
+            <>
+              {/* Document Upload & URL Section */}
+              <div className="config-section">
+                <div className="config-section-title">
+                  <Icon name="book-open" size={14} /> Add Domain Knowledge
+                </div>
+                <div style={{ fontSize: 13, color: 'var(--text-tertiary)', marginBottom: 16 }}>
+                  Feed your AI agent documentation, company policies, FAQs, or websites so it can answer customer questions with 100% accuracy.
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16 }}>
+                  {/* File Upload Box */}
+                  <div style={{ border: '1px dashed var(--border-default)', borderRadius: 'var(--radius-md)', padding: '20px', textAlign: 'center', background: 'var(--bg-secondary)', position: 'relative' }}>
+                    <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'rgba(99,102,241,0.1)', color: 'var(--brand-accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 10px' }}>
+                      <Icon name="upload" size={20} />
+                    </div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 4 }}>
+                      {uploadingDoc ? 'Uploading document...' : 'Upload Document'}
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--text-quaternary)', marginBottom: 14 }}>
+                      Supported formats: PDF, TXT, DOCX, MD (Max 10MB)
+                    </div>
+                    <label
+                      className="btn-primary"
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        cursor: uploadingDoc ? 'not-allowed' : 'pointer',
+                        opacity: uploadingDoc ? 0.6 : 1,
+                        padding: '6px 14px',
+                        fontSize: 12,
+                        margin: 0,
+                      }}
+                    >
+                      <Icon name="file-text" size={13} />
+                      <span>{uploadingDoc ? 'Processing...' : 'Browse Files'}</span>
+                      <input
+                        type="file"
+                        accept=".pdf,.txt,.docx,.md"
+                        style={{ display: 'none' }}
+                        disabled={uploadingDoc}
+                        onChange={handleFileUpload}
+                      />
+                    </label>
+                  </div>
+
+                  {/* Add Website URL */}
+                  <form onSubmit={handleAddKnowledgeUrl} style={{ border: '1px solid var(--border-default)', borderRadius: 'var(--radius-md)', padding: '20px', background: 'var(--bg-secondary)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                        <Icon name="globe" size={16} style={{ color: 'var(--green)' }} />
+                        <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>Sync Website or Knowledge URL</span>
+                      </div>
+                      <div style={{ marginBottom: 8 }}>
+                        <input
+                          className="form-input"
+                          placeholder="https://yourcompany.com/faq"
+                          value={knowledgeUrl}
+                          onChange={e => setKnowledgeUrl(e.target.value)}
+                          required
+                          style={{ padding: '6px 10px', fontSize: 12 }}
+                        />
+                      </div>
+                      <div style={{ marginBottom: 12 }}>
+                        <input
+                          className="form-input"
+                          placeholder="Title / Reference label (optional)"
+                          value={knowledgeUrlName}
+                          onChange={e => setKnowledgeUrlName(e.target.value)}
+                          style={{ padding: '6px 10px', fontSize: 12 }}
+                        />
+                      </div>
+                    </div>
+                    <button
+                      type="submit"
+                      className="btn-ghost"
+                      disabled={addingUrl || !knowledgeUrl.trim()}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: 6,
+                        border: '1px solid var(--border-default)',
+                        padding: '6px 14px',
+                        fontSize: 12,
+                        width: '100%',
+                      }}
+                    >
+                      <Icon name="link" size={13} />
+                      {addingUrl ? 'Syncing URL...' : 'Add Knowledge URL'}
+                    </button>
+                  </form>
+                </div>
+              </div>
+
+              {/* Document List */}
+              <div className="config-section" style={{ marginTop: 24 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                  <div className="config-section-title" style={{ margin: 0 }}>
+                    <Icon name="layers" size={14} /> Active Knowledge Sources ({knowledgeDocs.length})
+                  </div>
+                  <button
+                    className="btn-ghost"
+                    onClick={loadKnowledgeDocs}
+                    disabled={loadingKnowledge}
+                    style={{ fontSize: 11, padding: '4px 10px', display: 'flex', alignItems: 'center', gap: 4 }}
+                  >
+                    <Icon name="refresh-cw" size={11} style={{ animation: loadingKnowledge ? 'spin 1s linear infinite' : 'none' }} />
+                    Refresh
+                  </button>
+                </div>
+
+                {loadingKnowledge ? (
+                  <SkeletonRows count={3} />
+                ) : knowledgeDocs.length === 0 ? (
+                  <div style={{ padding: '36px 20px', textAlign: 'center', background: 'var(--bg-secondary)', borderRadius: 'var(--radius-md)', border: '1px dashed var(--border-default)' }}>
+                    <Icon name="folder" size={32} style={{ color: 'var(--text-quaternary)', marginBottom: 8, display: 'inline-block' }} />
+                    <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--text-secondary)', marginBottom: 4 }}>No knowledge documents connected</div>
+                    <div style={{ fontSize: 12, color: 'var(--text-tertiary)', maxWidth: 400, margin: '0 auto' }}>
+                      Upload product manuals, service agreements, or add your help center URL to empower this voice agent with domain expertise.
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {knowledgeDocs.map(doc => (
+                      <div
+                        key={doc.id}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          padding: '12px 16px',
+                          borderRadius: 'var(--radius-md)',
+                          background: 'var(--bg-secondary)',
+                          border: '1px solid var(--border-default)',
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                          <div style={{ width: 34, height: 34, borderRadius: 6, background: doc.url ? 'rgba(52,211,153,0.1)' : 'rgba(99,102,241,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: doc.url ? 'var(--green)' : 'var(--brand-accent)' }}>
+                            <Icon name={doc.url ? 'globe' : 'file-text'} size={18} />
+                          </div>
+                          <div>
+                            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>
+                              {doc.file_name}
+                            </div>
+                            <div style={{ fontSize: 11, color: 'var(--text-quaternary)', display: 'flex', alignItems: 'center', gap: 8, marginTop: 2 }}>
+                              <span style={{ textTransform: 'uppercase', fontWeight: 600 }}>{doc.file_type || (doc.url ? 'URL' : 'DOC')}</span>
+                              <span>•</span>
+                              {doc.file_size ? <span>{(doc.file_size / 1024).toFixed(1)} KB</span> : null}
+                              {doc.url ? <a href={doc.url} target="_blank" rel="noreferrer" style={{ color: 'var(--brand-accent)', textDecoration: 'none' }}>Visit Link</a> : null}
+                              <span>•</span>
+                              <span>{new Date(doc.created_at).toLocaleDateString()}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 12, background: 'rgba(52,211,153,0.1)', color: '#34d399', fontWeight: 500 }}>
+                            {doc.status || 'Active'}
+                          </span>
+                          <button
+                            type="button"
+                            className="btn-ghost"
+                            onClick={() => handleDeleteKnowledgeDoc(doc.id)}
+                            style={{ color: 'var(--red)', padding: '4px 8px', borderRadius: 4 }}
+                            title="Delete document"
+                          >
+                            <Icon name="trash-2" size={14} />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+
+          {/* ── Tools & Actions Tab ── */}
+          {activeTab === 'tools' && (
+            <>
+              {/* Quick Actions & Actions Catalog */}
+              <div className="config-section">
+                <div className="config-section-title">
+                  <Icon name="zap" size={14} /> Quick Built-in Actions
+                </div>
+                <div style={{ fontSize: 13, color: 'var(--text-tertiary)', marginBottom: 16 }}>
+                  One-click native tools you can enable for this agent during live conversations.
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 14 }}>
+                  {/* Transfer Call Action */}
+                  <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-default)', borderRadius: 'var(--radius-md)', padding: 16, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                        <div style={{ width: 28, height: 28, borderRadius: 'var(--radius-sm)', background: 'rgba(59,130,246,0.1)', color: '#3b82f6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <Icon name="phone-forwarded" size={14} />
+                        </div>
+                        <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>Live Call Transfer</span>
+                      </div>
+                      <div style={{ fontSize: 12, color: 'var(--text-quaternary)', marginBottom: 10 }}>
+                        Allows the AI agent to warm-transfer or cold-transfer callers to a human team member or supervisor phone number.
+                      </div>
+                      <input
+                        className="form-input"
+                        placeholder="Supervisor phone (e.g. +1234567890)"
+                        value={transferTargetPhone}
+                        onChange={e => setTransferTargetPhone(e.target.value)}
+                        style={{ padding: '6px 10px', fontSize: 12, marginBottom: 10 }}
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      className="btn-primary"
+                      disabled={savingTool}
+                      onClick={() => handleAddTool('transfer_call')}
+                      style={{ padding: '6px 12px', fontSize: 12, alignSelf: 'flex-start', margin: 0 }}
+                    >
+                      <Icon name="plus" size={12} /> Add Call Transfer Tool
+                    </button>
+                  </div>
+
+                  {/* End Call Action */}
+                  <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-default)', borderRadius: 'var(--radius-md)', padding: 16, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                        <div style={{ width: 28, height: 28, borderRadius: 'var(--radius-sm)', background: 'rgba(239,68,68,0.1)', color: '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <Icon name="phone-off" size={14} />
+                        </div>
+                        <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>End Call Tool</span>
+                      </div>
+                      <div style={{ fontSize: 12, color: 'var(--text-quaternary)', marginBottom: 10 }}>
+                        Allows the AI agent to intentionally hang up the call after satisfying the user or completing the objective.
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      className="btn-ghost"
+                      disabled={savingTool}
+                      onClick={() => handleAddTool('end_call')}
+                      style={{ padding: '6px 12px', fontSize: 12, border: '1px solid var(--border-default)', alignSelf: 'flex-start' }}
+                    >
+                      <Icon name="plus" size={12} /> Add End Call Tool
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Custom Webhook Tool Builder */}
+              <div className="config-section" style={{ marginTop: 24 }}>
+                <div className="config-section-title">
+                  <Icon name="code" size={14} /> Custom Webhook & API Tool
+                </div>
+                <div style={{ fontSize: 13, color: 'var(--text-tertiary)', marginBottom: 16 }}>
+                  Give your agent external superpowers: query your internal database, check inventory, schedule bookings, or trigger CRM workflows mid-call.
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14 }}>
+                  <div className="form-group">
+                    <label className="form-label">Tool Function Name</label>
+                    <input
+                      className="form-input"
+                      placeholder="e.g. check_order_status or book_meeting"
+                      value={newToolName}
+                      onChange={e => setNewToolName(e.target.value)}
+                    />
+                    <div style={{ fontSize: 11, color: 'var(--text-quaternary)', marginTop: 4 }}>Alphanumeric and underscores only.</div>
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Webhook URL Endpoint</label>
+                    <input
+                      className="form-input"
+                      placeholder="https://api.yourdomain.com/tools/lookup"
+                      value={newToolUrl}
+                      onChange={e => setNewToolUrl(e.target.value)}
+                    />
+                    <div style={{ fontSize: 11, color: 'var(--text-quaternary)', marginTop: 4 }}>POST endpoint called by provider when invoked.</div>
+                  </div>
+                </div>
+
+                <div className="form-group" style={{ marginTop: 12 }}>
+                  <label className="form-label">Instruction / Description for the AI</label>
+                  <textarea
+                    className="form-input"
+                    rows={2}
+                    placeholder="Use this tool whenever the customer asks about their order status or shipping delivery date."
+                    value={newToolDesc}
+                    onChange={e => setNewToolDesc(e.target.value)}
+                  />
+                </div>
+
+                <div style={{ marginTop: 16 }}>
+                  <button
+                    type="button"
+                    className="btn-primary"
+                    disabled={savingTool || !newToolName.trim() || !newToolUrl.trim()}
+                    onClick={() => handleAddTool('webhook')}
+                    style={{ padding: '8px 16px', fontSize: 13, margin: 0 }}
+                  >
+                    <Icon name="plus" size={13} /> {savingTool ? 'Adding Tool...' : 'Register Webhook Tool'}
+                  </button>
+                </div>
+              </div>
+
+              {/* Active Tools List */}
+              <div className="config-section" style={{ marginTop: 24 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                  <div className="config-section-title" style={{ margin: 0 }}>
+                    <Icon name="wrench" size={14} /> Active Configured Tools ({toolsList.length})
+                  </div>
+                  <button
+                    className="btn-ghost"
+                    onClick={loadToolsList}
+                    disabled={loadingTools}
+                    style={{ fontSize: 11, padding: '4px 10px', display: 'flex', alignItems: 'center', gap: 4 }}
+                  >
+                    <Icon name="refresh-cw" size={11} style={{ animation: loadingTools ? 'spin 1s linear infinite' : 'none' }} />
+                    Refresh
+                  </button>
+                </div>
+
+                {loadingTools ? (
+                  <SkeletonRows count={3} />
+                ) : toolsList.length === 0 ? (
+                  <div style={{ padding: '36px 20px', textAlign: 'center', background: 'var(--bg-secondary)', borderRadius: 'var(--radius-md)', border: '1px dashed var(--border-default)' }}>
+                    <Icon name="tool" size={32} style={{ color: 'var(--text-quaternary)', marginBottom: 8, display: 'inline-block' }} />
+                    <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--text-secondary)', marginBottom: 4 }}>No tools configured</div>
+                    <div style={{ fontSize: 12, color: 'var(--text-tertiary)', maxWidth: 400, margin: '0 auto' }}>
+                      Add live call transfer, end call, or custom webhook tools to make your conversational agent proactive and capable.
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    {toolsList.map(t => (
+                      <div
+                        key={t.id}
+                        style={{
+                          padding: '14px 18px',
+                          borderRadius: 'var(--radius-md)',
+                          background: 'var(--bg-secondary)',
+                          border: '1px solid var(--border-default)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          gap: 16,
+                        }}
+                      >
+                        <div style={{ flex: 1 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
+                            <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
+                              {t.tool_name}
+                            </span>
+                            <span style={{
+                              fontSize: 10,
+                              textTransform: 'uppercase',
+                              fontWeight: 700,
+                              padding: '2px 8px',
+                              borderRadius: 4,
+                              background: t.tool_type === 'webhook' ? 'rgba(99,102,241,0.12)' : t.tool_type === 'transfer_call' ? 'rgba(59,130,246,0.12)' : 'rgba(239,68,68,0.12)',
+                              color: t.tool_type === 'webhook' ? 'var(--brand-accent)' : t.tool_type === 'transfer_call' ? '#3b82f6' : '#ef4444',
+                            }}>
+                              {t.tool_type}
+                            </span>
+                            {!t.is_enabled && (
+                              <span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 4, background: 'var(--bg-tertiary)', color: 'var(--text-quaternary)' }}>
+                                Disabled
+                              </span>
+                            )}
+                          </div>
+                          <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 4 }}>
+                            {t.description || 'No description provided'}
+                          </div>
+                          {t.endpoint_url && (
+                            <div style={{ fontSize: 11, color: 'var(--text-quaternary)', fontFamily: 'var(--font-mono)' }}>
+                              Endpoint: {t.endpoint_url}
+                            </div>
+                          )}
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                          <button
+                            type="button"
+                            className="btn-ghost"
+                            onClick={() => handleToggleTool(t.id)}
+                            style={{
+                              fontSize: 11,
+                              padding: '4px 10px',
+                              borderRadius: 4,
+                              border: '1px solid var(--border-default)',
+                              color: t.is_enabled ? 'var(--green)' : 'var(--text-tertiary)',
+                            }}
+                          >
+                            {t.is_enabled ? 'Active' : 'Disabled'}
+                          </button>
+                          <button
+                            type="button"
+                            className="btn-ghost"
+                            onClick={() => handleDeleteTool(t.id)}
+                            style={{ color: 'var(--red)', padding: '4px 8px' }}
+                            title="Delete tool"
+                          >
+                            <Icon name="trash-2" size={14} />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
 
           {/* ── Vapi Analytics Tab ── */}
           {activeTab === 'analytics' && provider === 'vapi' && (

@@ -1,7 +1,14 @@
 const crypto = require('crypto');
 const { all, get, run } = require('../db');
 
-const SUPPORTED_EVENTS = ['call.completed', 'call.failed'];
+const SUPPORTED_EVENTS = [
+  'call.initiated',
+  'call.completed',
+  'call.failed',
+  'agent.created',
+  'agent.updated',
+  'campaign.completed'
+];
 
 function buildSignature(secret, payload) {
   if (!secret) return null;
