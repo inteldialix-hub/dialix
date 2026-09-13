@@ -306,6 +306,52 @@ export default function CampaignsPage() {
     { key: 'sun', label: 'Sun' },
   ];
 
+  // Top-level summary metrics across all campaigns
+  const totalCampaigns = Array.isArray(campaigns) ? campaigns.length : 0;
+  const activeDialers = Array.isArray(campaigns)
+    ? campaigns.filter((c) => (c.status || '').toLowerCase() === 'running').length
+    : 0;
+  const callsDispatched = Array.isArray(campaigns)
+    ? campaigns.reduce((acc, c) => acc + (c.stats?.completed ?? c.calls_completed ?? 0), 0)
+    : 0;
+  const totalAnswered = Array.isArray(campaigns)
+    ? campaigns.reduce((acc, c) => acc + (c.stats?.answered ?? c.calls_answered ?? 0), 0)
+    : 0;
+  const globalAnswerRate = callsDispatched > 0
+    ? Math.round((totalAnswered / callsDispatched) * 100)
+    : 0;
+
+  const summaryCards = [
+    {
+      label: 'Total Campaigns',
+      value: totalCampaigns,
+      icon: 'layers',
+      trend: totalCampaigns > 0 ? 'up' : 'neutral',
+      trendLabel: totalCampaigns > 0 ? `${totalCampaigns} Configured` : 'None',
+    },
+    {
+      label: 'Active Dialers',
+      value: activeDialers,
+      icon: 'radio',
+      trend: activeDialers > 0 ? 'up' : 'neutral',
+      trendLabel: activeDialers > 0 ? `${activeDialers} Active` : 'Idle',
+    },
+    {
+      label: 'Calls Dispatched',
+      value: callsDispatched.toLocaleString(),
+      icon: 'phone-outgoing',
+      trend: callsDispatched > 0 ? 'up' : 'neutral',
+      trendLabel: callsDispatched > 0 ? 'Dispatched' : 'Zero',
+    },
+    {
+      label: 'Answer Rate',
+      value: `${globalAnswerRate}%`,
+      icon: 'check-circle',
+      trend: globalAnswerRate >= 50 ? 'up' : globalAnswerRate > 0 ? 'neutral' : 'down',
+      trendLabel: globalAnswerRate >= 50 ? 'Optimal' : globalAnswerRate > 0 ? 'Normal' : 'No Data',
+    },
+  ];
+
   return (
     <div className="page-body">
       <div className="page-content">
@@ -319,6 +365,23 @@ export default function CampaignsPage() {
               <Icon name="plus" size={14} /> New Campaign
             </button>
           </div>
+        </div>
+
+        {/* Top-Level Summary Metric Cards */}
+        <div className="stat-card-grid" style={{ padding: '0 32px 24px' }}>
+          {summaryCards.map((card, i) => (
+            <div key={i} className="stat-card" style={{ animationDelay: `${i * 60}ms` }}>
+              <div className="stat-card-header">
+                <span className="stat-card-label">{card.label}</span>
+                <div className="stat-card-icon"><Icon name={card.icon} size={16} /></div>
+              </div>
+              <div className="stat-card-value">{card.value}</div>
+              <span className={`stat-card-trend ${card.trend}`}>
+                <Icon name={card.trend === 'up' ? 'trending-up' : card.trend === 'down' ? 'trending-down' : 'minus'} size={11} />
+                {card.trendLabel}
+              </span>
+            </div>
+          ))}
         </div>
 
         {loading ? (
@@ -350,11 +413,14 @@ export default function CampaignsPage() {
                 <div
                   key={camp.id}
                   style={{
-                    background: 'var(--bg-card)',
-                    border: '1px solid var(--border-default)',
-                    borderRadius: 'var(--radius-lg)',
+                    background: 'rgba(18, 20, 24, 0.7)',
+                    backdropFilter: 'blur(12px)',
+                    WebkitBackdropFilter: 'blur(12px)',
+                    border: '1px solid rgba(255, 255, 255, 0.08)',
+                    boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 4px 20px rgba(0, 0, 0, 0.2)',
+                    borderRadius: '12px',
                     overflow: 'hidden',
-                    transition: 'all var(--transition)',
+                    transition: 'border-color 0.2s ease, box-shadow 0.2s ease',
                   }}
                 >
                   <div
@@ -365,7 +431,7 @@ export default function CampaignsPage() {
                       alignItems: 'center',
                       justifyContent: 'space-between',
                       cursor: 'pointer',
-                      background: isExpanded ? 'var(--bg-hover)' : 'transparent',
+                      background: isExpanded ? 'rgba(255, 255, 255, 0.03)' : 'transparent',
                     }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
@@ -386,30 +452,30 @@ export default function CampaignsPage() {
                   </div>
 
                   {isExpanded && (
-                    <div style={{ padding: '20px 24px', borderTop: '1px solid var(--border-subtle)', background: 'var(--bg-surface)' }}>
+                    <div style={{ padding: '20px 24px', borderTop: '1px solid rgba(255, 255, 255, 0.06)', background: 'rgba(12, 14, 18, 0.7)' }}>
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '16px', marginBottom: '20px' }}>
-                        <div style={{ padding: '14px', borderRadius: 'var(--radius-md)', background: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}>
-                          <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Progress</div>
-                          <div style={{ fontSize: '20px', fontWeight: 700, color: 'var(--text-primary)', marginTop: '4px' }}>
-                            {completedCount} <span style={{ fontSize: '13px', fontWeight: 400, color: 'var(--text-secondary)' }}>/ {totalCount}</span>
+                        <div style={{ padding: '16px', borderRadius: '10px', background: 'rgba(18, 20, 24, 0.7)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', border: '1px solid rgba(255, 255, 255, 0.08)', boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 4px 16px rgba(0, 0, 0, 0.2)' }}>
+                          <div style={{ fontSize: '11px', color: 'var(--text-secondary, #94a3b8)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>Progress</div>
+                          <div style={{ fontSize: '22px', fontWeight: 700, color: '#ffffff', marginTop: '6px', letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums' }}>
+                            {completedCount} <span style={{ fontSize: '13px', fontWeight: 400, color: 'var(--text-secondary, #94a3b8)' }}>/ {totalCount}</span>
                           </div>
                         </div>
-                        <div style={{ padding: '14px', borderRadius: 'var(--radius-md)', background: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}>
-                          <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Answer Rate</div>
-                          <div style={{ fontSize: '20px', fontWeight: 700, color: 'var(--green)', marginTop: '4px' }}>
+                        <div style={{ padding: '16px', borderRadius: '10px', background: 'rgba(18, 20, 24, 0.7)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', border: '1px solid rgba(255, 255, 255, 0.08)', boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 4px 16px rgba(0, 0, 0, 0.2)' }}>
+                          <div style={{ fontSize: '11px', color: 'var(--text-secondary, #94a3b8)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>Answer Rate</div>
+                          <div style={{ fontSize: '22px', fontWeight: 700, color: '#34d399', marginTop: '6px', letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums' }}>
                             {answerRate}%
                           </div>
                         </div>
-                        <div style={{ padding: '14px', borderRadius: 'var(--radius-md)', background: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}>
-                          <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Failed / No Answer</div>
-                          <div style={{ fontSize: '20px', fontWeight: 700, color: failedCount > 0 ? 'var(--red)' : 'var(--text-secondary)', marginTop: '4px' }}>
+                        <div style={{ padding: '16px', borderRadius: '10px', background: 'rgba(18, 20, 24, 0.7)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', border: '1px solid rgba(255, 255, 255, 0.08)', boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 4px 16px rgba(0, 0, 0, 0.2)' }}>
+                          <div style={{ fontSize: '11px', color: 'var(--text-secondary, #94a3b8)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>Failed / No Answer</div>
+                          <div style={{ fontSize: '22px', fontWeight: 700, color: failedCount > 0 ? '#f87171' : 'var(--text-secondary, #94a3b8)', marginTop: '6px', letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums' }}>
                             {failedCount}
                           </div>
                         </div>
-                        <div style={{ padding: '14px', borderRadius: 'var(--radius-md)', background: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}>
-                          <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Concurrency Limit</div>
-                          <div style={{ fontSize: '20px', fontWeight: 700, color: 'var(--text-primary)', marginTop: '4px' }}>
-                            {camp.max_concurrent || 1} line{(camp.max_concurrent || 1) > 1 ? 's' : ''}
+                        <div style={{ padding: '16px', borderRadius: '10px', background: 'rgba(18, 20, 24, 0.7)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', border: '1px solid rgba(255, 255, 255, 0.08)', boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 4px 16px rgba(0, 0, 0, 0.2)' }}>
+                          <div style={{ fontSize: '11px', color: 'var(--text-secondary, #94a3b8)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>Concurrency Limit</div>
+                          <div style={{ fontSize: '22px', fontWeight: 700, color: '#ffffff', marginTop: '6px', letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums' }}>
+                            {camp.max_concurrent || 1} <span style={{ fontSize: '13px', fontWeight: 400, color: 'var(--text-secondary, #94a3b8)' }}>line{(camp.max_concurrent || 1) > 1 ? 's' : ''}</span>
                           </div>
                         </div>
                       </div>

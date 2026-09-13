@@ -937,11 +937,26 @@ export default function AgentDetailPage() {
       )}
 
       {/* Tab strip */}
-      <div className="config-tabs">
+      <div
+        className="tab-pill-group config-tabs"
+        role="tablist"
+        style={{
+          overflowX: 'auto',
+          scrollbarWidth: 'none',
+          msOverflowStyle: 'none',
+        }}
+      >
         {tabs.map(tab => (
-          <div key={tab.id} className={`config-tab ${activeTab === tab.id ? 'active' : ''}`} onClick={() => setActiveTab(tab.id)}>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === tab.id}
+            key={tab.id}
+            className={`tab-pill config-tab ${activeTab === tab.id ? 'tab-pill-active active' : ''}`}
+            onClick={() => setActiveTab(tab.id)}
+          >
             <Icon name={tab.icon} size={14} /> {tab.label}
-          </div>
+          </button>
         ))}
       </div>
 

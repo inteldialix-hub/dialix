@@ -218,22 +218,15 @@ export default function AdminPricingPage() {
         </div>
 
         {/* Tab Switcher */}
-        <div style={{ display: 'flex', gap: '4px', marginBottom: '24px', background: 'var(--bg-input)', borderRadius: 'var(--radius-md)', padding: '3px', width: 'fit-content' }}>
+        <div className="tab-pill-group" role="tablist" style={{ marginBottom: '24px' }}>
           {(['plans', 'clients'] as const).map(tab => (
             <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === tab}
               key={tab}
               onClick={() => setActiveTab(tab)}
-              style={{
-                padding: '8px 20px',
-                borderRadius: 'var(--radius-sm)',
-                fontSize: '13px',
-                fontWeight: 500,
-                border: 'none',
-                cursor: 'pointer',
-                background: activeTab === tab ? 'var(--bg-raised)' : 'transparent',
-                color: activeTab === tab ? 'var(--text-primary)' : 'var(--text-tertiary)',
-                transition: 'all 0.15s ease',
-              }}
+              className={`tab-pill ${activeTab === tab ? 'tab-pill-active active' : ''}`}
             >
               {tab === 'plans' ? 'Plans' : 'Client Assignments'}
             </button>

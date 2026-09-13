@@ -133,7 +133,7 @@ export default function DashboardPage() {
   const formatDuration = (secs: number) => {
     if (!secs) return '0s';
     const m = Math.floor(secs / 60);
-    const s = secs % 60;
+    const s = Math.round(secs % 60);
     return m > 0 ? `${m}m ${s}s` : `${s}s`;
   };
 
@@ -254,11 +254,11 @@ export default function DashboardPage() {
   };
 
   const statCards = [
-    { label: 'Total Agents', value: stats?.totalAgents || 0, icon: 'bot', trend: null },
-    { label: 'Total Calls', value: analytics?.stats?.total_calls || stats?.totalCalls || 0, icon: 'phone-call', trend: (analytics?.stats?.total_calls || 0) > 0 ? 'up' : 'neutral' },
-    { label: 'Success Rate', value: analytics?.stats?.successful_calls && analytics?.stats?.total_calls ? `${Math.round(((analytics.stats?.successful_calls ?? 0) / (analytics.stats?.total_calls ?? 1)) * 100) || 0}%` : `${stats?.successRate || 0}%`, icon: 'check-circle', trend: (analytics?.stats?.successful_calls || 0) / (analytics?.stats?.total_calls || 1) * 100 >= 70 ? 'up' : (analytics?.stats?.successful_calls || 0) / (analytics?.stats?.total_calls || 1) * 100 >= 40 ? 'neutral' : 'down' },
-    { label: 'Avg Duration', value: formatDuration(analytics?.stats?.avg_duration || stats?.avgDuration || 0), icon: 'timer', trend: 'neutral' },
-    { label: 'Avg Quality', value: analytics?.stats?.avg_quality ? ((analytics.stats?.avg_quality ?? 0) as number).toFixed(1) : 'N/A', icon: 'star', trend: (analytics?.stats?.avg_quality || 0) >= 4.0 ? 'up' : (analytics?.stats?.avg_quality || 0) >= 3.0 ? 'neutral' : 'down' },
+    { label: 'Total Agents', value: stats?.totalAgents || 0, icon: 'bot', trend: (stats?.totalAgents || 0) > 0 ? 'up' : 'neutral', trendLabel: (stats?.totalAgents || 0) > 0 ? 'Active' : 'Ready' },
+    { label: 'Total Calls', value: analytics?.stats?.total_calls || stats?.totalCalls || 0, icon: 'phone-call', trend: (analytics?.stats?.total_calls || 0) > 0 ? 'up' : 'neutral', trendLabel: (analytics?.stats?.total_calls || 0) > 0 ? 'Good' : 'Stable' },
+    { label: 'Success Rate', value: analytics?.stats?.successful_calls && analytics?.stats?.total_calls ? `${Math.round(((analytics.stats?.successful_calls ?? 0) / (analytics.stats?.total_calls ?? 1)) * 100) || 0}%` : `${stats?.successRate || 0}%`, icon: 'check-circle', trend: (analytics?.stats?.successful_calls || 0) / (analytics?.stats?.total_calls || 1) * 100 >= 70 ? 'up' : (analytics?.stats?.successful_calls || 0) / (analytics?.stats?.total_calls || 1) * 100 >= 40 ? 'neutral' : 'down', trendLabel: (analytics?.stats?.successful_calls || 0) / (analytics?.stats?.total_calls || 1) * 100 >= 70 ? 'Optimal' : (analytics?.stats?.successful_calls || 0) / (analytics?.stats?.total_calls || 1) * 100 >= 40 ? 'Moderate' : 'Low' },
+    { label: 'Avg Duration', value: formatDuration(analytics?.stats?.avg_duration || stats?.avgDuration || 0), icon: 'timer', trend: 'neutral', trendLabel: 'Stable' },
+    { label: 'Avg Quality', value: analytics?.stats?.avg_quality ? ((analytics.stats?.avg_quality ?? 0) as number).toFixed(1) : 'N/A', icon: 'star', trend: (analytics?.stats?.avg_quality || 0) >= 4.0 ? 'up' : (analytics?.stats?.avg_quality || 0) >= 3.0 ? 'neutral' : 'down', trendLabel: (analytics?.stats?.avg_quality || 0) >= 4.0 ? 'High' : (analytics?.stats?.avg_quality || 0) >= 3.0 ? 'Normal' : 'Review' },
   ];
 
   return (
@@ -290,23 +290,23 @@ export default function DashboardPage() {
         </div>
 
         {/* Stat Cards */}
-      <div className="dashboard-grid">
-        {statCards.map((card, i) => (
-          <div key={i} className="stat-card" style={{ animationDelay: `${i * 60}ms` }}>
-            <div className="stat-card-header">
-              <span className="stat-card-label">{card.label}</span>
-              <div className="stat-card-icon"><Icon name={card.icon} size={16} /></div>
+        <div className="dashboard-grid">
+          {statCards.map((card, i) => (
+            <div key={i} className="stat-card" style={{ animationDelay: `${i * 60}ms` }}>
+              <div className="stat-card-header">
+                <span className="stat-card-label">{card.label}</span>
+                <div className="stat-card-icon"><Icon name={card.icon} size={16} /></div>
+              </div>
+              <div className="stat-card-value">{card.value}</div>
+              {card.trend && (
+                <span className={`stat-card-trend ${card.trend}`}>
+                  <Icon name={card.trend === 'up' ? 'trending-up' : card.trend === 'down' ? 'trending-down' : 'minus'} size={11} />
+                  {card.trendLabel || (card.trend === 'up' ? 'Good' : card.trend === 'down' ? 'Low' : 'Stable')}
+                </span>
+              )}
             </div>
-            <div className="stat-card-value">{card.value}</div>
-            {card.trend && (
-              <span className={`stat-card-trend ${card.trend}`}>
-                <Icon name={card.trend === 'up' ? 'trending-up' : card.trend === 'down' ? 'trending-down' : 'minus'} size={11} />
-                {card.trend === 'up' ? 'Good' : card.trend === 'down' ? 'Low' : 'Stable'}
-              </span>
-            )}
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
 
       {/* Panels Row */}
       <div className="dashboard-row">

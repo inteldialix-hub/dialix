@@ -5,7 +5,7 @@ import { useAuth } from '@/lib/auth-context';
 import { useToast } from '@/components/dashboard/shared/ToastProvider';
 import { Icon } from '@/components/dashboard/shared/Icon';
 import { CustomSelect } from '@/components/dashboard/shared/CustomSelect';
-import { EmptyState } from '@/components/dashboard/shared/EmptyState';
+import { EmptyState } from '@/components/EmptyState';
 import { ConfirmModal } from '@/components/dashboard/shared/ConfirmModal';
 import { SkeletonRows } from '@/components/dashboard/shared/SkeletonRows';
 import { Loader2 } from 'lucide-react';
@@ -110,59 +110,63 @@ export default function PhoneNumbersPage() {
       </div>
 
       {phoneNumbers.length === 0 ? (
-        <EmptyState 
-          icon="phone" 
-          title="No phone numbers connected" 
-          description="Connect a Twilio number or SIP trunk to make and receive calls with your AI agents." 
-          action="Connect Number" 
-          onAction={() => setShowAdd(true)} 
-        />
+        <div className="border border-white/[0.08] rounded-xl overflow-hidden bg-[#0d0f12]/60 backdrop-blur-md p-8">
+          <EmptyState 
+            icon="phone" 
+            title="No phone numbers connected" 
+            description="Connect a Twilio number or SIP trunk to make and receive calls with your AI agents." 
+            action="Connect Number" 
+            onAction={() => setShowAdd(true)} 
+          />
+        </div>
       ) : (
-        <div className="table-responsive bg-raised border border-default rounded-xl overflow-hidden">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Label</th>
-                <th>Phone Number</th>
-                <th>Provider</th>
-                <th>Assigned Agent</th>
-                <th style={{ textAlign: 'right' }}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {phoneNumbers.map(p => (
-                <tr key={p.id}>
-                  <td className="font-medium text-white">{p.label}</td>
-                  <td className="phone-cell font-mono text-xs text-gray-200">{p.phone_number}</td>
-                  <td>
-                    <span className={`badge ${p.provider}`}>
-                      {p.provider === 'twilio' ? 'Twilio' : 'SIP Trunk'}
-                    </span>
-                  </td>
-                  <td style={{ minWidth: '180px' }}>
-                    <CustomSelect 
-                      small 
-                      value={p.assigned_agent_id || ''} 
-                      onChange={e => handleAssign(p.id, e.target.value)} 
-                      options={[
-                        { value: '', label: 'Unassigned' }, 
-                        ...agents.map(a => ({ value: a.agent_id, label: a.name }))
-                      ]} 
-                    />
-                  </td>
-                  <td style={{ textAlign: 'right' }}>
-                    <button 
-                      className="btn-icon danger cursor-pointer inline-flex items-center justify-center p-1.5 rounded-md hover:bg-red-500/20 text-red-400 transition-colors" 
-                      onClick={() => setDeleteTarget(p)}
-                      title="Disconnect Line"
-                    >
-                      <Icon name="trash-2" size={14} />
-                    </button>
-                  </td>
+        <div className="border border-white/[0.08] rounded-xl overflow-hidden bg-[#0d0f12]/60 backdrop-blur-md">
+          <div className="table-responsive">
+            <table className="w-full text-left border-collapse">
+              <thead className="bg-white/[0.02] border-b border-white/[0.08]">
+                <tr className="h-11">
+                  <th className="py-3.5 px-4 text-xs font-semibold tracking-wider uppercase text-secondary">Label</th>
+                  <th className="py-3.5 px-4 text-xs font-semibold tracking-wider uppercase text-secondary">Phone Number</th>
+                  <th className="py-3.5 px-4 text-xs font-semibold tracking-wider uppercase text-secondary">Provider</th>
+                  <th className="py-3.5 px-4 text-xs font-semibold tracking-wider uppercase text-secondary">Assigned Agent</th>
+                  <th className="py-3.5 px-4 text-xs font-semibold tracking-wider uppercase text-secondary text-right">Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-white/[0.04]">
+                {phoneNumbers.map(p => (
+                  <tr key={p.id} className="border-b border-white/[0.04] hover:bg-white/[0.02] transition-colors duration-150">
+                    <td className="py-3.5 px-4 font-medium text-white">{p.label}</td>
+                    <td className="py-3.5 px-4 phone-cell font-mono text-xs text-gray-200">{p.phone_number}</td>
+                    <td className="py-3.5 px-4">
+                      <span className={`badge ${p.provider}`}>
+                        {p.provider === 'twilio' ? 'Twilio' : 'SIP Trunk'}
+                      </span>
+                    </td>
+                    <td className="py-3.5 px-4" style={{ minWidth: '180px' }}>
+                      <CustomSelect 
+                        small 
+                        value={p.assigned_agent_id || ''} 
+                        onChange={e => handleAssign(p.id, e.target.value)} 
+                        options={[
+                          { value: '', label: 'Unassigned' }, 
+                          ...agents.map(a => ({ value: a.agent_id, label: a.name }))
+                        ]} 
+                      />
+                    </td>
+                    <td className="py-3.5 px-4 text-right">
+                      <button 
+                        className="btn-icon danger cursor-pointer inline-flex items-center justify-center p-1.5 rounded-md hover:bg-red-500/20 text-red-400 transition-colors" 
+                        onClick={() => setDeleteTarget(p)}
+                        title="Disconnect Line"
+                      >
+                        <Icon name="trash-2" size={14} />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 

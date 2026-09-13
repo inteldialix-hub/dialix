@@ -7,6 +7,7 @@ import { useAuth } from '@/lib/auth-context';
 import { useToast } from '@/components/dashboard/shared/ToastProvider';
 import { ConfirmModal } from '@/components/dashboard/shared/ConfirmModal';
 import { EmptyState } from '@/components/dashboard/shared/EmptyState';
+import { Icon } from '@/components/dashboard/shared/Icon';
 import { FiCheck, FiAlertCircle, FiCreditCard, FiClock } from 'react-icons/fi';
 import { Loader2 } from 'lucide-react';
 import '@/styles/dashboard.css';
@@ -44,6 +45,7 @@ export default function BillingPage() {
   const [plans, setPlans] = useState<Plan[]>([]);
   const [currentPlan, setCurrentPlan] = useState<CurrentPlan | null>(null);
   const [paymentHistory, setPaymentHistory] = useState<PaymentHistory[]>([]);
+  const [usageStats, setUsageStats] = useState<{ totalAgents?: number; totalCalls?: number; totalNumbers?: number } | null>(null);
   
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
@@ -61,11 +63,16 @@ export default function BillingPage() {
       setLoading(true);
       setError(null);
       
-      const [plansRes, myPlanRes, historyRes] = await Promise.all([
+      const [plansRes, myPlanRes, historyRes, statsRes] = await Promise.all([
         api('/pricing/plans', { token: token || undefined }).catch(() => null),
         api('/pricing/my-plan', { token: token || undefined }).catch(() => null),
-        api('/paypal/billing-history', { token: token || undefined }).catch(() => null)
+        api('/paypal/billing-history', { token: token || undefined }).catch(() => null),
+        api<any>('/stats', { token: token || undefined }).catch(() => null)
       ]);
+
+      if (statsRes) {
+        setUsageStats(statsRes);
+      }
 
       const rawPlans = plansRes?.plans || plansRes?.data || (Array.isArray(plansRes) ? plansRes : []);
       if (rawPlans.length > 0) {
@@ -173,13 +180,25 @@ export default function BillingPage() {
             <p className="page-subtitle">Manage your plan, limits, payments, and invoices</p>
           </div>
         </div>
-        <div className="p-16 text-center bg-raised border border-default rounded-xl">
+        <div className="p-16 text-center bg-[rgba(18,20,24,0.7)] backdrop-blur-md border border-white/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] rounded-xl">
           <Loader2 className="mx-auto h-8 w-8 text-accent animate-spin mb-3" />
           <p className="text-sm text-gray-400">Loading billing information...</p>
         </div>
       </div>
     );
   }
+
+  const activePlanDetails = plans.find(
+    (p) => p.id === currentPlan?.planId || p.slug === currentPlan?.planId || p.slug === currentPlan?.slug
+  ) || plans[0] || {
+    id: 'starter',
+    name: 'Starter',
+    price: 0,
+    features: ['1 AI Agent', '100 Calls/mo', '1 Phone Number'],
+    maxAgents: 1,
+    maxCalls: 100,
+    maxNumbers: 1,
+  };
 
   return (
     <div className="dashboard-content">
@@ -197,21 +216,125 @@ export default function BillingPage() {
         </div>
       )}
 
+      {/* Usage & Telemetry Metrics Grid */}
+      <div className="stat-card-grid mb-8">
+        <div className="stat-card">
+          <div className="stat-card-header">
+            <span className="stat-card-label">AI Agents Capacity</span>
+            <div className="stat-card-icon"><Icon name="bot" size={16} /></div>
+          </div>
+          <div>
+            <div className="stat-card-value">
+              {usageStats?.totalAgents ?? 1}{' '}
+              <span className="text-xs font-normal text-gray-400">
+                / {activePlanDetails.maxAgents === 999999 ? 'Unlimited' : activePlanDetails.maxAgents}
+              </span>
+            </div>
+            <div className="w-full bg-white/[0.06] rounded-full h-1.5 mt-2 mb-3 overflow-hidden">
+              <div 
+                className="bg-indigo-500 h-full rounded-full transition-all duration-300"
+                style={{ 
+                  width: `${Math.min(100, Math.max(5, activePlanDetails.maxAgents === 999999 ? 10 : Math.round(((usageStats?.totalAgents ?? 1) / activePlanDetails.maxAgents) * 100)))}%` 
+                }}
+              />
+            </div>
+          </div>
+          <span className="stat-card-trend neutral">
+            <Icon name="activity" size={11} />
+            {activePlanDetails.maxAgents === 999999 ? 'Unlimited' : `${Math.round(((usageStats?.totalAgents ?? 1) / activePlanDetails.maxAgents) * 100)}% Used`}
+          </span>
+        </div>
+
+        <div className="stat-card">
+          <div className="stat-card-header">
+            <span className="stat-card-label">Monthly Calls Quota</span>
+            <div className="stat-card-icon"><Icon name="phone-call" size={16} /></div>
+          </div>
+          <div>
+            <div className="stat-card-value">
+              {(usageStats?.totalCalls ?? 0).toLocaleString()}{' '}
+              <span className="text-xs font-normal text-gray-400">
+                / {activePlanDetails.maxCalls === 999999 ? 'Unlimited' : activePlanDetails.maxCalls.toLocaleString()}
+              </span>
+            </div>
+            <div className="w-full bg-white/[0.06] rounded-full h-1.5 mt-2 mb-3 overflow-hidden">
+              <div 
+                className="bg-emerald-500 h-full rounded-full transition-all duration-300"
+                style={{ 
+                  width: `${Math.min(100, Math.max(5, activePlanDetails.maxCalls === 999999 ? 10 : Math.round(((usageStats?.totalCalls ?? 0) / activePlanDetails.maxCalls) * 100)))}%` 
+                }}
+              />
+            </div>
+          </div>
+          <span className="stat-card-trend up">
+            <Icon name="trending-up" size={11} />
+            {activePlanDetails.maxCalls === 999999 ? 'Unlimited' : 'Quota Active'}
+          </span>
+        </div>
+
+        <div className="stat-card">
+          <div className="stat-card-header">
+            <span className="stat-card-label">Phone Numbers</span>
+            <div className="stat-card-icon"><Icon name="phone" size={16} /></div>
+          </div>
+          <div>
+            <div className="stat-card-value">
+              {usageStats?.totalNumbers ?? 1}{' '}
+              <span className="text-xs font-normal text-gray-400">
+                / {activePlanDetails.maxNumbers === 999999 ? 'Unlimited' : activePlanDetails.maxNumbers}
+              </span>
+            </div>
+            <div className="w-full bg-white/[0.06] rounded-full h-1.5 mt-2 mb-3 overflow-hidden">
+              <div 
+                className="bg-indigo-500 h-full rounded-full transition-all duration-300"
+                style={{ 
+                  width: `${Math.min(100, Math.max(5, activePlanDetails.maxNumbers === 999999 ? 10 : Math.round(((usageStats?.totalNumbers ?? 1) / activePlanDetails.maxNumbers) * 100)))}%` 
+                }}
+              />
+            </div>
+          </div>
+          <span className="stat-card-trend neutral">
+            <Icon name="check" size={11} />
+            Provisioned
+          </span>
+        </div>
+
+        <div className="stat-card">
+          <div className="stat-card-header">
+            <span className="stat-card-label">Active Plan Cost</span>
+            <div className="stat-card-icon"><Icon name="credit-card" size={16} /></div>
+          </div>
+          <div>
+            <div className="stat-card-value">
+              ${activePlanDetails.price}{' '}
+              <span className="text-xs font-normal text-gray-400">/mo</span>
+            </div>
+            <div className="text-xs text-gray-400 mt-2 mb-3 truncate">
+              {currentPlan?.name || activePlanDetails.name} Tier
+            </div>
+          </div>
+          <span className="stat-card-trend up">
+            <Icon name="check-circle" size={11} />
+            {currentPlan?.status?.toUpperCase() || 'ACTIVE'}
+          </span>
+        </div>
+      </div>
+
       {/* Current Plan Overview */}
-      <div className="p-6 mb-8 rounded-xl border border-default bg-raised">
+      <div className="p-6 mb-8 rounded-xl border border-white/[0.08] bg-[rgba(18,20,24,0.7)] backdrop-blur-md shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_4px_20px_rgba(0,0,0,0.2)]">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
-            <div className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1.5">Active Subscription</div>
+            <div className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">Active Subscription</div>
             <div className="flex items-center gap-3">
               <span className="text-2xl font-bold text-white">
                 {currentPlan?.name || plans.find(p => p.id === currentPlan?.planId || p.slug === currentPlan?.planId)?.name || 'Starter'}
               </span>
               <span 
-                className="px-2.5 py-0.5 rounded-full text-xs font-medium border"
+                className="px-2.5 py-0.5 rounded-full text-xs font-semibold border"
                 style={{ 
                   color: getStatusColor(currentPlan?.status || 'active'), 
                   borderColor: getStatusColor(currentPlan?.status || 'active'),
-                  backgroundColor: 'rgba(255,255,255,0.03)'
+                  backgroundColor: 'rgba(255,255,255,0.04)'
                 }}
               >
                 {currentPlan?.status?.toUpperCase() || 'ACTIVE'}
@@ -240,11 +363,15 @@ export default function BillingPage() {
         <h2 className="text-base font-semibold text-white mb-4">Available Plans</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
           {plans.map((plan) => {
-            const isCurrent = plan.id === currentPlan?.planId || plan.slug === currentPlan?.planId;
+            const isCurrent = plan.id === currentPlan?.planId || plan.slug === currentPlan?.planId || plan.slug === currentPlan?.slug;
             return (
               <div 
                 key={plan.id} 
-                className={`p-6 rounded-xl border flex flex-col transition-all bg-raised ${isCurrent ? 'border-accent shadow-[0_0_15px_rgba(94,106,210,0.15)]' : 'border-default hover:border-white/20'}`}
+                className={`p-6 rounded-xl border flex flex-col transition-all duration-200 bg-[rgba(18,20,24,0.7)] backdrop-blur-md ${
+                  isCurrent 
+                    ? 'border-accent shadow-[inset_0_1px_0_rgba(255,255,255,0.1),0_0_20px_rgba(94,106,210,0.25)]' 
+                    : 'border-white/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_4px_20px_rgba(0,0,0,0.2)] hover:border-white/[0.16] hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.1),0_8px_30px_rgba(0,0,0,0.3)]'
+                }`}
               >
                 <div className="mb-4">
                   <div className="flex justify-between items-center mb-1">
@@ -262,26 +389,26 @@ export default function BillingPage() {
                 </div>
                 
                 <div className="flex-1 space-y-4 mb-6 text-xs">
-                  <div className="pt-3 border-t border-default">
+                  <div className="pt-3 border-t border-white/[0.08]">
                     <span className="font-semibold text-gray-300 block mb-2">Usage Limits</span>
                     <ul className="space-y-2 text-gray-400">
                       <li className="flex items-center gap-2">
                         <FiCheck className="text-accent shrink-0" size={14} /> 
-                        <span>{plan.maxAgents === 999999 ? 'Unlimited' : plan.maxAgents} AI Agent{plan.maxAgents === 1 ? '' : 's'}</span>
+                        <span>{plan.maxAgents === 999999 || plan.maxAgents < 0 ? 'Unlimited' : plan.maxAgents} AI Agent{plan.maxAgents === 1 ? '' : 's'}</span>
                       </li>
                       <li className="flex items-center gap-2">
                         <FiCheck className="text-accent shrink-0" size={14} /> 
-                        <span>{plan.maxCalls === 999999 ? 'Unlimited' : plan.maxCalls.toLocaleString()} Calls/mo</span>
+                        <span>{plan.maxCalls === 999999 || plan.maxCalls < 0 ? 'Unlimited' : plan.maxCalls.toLocaleString()} Calls/mo</span>
                       </li>
                       <li className="flex items-center gap-2">
                         <FiCheck className="text-accent shrink-0" size={14} /> 
-                        <span>{plan.maxNumbers === 999999 ? 'Unlimited' : plan.maxNumbers} Phone Number{plan.maxNumbers === 1 ? '' : 's'}</span>
+                        <span>{plan.maxNumbers === 999999 || plan.maxNumbers < 0 ? 'Unlimited' : plan.maxNumbers} Phone Number{plan.maxNumbers === 1 ? '' : 's'}</span>
                       </li>
                     </ul>
                   </div>
 
                   {plan.features.length > 0 && (
-                    <div className="pt-3 border-t border-default">
+                    <div className="pt-3 border-t border-white/[0.08]">
                       <span className="font-semibold text-gray-300 block mb-2">Key Features</span>
                       <ul className="space-y-2 text-gray-400">
                         {plan.features.map((f, i) => (
@@ -300,7 +427,7 @@ export default function BillingPage() {
                   onClick={() => handleUpgrade(plan.id)}
                   className={`w-full py-2 px-3 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-2 ${
                     isCurrent 
-                      ? 'bg-white/[0.04] text-gray-400 border border-default cursor-default' 
+                      ? 'bg-white/[0.04] text-gray-400 border border-white/[0.08] cursor-default' 
                       : 'btn-primary'
                   }`}
                 >
@@ -325,7 +452,7 @@ export default function BillingPage() {
       <div className="mb-6">
         <h2 className="text-base font-semibold text-white mb-4">Payment History</h2>
         {paymentHistory.length === 0 ? (
-          <div className="p-8 rounded-xl border border-default bg-raised">
+          <div className="p-8 rounded-xl border border-white/[0.08] bg-[rgba(18,20,24,0.7)] backdrop-blur-md shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
             <EmptyState
               icon="credit-card"
               title="No billing transactions"
@@ -333,10 +460,10 @@ export default function BillingPage() {
             />
           </div>
         ) : (
-          <div className="rounded-xl border border-default bg-raised overflow-hidden">
+          <div className="rounded-xl border border-white/[0.08] bg-[rgba(18,20,24,0.7)] backdrop-blur-md shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_4px_20px_rgba(0,0,0,0.2)] overflow-hidden">
             <div className="table-responsive">
               <table className="w-full text-left">
-                <thead className="bg-base border-b border-default text-gray-400 text-xs font-medium">
+                <thead className="bg-white/[0.02] border-b border-white/[0.08] text-gray-400 text-xs font-medium">
                   <tr>
                     <th className="p-4">Date</th>
                     <th className="p-4">Amount</th>
@@ -344,7 +471,7 @@ export default function BillingPage() {
                     <th className="p-4 font-mono">Reference ID</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-default">
+                <tbody className="divide-y divide-white/[0.06]">
                   {paymentHistory.map((hist) => (
                     <tr key={hist.id} className="hover:bg-white/[0.02] transition-colors">
                       <td className="p-4 text-xs text-gray-300">{hist.date ? new Date(hist.date).toLocaleDateString() : '—'}</td>

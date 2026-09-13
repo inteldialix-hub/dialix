@@ -7,7 +7,7 @@ import { api } from '@/lib/api';
 import { useToast } from '@/components/dashboard/shared/ToastProvider';
 import { ConfirmModal } from '@/components/dashboard/shared/ConfirmModal';
 import { CustomSelect } from '@/components/dashboard/shared/CustomSelect';
-import { EmptyState } from '@/components/dashboard/shared/EmptyState';
+import { EmptyState } from '@/components/EmptyState';
 import { Search, Plus, Upload, Download, Trash2, Edit2, MoreVertical, X, PhoneOff, Phone, Loader2 } from 'lucide-react';
 import '@/styles/dashboard.css';
 
@@ -379,7 +379,7 @@ export default function ContactsPage() {
         </div>
       </div>
 
-      <div className="bg-raised rounded-lg border border-default p-4 mb-6">
+      <div className="border border-white/[0.08] rounded-xl overflow-hidden bg-[#0d0f12]/60 backdrop-blur-md p-4 mb-6">
         <div className="flex flex-col md:flex-row gap-4 justify-between items-center">
           <div className="relative flex-1 w-full md:max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={16} />
@@ -419,12 +419,12 @@ export default function ContactsPage() {
         </div>
       </div>
 
-      <div className="bg-raised border border-default rounded-lg overflow-hidden">
+      <div className="border border-white/[0.08] rounded-xl overflow-hidden bg-[#0d0f12]/60 backdrop-blur-md">
         <div className="table-responsive">
-          <table className="w-full text-left">
-            <thead className="bg-base border-b border-default text-gray-400 text-xs font-medium">
-              <tr>
-                <th className="p-4 w-[48px]">
+          <table className="w-full text-left border-collapse">
+            <thead className="bg-white/[0.02] border-b border-white/[0.08]">
+              <tr className="h-11">
+                <th className="py-3.5 px-4 w-[48px]">
                   <input 
                     type="checkbox" 
                     checked={isAllCurrentPageSelected}
@@ -432,17 +432,17 @@ export default function ContactsPage() {
                     className="rounded border-gray-600 bg-transparent cursor-pointer"
                   />
                 </th>
-                <th className="p-4">Name</th>
-                <th className="p-4">Phone & Email</th>
-                <th className="p-4">Company</th>
-                <th className="p-4">Status</th>
-                <th className="p-4 text-right">Actions</th>
+                <th className="py-3.5 px-4 text-xs font-semibold tracking-wider uppercase text-secondary">Name</th>
+                <th className="py-3.5 px-4 text-xs font-semibold tracking-wider uppercase text-secondary">Phone & Email</th>
+                <th className="py-3.5 px-4 text-xs font-semibold tracking-wider uppercase text-secondary">Company</th>
+                <th className="py-3.5 px-4 text-xs font-semibold tracking-wider uppercase text-secondary">Status</th>
+                <th className="py-3.5 px-4 text-xs font-semibold tracking-wider uppercase text-secondary text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-default">
+            <tbody className="divide-y divide-white/[0.04]">
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="p-12 text-center text-gray-400">
+                  <td colSpan={6} className="py-12 px-4 text-center text-secondary">
                     <div className="flex items-center justify-center gap-2">
                       <Loader2 size={18} className="animate-spin text-accent" />
                       <span>Loading contacts...</span>
@@ -451,20 +451,20 @@ export default function ContactsPage() {
                 </tr>
               ) : !Array.isArray(contacts) || contacts.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="p-10">
+                  <td colSpan={6} className="py-8 px-4">
                     <EmptyState
                       icon="users"
-                      title="No contacts found"
+                      title={search || statusFilter ? "No contacts match search" : "No contacts yet"}
                       description={search || statusFilter ? "No contacts match your current search or status filter." : "Start building your contact lists by adding contacts manually or importing a CSV file."}
-                      action="Add Contact"
+                      action={search || statusFilter ? undefined : "Add Contact"}
                       onAction={openNewModal}
                     />
                   </td>
                 </tr>
               ) : (
                 Array.isArray(contacts) && contacts.map((contact) => (
-                  <tr key={contact.id} className="hover:bg-white/[0.03] transition-colors group">
-                    <td className="p-4">
+                  <tr key={contact.id} className="border-b border-white/[0.04] hover:bg-white/[0.02] transition-colors duration-150 group">
+                    <td className="py-3.5 px-4">
                       <input 
                         type="checkbox" 
                         checked={selectedIds.has(contact.id)}
@@ -472,7 +472,7 @@ export default function ContactsPage() {
                         className="rounded border-gray-600 bg-transparent cursor-pointer"
                       />
                     </td>
-                    <td className="p-4">
+                    <td className="py-3.5 px-4">
                       <div className="font-medium text-white flex items-center gap-2">
                         {contact.first_name} {contact.last_name || ''}
                         {contact.do_not_call === 1 && (
@@ -480,17 +480,17 @@ export default function ContactsPage() {
                         )}
                       </div>
                     </td>
-                    <td className="p-4 text-sm text-gray-300">
+                    <td className="py-3.5 px-4 text-sm text-gray-300">
                       <div className="font-mono text-xs text-gray-200">{contact.phone}</div>
                       {contact.email && <div className="text-xs text-gray-500 mt-0.5">{contact.email}</div>}
                     </td>
-                    <td className="p-4 text-sm text-gray-400">{contact.company || '—'}</td>
-                    <td className="p-4">
+                    <td className="py-3.5 px-4 text-sm text-gray-400">{contact.company || '—'}</td>
+                    <td className="py-3.5 px-4">
                       <span className="px-2.5 py-1 bg-white/[0.06] text-gray-300 border border-white/10 rounded-full text-xs capitalize font-medium">
                         {contact.status}
                       </span>
                     </td>
-                    <td className="p-4 text-right">
+                    <td className="py-3.5 px-4 text-right">
                       <div className="flex items-center justify-end gap-1 opacity-90 sm:opacity-0 group-hover:opacity-100 transition-opacity">
                         <button 
                           onClick={() => toggleDnc(contact)}
@@ -524,7 +524,7 @@ export default function ContactsPage() {
         
         {/* Pagination */}
         {totalPages > 1 && (
-          <div className="p-4 border-t border-default flex justify-between items-center bg-base text-xs text-gray-400">
+          <div className="p-4 border-t border-white/[0.08] flex justify-between items-center bg-white/[0.01] text-xs text-secondary">
             <div>
               Showing <span className="text-white font-medium">{(page - 1) * limit + 1}</span> to <span className="text-white font-medium">{Math.min(page * limit, total)}</span> of <span className="text-white font-medium">{total}</span> contacts
             </div>

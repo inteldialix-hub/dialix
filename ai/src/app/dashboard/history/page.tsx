@@ -4,7 +4,7 @@ import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useAuth } from '@/lib/auth-context';
 import { useToast } from '@/components/dashboard/shared/ToastProvider';
 import { Icon } from '@/components/dashboard/shared/Icon';
-import { EmptyState } from '@/components/dashboard/shared/EmptyState';
+import { EmptyState } from '@/components/EmptyState';
 import { SkeletonRows } from '@/components/dashboard/shared/SkeletonRows';
 import { ConfirmModal } from '@/components/dashboard/shared/ConfirmModal';
 import { CustomSelect } from '@/components/dashboard/shared/CustomSelect';
@@ -317,9 +317,12 @@ export default function AnalysisPage() {
             {loading ? (
               <div style={{ padding: '16px' }}><SkeletonRows count={6} /></div>
             ) : filtered.length === 0 ? (
-              <div className="analysis-empty">
-                <Icon name="inbox" size={24} />
-                <span>No conversations found</span>
+              <div className="p-4">
+                <EmptyState
+                  icon="inbox"
+                  title={search ? "No calls found" : "No conversations"}
+                  description={search ? "No calls match your search query." : "No call recordings found for this agent yet."}
+                />
               </div>
             ) : (
               filtered.map((conv) => {
@@ -328,7 +331,7 @@ export default function AnalysisPage() {
                 return (
                   <div
                     key={conv.conversation_id}
-                    className={`analysis-list-item ${isSelected ? 'selected' : ''}`}
+                    className={`analysis-list-item border-b border-white/[0.04] hover:bg-white/[0.02] transition-colors duration-150 ${isSelected ? 'selected' : ''}`}
                     onClick={() => selectConversation(conv.conversation_id)}
                   >
                     <div className="analysis-list-item-main">
@@ -352,10 +355,12 @@ export default function AnalysisPage() {
         {/* ═══ CENTER PANEL — Conversation Detail ═══ */}
         <div className="analysis-center">
           {!selectedConvId ? (
-            <div className="analysis-center-empty">
-              <Icon name="message-square" size={32} />
-              <h3>Select a conversation</h3>
-              <p>Choose a conversation from the list to view its details, transcription, and analysis.</p>
+            <div className="h-full flex items-center justify-center p-8">
+              <EmptyState
+                icon="message-square"
+                title="Select a conversation"
+                description="Choose a conversation from the list to view its details, transcription, and analysis."
+              />
             </div>
           ) : detailLoading ? (
             <div className="analysis-center-loading">
@@ -384,16 +389,21 @@ export default function AnalysisPage() {
               />
 
               {/* Tabs */}
-              <div className="analysis-tabs">
-                {(['overview', 'transcription', 'client_data'] as const).map(tab => (
-                  <button
-                    key={tab}
-                    className={`analysis-tab ${activeTab === tab ? 'active' : ''}`}
-                    onClick={() => setActiveTab(tab)}
-                  >
-                    {tab === 'overview' ? 'Overview' : tab === 'transcription' ? 'Transcription' : 'Client data'}
-                  </button>
-                ))}
+              <div style={{ padding: '0 28px', marginTop: '16px', marginBottom: '8px' }}>
+                <div className="tab-pill-group" role="tablist">
+                  {(['overview', 'transcription', 'client_data'] as const).map(tab => (
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={activeTab === tab}
+                      key={tab}
+                      className={`tab-pill ${activeTab === tab ? 'tab-pill-active active' : ''}`}
+                      onClick={() => setActiveTab(tab)}
+                    >
+                      {tab === 'overview' ? 'Overview' : tab === 'transcription' ? 'Transcription' : 'Client data'}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               {/* Tab content */}
@@ -526,9 +536,12 @@ function TranscriptionTab({ detail, agentName }: { detail: ConversationDetail; a
 
   if (transcript.length === 0) {
     return (
-      <div className="analysis-transcript-empty">
-        <Icon name="message-square" size={20} />
-        <span>No transcript available for this conversation.</span>
+      <div className="p-8">
+        <EmptyState
+          icon="message-square"
+          title="No transcript available"
+          description="No transcript entries were recorded for this conversation."
+        />
       </div>
     );
   }
@@ -606,17 +619,33 @@ function ClientDataTab({ detail }: { detail: ConversationDetail }) {
       <div className="analysis-client-section">
         <h4>Dynamic Variables</h4>
         {Object.keys(dynVars).length === 0 ? (
-          <p className="analysis-client-empty-text">No dynamic variables were sent.</p>
+          <div className="p-6">
+            <EmptyState
+              icon="database"
+              title="No dynamic variables"
+              description="No dynamic variables were sent with this conversation."
+            />
+          </div>
         ) : (
-          <div className="analysis-client-table">
-            {Object.entries(dynVars).map(([key, val]) => (
-              <div key={key} className="analysis-client-row">
-                <span className="analysis-client-key">{key}</span>
-                <span className={`analysis-client-value ${!val ? 'empty' : ''}`}>
-                  {val || 'EMPTY STRING'}
-                </span>
-              </div>
-            ))}
+          <div className="border border-white/[0.08] rounded-xl overflow-hidden bg-[#0d0f12]/60 backdrop-blur-md">
+            <table className="w-full text-left border-collapse">
+              <thead className="bg-white/[0.02] border-b border-white/[0.08]">
+                <tr className="h-10">
+                  <th className="py-2.5 px-4 text-xs font-semibold tracking-wider uppercase text-secondary">Variable Key</th>
+                  <th className="py-2.5 px-4 text-xs font-semibold tracking-wider uppercase text-secondary">Value</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/[0.04]">
+                {Object.entries(dynVars).map(([key, val]) => (
+                  <tr key={key} className="border-b border-white/[0.04] hover:bg-white/[0.02] transition-colors duration-150">
+                    <td className="py-3 px-4 text-xs font-mono text-secondary font-medium">{key}</td>
+                    <td className={`py-3 px-4 text-xs font-mono ${!val ? 'text-gray-500 italic' : 'text-gray-200'}`}>
+                      {val || 'EMPTY STRING'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
       </div>

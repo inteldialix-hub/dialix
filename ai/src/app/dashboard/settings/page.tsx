@@ -480,7 +480,7 @@ export default function SettingsPage() {
       </div>
 
       {/* Settings Navigation Tabs */}
-      <div className="config-tabs" style={{ margin: 0 }}>
+      <div className="tab-pill-group config-tabs" role="tablist" style={{ margin: 0 }}>
         {[
           { id: 'account' as const, label: 'Account & Security', icon: 'shield' },
           { id: 'team' as const, label: 'Team Management', icon: 'users' },
@@ -488,14 +488,16 @@ export default function SettingsPage() {
           { id: 'webhooks' as const, label: 'Webhooks', icon: 'webhook' },
           { id: 'telemetry' as const, label: 'System Health & Bugs', icon: 'activity' },
         ].map(tab => (
-          <div
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === tab.id}
             key={tab.id}
-            className={`config-tab ${activeTab === tab.id ? 'active' : ''}`}
+            className={`tab-pill config-tab ${activeTab === tab.id ? 'tab-pill-active active' : ''}`}
             onClick={() => setActiveTab(tab.id)}
-            style={{ cursor: 'pointer' }}
           >
             <Icon name={tab.icon} size={14} /> {tab.label}
-          </div>
+          </button>
         ))}
       </div>
 
