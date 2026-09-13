@@ -9,6 +9,7 @@ import { FiCheck, FiAlertCircle, FiCreditCard, FiClock } from 'react-icons/fi';
 
 interface Plan {
   id: string;
+  slug?: string;
   name: string;
   price: number;
   features: string[];
@@ -19,6 +20,8 @@ interface Plan {
 
 interface CurrentPlan {
   planId: string;
+  name?: string;
+  slug?: string;
   status: string;
   renewalDate: string;
 }
@@ -54,32 +57,56 @@ export default function BillingPage() {
       setError(null);
       
       const [plansRes, myPlanRes, historyRes] = await Promise.all([
-        api('/pricing/plans', { token: token || undefined }).catch(() => []),
+        api('/pricing/plans', { token: token || undefined }).catch(() => null),
         api('/pricing/my-plan', { token: token || undefined }).catch(() => null),
-        api('/paypal/billing-history', { token: token || undefined }).catch(() => [])
+        api('/paypal/billing-history', { token: token || undefined }).catch(() => null)
       ]);
 
-      if (plansRes && (plansRes.data ? plansRes.data.length > 0 : plansRes.length > 0)) {
-        setPlans(plansRes.data || plansRes);
+      const rawPlans = plansRes?.plans || plansRes?.data || (Array.isArray(plansRes) ? plansRes : []);
+      if (rawPlans.length > 0) {
+        setPlans(rawPlans.map((p: any) => ({
+          id: p.slug || String(p.id),
+          slug: p.slug || String(p.id),
+          name: p.name,
+          price: typeof p.price === 'string' ? parseFloat(p.price) : Number(p.price || 0),
+          features: Array.isArray(p.features) ? p.features : (typeof p.features === 'string' ? (() => { try { return JSON.parse(p.features); } catch { return []; } })() : []),
+          maxAgents: p.max_agents ?? p.maxAgents ?? 1,
+          maxCalls: p.max_calls_per_month ?? p.maxCalls ?? 100,
+          maxNumbers: p.max_phone_numbers ?? p.maxNumbers ?? 1,
+        })));
       } else {
         // Fallback plans for UI purposes if API fails
         setPlans([
-          { id: 'starter', name: 'Starter', price: 0, features: ['Basic features'], maxAgents: 1, maxCalls: 100, maxNumbers: 1 },
-          { id: 'pro', name: 'Professional', price: 49, features: ['Advanced features', 'Priority support'], maxAgents: 5, maxCalls: 1000, maxNumbers: 5 },
-          { id: 'business', name: 'Business', price: 149, features: ['All Pro features', 'Custom integrations'], maxAgents: 15, maxCalls: 5000, maxNumbers: 15 },
-          { id: 'enterprise', name: 'Enterprise', price: 499, features: ['All Business features', 'Dedicated account manager'], maxAgents: 50, maxCalls: 20000, maxNumbers: 50 }
+          { id: 'starter', slug: 'starter', name: 'Starter', price: 0, features: ['1 AI Agent', '100 Calls/mo', '1 Phone Number'], maxAgents: 1, maxCalls: 100, maxNumbers: 1 },
+          { id: 'professional', slug: 'professional', name: 'Professional', price: 49, features: ['5 AI Agents', '1,000 Calls/mo', '5 Phone Numbers', 'Priority support'], maxAgents: 5, maxCalls: 1000, maxNumbers: 5 },
+          { id: 'business', slug: 'business', name: 'Business', price: 149, features: ['20 AI Agents', '5,000 Calls/mo', '20 Phone Numbers', 'Custom integrations'], maxAgents: 20, maxCalls: 5000, maxNumbers: 20 },
+          { id: 'enterprise', slug: 'enterprise', name: 'Enterprise', price: 499, features: ['Unlimited Agents', 'Unlimited Calls', 'Unlimited Numbers', 'Dedicated account manager'], maxAgents: 999999, maxCalls: 999999, maxNumbers: 999999 }
         ]);
       }
 
-      if (myPlanRes) {
-        setCurrentPlan(myPlanRes.data || myPlanRes);
+      if (myPlanRes?.plan) {
+        const p = myPlanRes.plan;
+        setCurrentPlan({
+          planId: p.slug || String(p.id),
+          name: p.name,
+          slug: p.slug,
+          status: 'Active',
+          renewalDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+        });
+      } else if (myPlanRes?.name) {
+        setCurrentPlan({
+          planId: myPlanRes.slug || String(myPlanRes.id || 'starter'),
+          name: myPlanRes.name,
+          slug: myPlanRes.slug,
+          status: myPlanRes.status || 'Active',
+          renewalDate: myPlanRes.renewalDate || new Date().toISOString()
+        });
       } else {
-        setCurrentPlan({ planId: 'starter', status: 'active', renewalDate: new Date().toISOString() });
+        setCurrentPlan({ planId: 'starter', name: 'Starter', slug: 'starter', status: 'Active', renewalDate: new Date().toISOString() });
       }
 
-      if (historyRes) {
-        setPaymentHistory(historyRes.data || historyRes);
-      }
+      const rawHistory = historyRes?.payments || historyRes?.data || (Array.isArray(historyRes) ? historyRes : []);
+      setPaymentHistory(rawHistory);
 
     } catch (err: any) {
       setError(err.message || 'Failed to fetch billing data');
@@ -91,9 +118,16 @@ export default function BillingPage() {
   const handleUpgrade = async (planId: string) => {
     try {
       setActionLoading(planId);
-      const res = await api('/paypal/create-subscription', { method: 'POST', body: { planId }, token });
-      if (res && res.approvalUrl) {
-        window.location.href = res.approvalUrl;
+      const res = await api('/paypal/create-subscription', {
+        method: 'POST',
+        body: { plan_slug: planId, planId },
+        token: token || undefined
+      });
+      const approvalUrl = res?.approvalUrl || res?.approval_url || res?.data?.approval_url;
+      if (approvalUrl) {
+        window.location.href = approvalUrl;
+      } else {
+        alert(res?.error || 'PayPal checkout URL not generated. Please configure PayPal credentials in settings.');
       }
     } catch (err: any) {
       alert(err.message || 'Failed to initiate upgrade');
@@ -105,7 +139,7 @@ export default function BillingPage() {
   const handleCancelSubscription = async () => {
     try {
       setActionLoading('cancel');
-      await api('/paypal/cancel-subscription', { method: 'POST', body: {}, token });
+      await api('/paypal/cancel-subscription', { method: 'POST', body: {}, token: token || undefined });
       setShowCancelModal(false);
       fetchBillingData();
     } catch (err: any) {
@@ -153,14 +187,14 @@ export default function BillingPage() {
             <h2 className="text-lg font-semibold mb-2">Current Plan</h2>
             <div className="flex items-center gap-3">
               <span className="text-3xl font-bold" style={{ color: 'var(--brand-accent)' }}>
-                {plans.find(p => p.id === currentPlan?.planId)?.name || 'Unknown'}
+                {currentPlan?.name || plans.find(p => p.id === currentPlan?.planId || p.slug === currentPlan?.planId)?.name || 'Starter'}
               </span>
               <span className="px-3 py-1 rounded-full text-sm font-medium border" 
                 style={{ 
-                  color: getStatusColor(currentPlan?.status || ''), 
-                  borderColor: getStatusColor(currentPlan?.status || '') 
+                  color: getStatusColor(currentPlan?.status || 'active'), 
+                  borderColor: getStatusColor(currentPlan?.status || 'active') 
                 }}>
-                {currentPlan?.status?.toUpperCase() || 'UNKNOWN'}
+                {currentPlan?.status?.toUpperCase() || 'ACTIVE'}
               </span>
             </div>
             {currentPlan?.renewalDate && (
@@ -170,7 +204,7 @@ export default function BillingPage() {
             )}
           </div>
           
-          {currentPlan?.planId !== 'starter' && currentPlan?.status !== 'cancelled' && (
+          {currentPlan?.planId !== 'starter' && currentPlan?.slug !== 'starter' && currentPlan?.status !== 'cancelled' && (
             <button 
               onClick={() => setShowCancelModal(true)}
               className="px-4 py-2 rounded-lg border transition-colors text-sm font-medium"

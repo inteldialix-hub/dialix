@@ -22,10 +22,12 @@ const cancelSubLimiter = rateLimit({
 // 1. Create Subscription
 router.post('/create-subscription', authenticate, createSubLimiter, async (req, res) => {
   try {
-    const { plan_slug } = req.body;
+    const clientId = req.client?.id || req.user?.clientId || req.user?.id;
+    let plan_slug = req.body.plan_slug || req.body.planId || req.body.plan_id;
     if (!plan_slug) {
       return res.status(400).json({ error: 'plan_slug is required' });
     }
+    if (plan_slug === 'pro') plan_slug = 'professional';
 
     const plan = await get('SELECT id, name, paypal_plan_id FROM pricing_plans WHERE slug = ?', [plan_slug]);
     if (!plan) {
@@ -33,12 +35,12 @@ router.post('/create-subscription', authenticate, createSubLimiter, async (req, 
     }
     
     if (!plan.paypal_plan_id) {
-      return res.status(400).json({ error: 'This plan is not configured for PayPal subscriptions' });
+      return res.status(400).json({ error: 'PayPal credentials not yet configured. Please import your PayPal Client ID and Secret in settings.' });
     }
 
     const existingSub = await get(
       "SELECT id FROM subscriptions WHERE client_id = ? AND status IN ('active', 'pending')",
-      [req.user.clientId]
+      [clientId]
     );
 
     if (existingSub) {
@@ -64,7 +66,12 @@ router.post('/create-subscription', authenticate, createSubLimiter, async (req, 
       throw new Error('No approval link found in PayPal response');
     }
 
-    res.json({ data: { approval_url: approvalLink.href, subscription_id: result.id } });
+    res.json({
+      approvalUrl: approvalLink.href,
+      approval_url: approvalLink.href,
+      subscription_id: result.id,
+      data: { approval_url: approvalLink.href, approvalUrl: approvalLink.href, subscription_id: result.id }
+    });
   } catch (error) {
     console.error('Error creating PayPal subscription:', error);
     res.status(500).json({ error: 'Failed to create subscription', details: error.message });
