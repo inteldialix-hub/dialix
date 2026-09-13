@@ -1003,6 +1003,23 @@ async function initPostgresDb() {
   } catch (e) {
     console.log('⚠ Database: Indexes may already exist');
   }
+
+  // ─── Seed default admin account if none exists (Postgres) ─────
+  try {
+    const adminEmail = (process.env.ADMIN_EMAIL || 'admin@dialix.ai').toLowerCase().trim();
+    const adminPassword = process.env.ADMIN_PASSWORD || 'MyAdmin2026!Secure';
+    const existingAdmin = await pool.query('SELECT id FROM clients WHERE email = $1', [adminEmail]);
+    if (existingAdmin.rows.length === 0) {
+      const hash = bcrypt.hashSync(adminPassword, 12);
+      await pool.query(
+        'INSERT INTO clients (name, email, password_hash, is_admin, is_active, plan_id) VALUES ($1, $2, $3, 1, 1, 4)',
+        ['Dialix Admin', adminEmail, hash]
+      );
+      console.log(`✓ Seeded admin account in Postgres: ${adminEmail}`);
+    }
+  } catch (err) {
+    console.error('⚠ Failed to seed admin in Postgres:', err.message);
+  }
 }
 
 async function initDb() {
