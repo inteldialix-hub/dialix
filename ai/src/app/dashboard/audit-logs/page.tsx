@@ -150,13 +150,14 @@ export default function AuditLogsPage() {
       <div className="p-4 mb-6 rounded-xl border border-default bg-raised flex flex-col md:flex-row gap-4 items-center justify-between">
         <form onSubmit={handleSearch} className="flex-1 w-full flex gap-2">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={16} />
             <input
               type="text"
               placeholder="Search by action, email, or resource..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="form-input pl-9 w-full bg-input text-xs"
+              className="form-input w-full bg-input text-xs"
+              style={{ paddingLeft: '38px' }}
             />
           </div>
           <button type="submit" className="btn-secondary text-xs">
