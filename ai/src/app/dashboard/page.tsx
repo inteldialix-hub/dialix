@@ -247,8 +247,17 @@ export default function DashboardPage() {
     cutout: '72%',
     plugins: {
       legend: {
-        position: 'bottom' as const,
-        labels: { color: '#a1a1aa', font: { family: 'Outfit, sans-serif', size: 11, weight: 500 }, padding: 16, usePointStyle: true, pointStyleWidth: 10 },
+        display: false,
+      },
+      tooltip: {
+        backgroundColor: '#18181b',
+        titleColor: '#ffffff',
+        bodyColor: '#a1a1aa',
+        borderColor: 'rgba(255, 255, 255, 0.1)',
+        borderWidth: 1,
+        padding: 10,
+        boxPadding: 4,
+        usePointStyle: true,
       },
     },
   };
@@ -271,7 +280,7 @@ export default function DashboardPage() {
           </div>
           <div className="page-actions">
             <button
-              className="btn btn-secondary"
+              className="btn-secondary"
               onClick={() => handleExport('csv')}
               disabled={exportLoading === 'csv'}
             >
@@ -279,7 +288,7 @@ export default function DashboardPage() {
               {exportLoading === 'csv' ? 'Exporting...' : 'Export CSV'}
             </button>
             <button
-              className="btn btn-secondary"
+              className="btn-secondary"
               onClick={() => handleExport('pdf')}
               disabled={exportLoading === 'pdf'}
             >
@@ -316,8 +325,42 @@ export default function DashboardPage() {
           </div>
           <div className="dashboard-panel-body">
             {(stats?.callsByAgent?.length ?? 0) > 0 ? (
-              <div className="chart-container" style={{ height: '300px' }}>
-                <Doughnut data={chartData} options={chartOptions} />
+              <div>
+                <div className="chart-container" style={{ height: '200px', position: 'relative' }}>
+                  <Doughnut data={chartData} options={chartOptions} />
+                </div>
+                {/* Clean, structured 2-column legend */}
+                {(() => {
+                  const totalAgentCalls = stats?.callsByAgent?.reduce((acc, a) => acc + (a.count || 0), 0) || 0;
+                  return (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-4 pt-4 border-t border-white/[0.06]">
+                      {stats?.callsByAgent?.map((agent, i) => {
+                        const color = chartColors[i % chartColors.length];
+                        const pct = totalAgentCalls > 0 ? Math.round((agent.count / totalAgentCalls) * 100) : 0;
+                        return (
+                          <div
+                            key={agent.name || i}
+                            className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-white/[0.02] border border-white/[0.04] hover:border-white/[0.08] transition-colors"
+                          >
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span
+                                className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                                style={{ backgroundColor: color, boxShadow: `0 0 6px ${color}` }}
+                              />
+                              <span className="text-xs font-medium text-white/90 truncate" title={agent.name}>
+                                {agent.name}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-1.5 flex-shrink-0 text-xs font-mono">
+                              <span className="text-white font-semibold">{agent.count}</span>
+                              <span className="text-[11px] text-gray-400">({pct}%)</span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
               </div>
             ) : (
               <div className="empty-state">No call data yet</div>

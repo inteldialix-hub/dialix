@@ -627,7 +627,7 @@ function ClientDataTab({ detail }: { detail: ConversationDetail }) {
             />
           </div>
         ) : (
-          <div className="border border-white/[0.08] rounded-xl overflow-hidden bg-[#0d0f12]/60 backdrop-blur-md">
+          <div className="border border-white/[0.08] rounded-lg overflow-hidden ">
             <table className="w-full text-left border-collapse">
               <thead className="bg-white/[0.02] border-b border-white/[0.08]">
                 <tr className="h-10">

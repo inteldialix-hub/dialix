@@ -35,6 +35,7 @@ interface Agent {
   llm?: string;
   tags?: string[];
   provider?: string;
+  status?: string;
 }
 
 interface Voice {
@@ -67,6 +68,9 @@ export default function AgentsPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [voices, setVoices] = useState<Voice[]>([]);
   const [templates, setTemplates] = useState<AgentTemplate[]>([]);
+
+  const [search, setSearch] = useState('');
+  const [providerFilter, setProviderFilter] = useState('');
 
   const loadAgents = useCallback(async () => {
     try {
@@ -110,6 +114,58 @@ export default function AgentsPage() {
 
   const iconColors = ['purple', 'blue', 'orange', 'green', 'pink', 'cyan', 'red', 'indigo'];
 
+  const totalAgents = agents.length;
+  const activeAgents = agents.filter(a => a.status !== 'unavailable' && a.status !== 'inactive').length;
+  const elevenLabsAgents = agents.filter(a => (a.provider || 'elevenlabs').toLowerCase() === 'elevenlabs').length;
+  const vapiAgents = agents.filter(a => (a.provider || '').toLowerCase() === 'vapi').length;
+
+  const statCards = [
+    {
+      label: 'Total Agents',
+      value: totalAgents,
+      icon: 'bot',
+      trend: totalAgents > 0 ? 'up' : 'neutral',
+      trendLabel: totalAgents > 0 ? 'Active' : 'Ready',
+    },
+    {
+      label: 'Active Agents',
+      value: activeAgents,
+      icon: 'check-circle',
+      trend: activeAgents > 0 ? 'up' : 'neutral',
+      trendLabel: activeAgents > 0 ? 'Operational' : 'Idle',
+    },
+    {
+      label: 'ElevenLabs',
+      value: elevenLabsAgents,
+      icon: 'cpu',
+      trend: 'neutral',
+      trendLabel: 'Provider',
+    },
+    {
+      label: 'Vapi',
+      value: vapiAgents,
+      icon: 'radio',
+      trend: 'neutral',
+      trendLabel: 'Provider',
+    },
+  ];
+
+  const providerOptions = [
+    { value: '', label: 'All Providers' },
+    { value: 'elevenlabs', label: 'ElevenLabs' },
+    { value: 'vapi', label: 'Vapi' },
+  ];
+
+  const filteredAgents = agents.filter((agent) => {
+    const q = search.toLowerCase().trim();
+    const matchesSearch = !q ||
+      agent.name.toLowerCase().includes(q) ||
+      agent.agent_id.toLowerCase().includes(q);
+    const effectiveProvider = (agent.provider || 'elevenlabs').toLowerCase();
+    const matchesProvider = !providerFilter || effectiveProvider === providerFilter.toLowerCase();
+    return matchesSearch && matchesProvider;
+  });
+
   if (loading) return <SkeletonRows count={5} />;
 
   return (
@@ -120,14 +176,71 @@ export default function AgentsPage() {
           <p>Create and manage your AI calling agents</p>
         </div>
         <div className="page-actions">
-          <button className="btn-primary" onClick={handleOpenCreate} style={{ marginLeft: 0 }}>
+          <button className="btn-primary" onClick={handleOpenCreate}>
             <Icon name="plus" size={14} /> New Agent
           </button>
         </div>
       </div>
 
+      {/* Frosted Stat Cards Summary */}
+      <div className="stat-card-grid" style={{ padding: '0 32px 24px' }}>
+        {statCards.map((card, i) => (
+          <div key={i} className="stat-card" style={{ animationDelay: `${i * 60}ms` }}>
+            <div className="stat-card-header">
+              <span className="stat-card-label">{card.label}</span>
+              <div className="stat-card-icon"><Icon name={card.icon} size={16} /></div>
+            </div>
+            <div className="stat-card-value">{card.value}</div>
+            {card.trend && (
+              <span className={`stat-card-trend ${card.trend}`}>
+                <Icon name={card.trend === 'up' ? 'trending-up' : card.trend === 'down' ? 'trending-down' : 'minus'} size={11} />
+                {card.trendLabel}
+              </span>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* Standardized Search and Filter Bar */}
+      <div
+        className="border border-white/[0.06] rounded-lg overflow-hidden p-4 mb-6"
+        style={{ margin: '0 32px 24px' }}
+      >
+        <div className="flex flex-col md:flex-row gap-4 justify-between items-center">
+          <div className="relative flex-1 w-full md:max-w-md">
+            <Icon name="search" className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={16} />
+            <input
+              type="text"
+              placeholder="Search by name or ID..."
+              className="form-input w-full bg-input"
+              style={{ paddingLeft: '38px' }}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+          <div className="flex gap-3 w-full md:w-auto items-center justify-between md:justify-end">
+            <div className="w-44">
+              <CustomSelect
+                value={providerFilter}
+                onChange={(e) => setProviderFilter(e.target.value)}
+                options={providerOptions}
+                small
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
       {agents.length === 0 ? (
         <EmptyState icon="bot" title="No agents yet" description="Create your first AI agent to start making calls." action="Create Agent" onAction={handleOpenCreate} />
+      ) : filteredAgents.length === 0 ? (
+        <div style={{ padding: '0 32px' }}>
+          <EmptyState
+            icon="bot"
+            title="No matching agents"
+            description="No agents match your current search query or provider filter."
+          />
+        </div>
       ) : (
         <div>
           <div className="agent-list-header">
@@ -137,7 +250,7 @@ export default function AgentsPage() {
             <span style={{ width: 140 }}>Model</span>
             <span style={{ width: 40 }} />
           </div>
-          {agents.map((agent, i) => (
+          {filteredAgents.map((agent, i) => (
             <div key={agent.agent_id} className="agent-row" onClick={() => router.push(`/dashboard/agents/${agent.agent_id}`)}>
               <div className={`agent-icon ${iconColors[i % iconColors.length]}`}>
                 <Icon name="bot" size={16} />

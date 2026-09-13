@@ -180,7 +180,7 @@ export default function BillingPage() {
             <p className="page-subtitle">Manage your plan, limits, payments, and invoices</p>
           </div>
         </div>
-        <div className="p-16 text-center bg-[rgba(18,20,24,0.7)] backdrop-blur-md border border-white/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] rounded-xl">
+        <div className="p-16 text-center  border border-white/[0.08]  rounded-lg">
           <Loader2 className="mx-auto h-8 w-8 text-accent animate-spin mb-3" />
           <p className="text-sm text-gray-400">Loading billing information...</p>
         </div>
@@ -321,7 +321,7 @@ export default function BillingPage() {
       </div>
 
       {/* Current Plan Overview */}
-      <div className="p-6 mb-8 rounded-xl border border-white/[0.08] bg-[rgba(18,20,24,0.7)] backdrop-blur-md shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_4px_20px_rgba(0,0,0,0.2)]">
+      <div className="p-6 mb-8 rounded-lg border border-white/[0.08]  ">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
             <div className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">Active Subscription</div>
@@ -367,10 +367,10 @@ export default function BillingPage() {
             return (
               <div 
                 key={plan.id} 
-                className={`p-6 rounded-xl border flex flex-col transition-all duration-200 bg-[rgba(18,20,24,0.7)] backdrop-blur-md ${
+                className={`p-6 rounded-lg border flex flex-col transition-all duration-200  ${
                   isCurrent 
                     ? 'border-accent shadow-[inset_0_1px_0_rgba(255,255,255,0.1),0_0_20px_rgba(94,106,210,0.25)]' 
-                    : 'border-white/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_4px_20px_rgba(0,0,0,0.2)] hover:border-white/[0.16] hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.1),0_8px_30px_rgba(0,0,0,0.3)]'
+                    : 'border-white/[0.08]  hover:border-white/[0.16] hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.1),0_8px_30px_rgba(0,0,0,0.3)]'
                 }`}
               >
                 <div className="mb-4">
@@ -452,7 +452,7 @@ export default function BillingPage() {
       <div className="mb-6">
         <h2 className="text-base font-semibold text-white mb-4">Payment History</h2>
         {paymentHistory.length === 0 ? (
-          <div className="p-8 rounded-xl border border-white/[0.08] bg-[rgba(18,20,24,0.7)] backdrop-blur-md shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+          <div className="p-8 rounded-lg border border-white/[0.08]  ">
             <EmptyState
               icon="credit-card"
               title="No billing transactions"
@@ -460,7 +460,7 @@ export default function BillingPage() {
             />
           </div>
         ) : (
-          <div className="rounded-xl border border-white/[0.08] bg-[rgba(18,20,24,0.7)] backdrop-blur-md shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_4px_20px_rgba(0,0,0,0.2)] overflow-hidden">
+          <div className="rounded-lg border border-white/[0.08]   overflow-hidden">
             <div className="table-responsive">
               <table className="w-full text-left">
                 <thead className="bg-white/[0.02] border-b border-white/[0.08] text-gray-400 text-xs font-medium">

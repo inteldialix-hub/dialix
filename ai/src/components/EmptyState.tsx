@@ -29,13 +29,16 @@ export function EmptyState({
 
   return (
     <div className={`flex flex-col items-center justify-center py-12 px-4 text-center select-none ${className}`}>
-      {/* Centered muted icon with subtle frosted icon container */}
-      <div className="w-12 h-12 rounded-xl bg-white/[0.04] border border-white/[0.08] flex items-center justify-center text-secondary mb-4 shadow-sm">
-        {typeof icon === 'string' ? (
-          <Icon name={icon} size={22} className="text-secondary" />
-        ) : (
-          icon
-        )}
+      {/* Centered icon with subtle glowing backdrop & frosted container */}
+      <div className="relative mb-4 flex items-center justify-center">
+        <div className="absolute -inset-2.5 rounded-full bg-indigo-500/20 blur-xl opacity-70 pointer-events-none" />
+        <div className="relative w-12 h-12 rounded-lg bg-white/[0.04] border border-white/[0.08] flex items-center justify-center text-secondary  ">
+          {typeof icon === 'string' ? (
+            <Icon name={icon} size={22} className="text-secondary" />
+          ) : (
+            icon
+          )}
+        </div>
       </div>
 
       {/* Clear heading */}

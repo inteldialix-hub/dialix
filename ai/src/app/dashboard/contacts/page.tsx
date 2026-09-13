@@ -379,7 +379,7 @@ export default function ContactsPage() {
         </div>
       </div>
 
-      <div className="border border-white/[0.08] rounded-xl overflow-hidden bg-[#0d0f12]/60 backdrop-blur-md p-4 mb-6">
+      <div className="border border-white/[0.08] rounded-lg overflow-hidden  p-4 mb-6">
         <div className="flex flex-col md:flex-row gap-4 justify-between items-center">
           <div className="relative flex-1 w-full md:max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={16} />
@@ -419,7 +419,7 @@ export default function ContactsPage() {
         </div>
       </div>
 
-      <div className="border border-white/[0.08] rounded-xl overflow-hidden bg-[#0d0f12]/60 backdrop-blur-md">
+      <div className="border border-white/[0.08] rounded-lg overflow-hidden ">
         <div className="table-responsive">
           <table className="w-full text-left border-collapse">
             <thead className="bg-white/[0.02] border-b border-white/[0.08]">
@@ -432,14 +432,14 @@ export default function ContactsPage() {
                     className="rounded border-gray-600 bg-transparent cursor-pointer"
                   />
                 </th>
-                <th className="py-3.5 px-4 text-xs font-semibold tracking-wider uppercase text-secondary">Name</th>
-                <th className="py-3.5 px-4 text-xs font-semibold tracking-wider uppercase text-secondary">Phone & Email</th>
-                <th className="py-3.5 px-4 text-xs font-semibold tracking-wider uppercase text-secondary">Company</th>
-                <th className="py-3.5 px-4 text-xs font-semibold tracking-wider uppercase text-secondary">Status</th>
-                <th className="py-3.5 px-4 text-xs font-semibold tracking-wider uppercase text-secondary text-right">Actions</th>
+                <th className="py-3.5 px-4 text-xs font-semibold tracking-wider uppercase text-[var(--text-secondary)]">Name</th>
+                <th className="py-3.5 px-4 text-xs font-semibold tracking-wider uppercase text-[var(--text-secondary)]">Phone & Email</th>
+                <th className="py-3.5 px-4 text-xs font-semibold tracking-wider uppercase text-[var(--text-secondary)]">Company</th>
+                <th className="py-3.5 px-4 text-xs font-semibold tracking-wider uppercase text-[var(--text-secondary)]">Status</th>
+                <th className="py-3.5 px-4 text-xs font-semibold tracking-wider uppercase text-[var(--text-secondary)] text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-white/[0.04]">
+            <tbody className="divide-y divide-white/[0.06]">
               {loading ? (
                 <tr>
                   <td colSpan={6} className="py-12 px-4 text-center text-secondary">
@@ -664,7 +664,7 @@ export default function ContactsPage() {
             </div>
             
             <div className="modal-body p-6">
-              <div className="border border-dashed border-white/20 rounded-xl p-8 text-center bg-base/50 hover:bg-white/[0.02] transition-colors relative cursor-pointer">
+              <div className="border border-dashed border-white/20 rounded-lg p-8 text-center bg-base/50 hover:bg-white/[0.02] transition-colors relative cursor-pointer">
                 <input 
                   type="file" 
                   accept=".csv"

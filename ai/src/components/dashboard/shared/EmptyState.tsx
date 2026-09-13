@@ -19,8 +19,11 @@ interface EmptyStateProps {
 export function EmptyState({ icon, title, description, action, onAction }: EmptyStateProps) {
   return (
     <div className="empty-state">
-      <div className="empty-state-icon">
-        <Icon name={icon} size={32} />
+      <div className="relative mb-4 flex items-center justify-center">
+        <div className="absolute -inset-2.5 rounded-full bg-indigo-500/20 blur-xl opacity-70 pointer-events-none" />
+        <div className="relative w-12 h-12 rounded-lg bg-white/[0.04] border border-white/[0.08] flex items-center justify-center text-[var(--text-secondary)]  ">
+          <Icon name={icon} size={22} className="text-[var(--text-secondary)]" />
+        </div>
       </div>
       <div className="empty-state-title">{title}</div>
       {description && <div className="empty-state-description">{description}</div>}
