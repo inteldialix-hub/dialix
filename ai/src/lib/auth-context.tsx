@@ -20,7 +20,7 @@ interface AuthState {
 
 interface AuthContextType extends AuthState {
   login: (email: string, password: string) => Promise<void>;
-  signup: (name: string, email: string, password: string) => Promise<void>;
+  signup: (name: string, email: string, password: string, invite?: string) => Promise<void>;
   logout: () => void;
 }
 
@@ -92,10 +92,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const signup = useCallback(async (name: string, email: string, password: string) => {
+  const signup = useCallback(async (name: string, email: string, password: string, invite?: string) => {
     const data = await api<{ token: string; client: Client }>('/auth/register', {
       method: 'POST',
-      body: { name, email, password },
+      body: { name, email, password, ...(invite ? { invite, invite_token: invite } : {}) },
     });
 
     localStorage.setItem(TOKEN_KEY, data.token);

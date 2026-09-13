@@ -1,22 +1,32 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useState, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/lib/auth-context';
+import { api } from '@/lib/api';
 import '@/styles/dashboard.css';
 
-/**
- * Signup page — converted from frontend/app.js SignUpScreen (lines 287-410).
- */
+interface InvitationDetails {
+  valid: boolean;
+  email?: string;
+  role?: string;
+  organization_name?: string;
+  error?: string;
+}
 
-export default function SignupPage() {
+function SignupContent() {
+  const searchParams = useSearchParams();
+  const inviteToken = searchParams.get('invite') || '';
+
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [inviteInfo, setInviteInfo] = useState<InvitationDetails | null>(null);
+
   const { signup, isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
 
@@ -25,6 +35,30 @@ export default function SignupPage() {
       router.replace('/dashboard');
     }
   }, [isLoading, isAuthenticated, router]);
+
+  useEffect(() => {
+    if (!inviteToken) return;
+
+    let mounted = true;
+    api<InvitationDetails>(`/team/invitation/${inviteToken}`)
+      .then((data) => {
+        if (!mounted) return;
+        if (data.valid && data.email) {
+          setInviteInfo(data);
+          setEmail(data.email);
+        } else {
+          setError(data.error || 'Invitation link is invalid or has expired');
+        }
+      })
+      .catch((err) => {
+        if (!mounted) return;
+        setError(err instanceof Error ? err.message : 'Invalid invitation');
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, [inviteToken]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -41,7 +75,7 @@ export default function SignupPage() {
 
     setLoading(true);
     try {
-      await signup(name, email, password);
+      await signup(name, email, password, inviteToken || undefined);
       router.push('/dashboard');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Signup failed');
@@ -63,11 +97,11 @@ export default function SignupPage() {
   };
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-base)', fontFamily: 'var(--font-sans)' }}>
-      <div style={{ width: '100%', maxWidth: '400px', padding: '40px', background: 'var(--bg-raised)', borderRadius: 'var(--radius-xl)', border: '1px solid var(--border-subtle)', boxShadow: 'var(--shadow-lg)', animation: 'panelEnter 400ms cubic-bezier(0.16, 1, 0.3, 1)' }}>
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-base)', fontFamily: 'var(--font-sans)', padding: '24px' }}>
+      <div style={{ width: '100%', maxWidth: '420px', padding: '40px', background: 'var(--bg-raised)', borderRadius: 'var(--radius-xl)', border: '1px solid var(--border-subtle)', boxShadow: 'var(--shadow-lg)', animation: 'panelEnter 400ms cubic-bezier(0.16, 1, 0.3, 1)' }}>
 
         {/* Logo */}
-        <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+        <div style={{ textAlign: 'center', marginBottom: '28px' }}>
           <svg width="36" height="36" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
             <defs>
               <linearGradient id="signup-grad" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
@@ -79,9 +113,34 @@ export default function SignupPage() {
             <path d="M16 6L26 16L16 26L6 16L16 6Z" fill="white" fillOpacity="0.95" />
             <path d="M16 10L22 16L16 22L10 16L16 10Z" fill="url(#signup-grad)" fillOpacity="0.6" />
           </svg>
-          <h1 style={{ fontSize: '22px', fontWeight: 700, marginTop: '16px', color: 'var(--text-primary)' }}>Create account</h1>
-          <p style={{ fontSize: '14px', color: 'var(--text-tertiary)', marginTop: '6px' }}>Get started with Dialix</p>
+          <h1 style={{ fontSize: '22px', fontWeight: 700, marginTop: '16px', color: 'var(--text-primary)' }}>
+            {inviteInfo ? 'Join the Team' : 'Create account'}
+          </h1>
+          <p style={{ fontSize: '14px', color: 'var(--text-tertiary)', marginTop: '6px' }}>
+            {inviteInfo ? `Invited by ${inviteInfo.organization_name}` : 'Get started with Dialix'}
+          </p>
         </div>
+
+        {/* Team Invite Banner */}
+        {inviteInfo && (
+          <div style={{
+            padding: '12px 14px',
+            borderRadius: 'var(--radius-md)',
+            background: 'rgba(99, 102, 241, 0.1)',
+            border: '1px solid rgba(99, 102, 241, 0.25)',
+            marginBottom: '20px',
+            fontSize: '13px',
+            color: 'var(--brand-accent)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+          }}>
+            <span style={{ fontSize: '18px' }}>🤝</span>
+            <div>
+              <strong>Team Invite:</strong> Joining <strong>{inviteInfo.organization_name}</strong> as <strong>{inviteInfo.role}</strong>.
+            </div>
+          </div>
+        )}
 
         {error && (
           <div style={{ padding: '10px 14px', borderRadius: 'var(--radius-md)', background: 'var(--red-bg)', color: 'var(--red)', fontSize: '13px', marginBottom: '16px', border: '1px solid rgba(248,113,113,0.15)' }}>
@@ -96,7 +155,19 @@ export default function SignupPage() {
           </div>
           <div style={{ marginBottom: '16px' }}>
             <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: 500, color: 'var(--text-secondary)' }}>Email</label>
-            <input className="form-input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@company.com" required style={inputStyle} />
+            <input
+              className="form-input"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@company.com"
+              required
+              readOnly={Boolean(inviteInfo?.email)}
+              style={{
+                ...inputStyle,
+                ...(inviteInfo?.email ? { opacity: 0.8, cursor: 'not-allowed' } : {}),
+              }}
+            />
           </div>
           <div style={{ marginBottom: '16px' }}>
             <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: 500, color: 'var(--text-secondary)' }}>Password</label>
@@ -108,7 +179,7 @@ export default function SignupPage() {
           </div>
 
           <button type="submit" className="btn-primary" disabled={loading} style={{ width: '100%', justifyContent: 'center', padding: '12px', fontSize: '14px', fontWeight: 600, marginLeft: 0 }}>
-            {loading ? 'Creating account...' : 'Create Account'}
+            {loading ? 'Creating account...' : (inviteInfo ? 'Accept Invitation & Join' : 'Create Account')}
           </button>
         </form>
 
@@ -121,5 +192,13 @@ export default function SignupPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function SignupPage() {
+  return (
+    <Suspense fallback={<div style={{ minHeight: '100vh', background: 'var(--bg-base)' }} />}>
+      <SignupContent />
+    </Suspense>
   );
 }
