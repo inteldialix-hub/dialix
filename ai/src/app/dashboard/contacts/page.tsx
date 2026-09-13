@@ -22,7 +22,7 @@ interface Contact {
 }
 
 export default function ContactsPage() {
-  const { user, token } = useAuth();
+  const { token } = useAuth();
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [loading, setLoading] = useState(true);
   const [total, setTotal] = useState(0);
@@ -64,7 +64,7 @@ export default function ContactsPage() {
         ...(statusFilter && { status: statusFilter }),
       });
       
-      const res = await api(`/contacts?${query.toString()}`, { token });
+      const res = await api(`/contacts?${query.toString()}`, { token: token || undefined });
       if (res) {
         setContacts(res.contacts || []);
         setTotal(res.total || 0);
@@ -542,3 +542,4 @@ export default function ContactsPage() {
     </div>
   );
 }
+

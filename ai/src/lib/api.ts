@@ -6,12 +6,12 @@
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
 
 interface ApiOptions {
-  token?: string;
+  token?: string | null;
   method?: string;
-  body?: Record<string, unknown>;
+  body?: any;
 }
 
-export async function api<T = Record<string, unknown>>(
+export async function api<T = any>(
   path: string,
   options: ApiOptions = {}
 ): Promise<T> {

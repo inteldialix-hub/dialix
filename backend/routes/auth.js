@@ -5,7 +5,7 @@ const { rateLimit, ipKeyGenerator } = require('express-rate-limit');
 const { get, run } = require('../db');
 const { authenticate } = require('../middleware/auth');
 const { validateSchema } = require('../middleware/validate');
-const { loginSchema, registerSchema, changePasswordSchema, forgotPasswordSchema } = require('../lib/schemas');
+const { loginSchema, registerSchema, changePasswordSchema, forgotPasswordSchema, resetPasswordSchema, otpSchema } = require('../lib/schemas');
 const securityLogger = require('../lib/security-logger');
 
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -81,6 +81,24 @@ const ipBruteForceLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 10,                   // 10 attempts per IP per window
   message: { error: 'Too many password operations. Please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req, res) => ipKeyGenerator(req, res),
+});
+
+const otpLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5,
+  message: { error: 'Too many OTP verification attempts. Please try again in 15 minutes.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req, res) => `${ipKeyGenerator(req, res)}-${req.body?.email || 'unknown'}`,
+});
+
+const otpHourlyLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 10,
+  message: { error: 'Too many OTP attempts. Please try again later.' },
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: (req, res) => ipKeyGenerator(req, res),

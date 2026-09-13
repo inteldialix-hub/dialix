@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-explicit-any, react-hooks/exhaustive-deps */
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -54,9 +54,9 @@ export default function BillingPage() {
       setError(null);
       
       const [plansRes, myPlanRes, historyRes] = await Promise.all([
-        api('/pricing/plans', { token }).catch(() => []),
-        api('/pricing/my-plan', { token }).catch(() => null),
-        api('/paypal/billing-history', { token }).catch(() => [])
+        api('/pricing/plans', { token: token || undefined }).catch(() => []),
+        api('/pricing/my-plan', { token: token || undefined }).catch(() => null),
+        api('/paypal/billing-history', { token: token || undefined }).catch(() => [])
       ]);
 
       if (plansRes && (plansRes.data ? plansRes.data.length > 0 : plansRes.length > 0)) {
@@ -260,7 +260,7 @@ export default function BillingPage() {
                     <th className="p-4 font-medium text-sm">Payment ID</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y" style={{ divideColor: 'var(--border-subtle)' }}>
+                <tbody className="divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
                   {paymentHistory.map((hist) => (
                     <tr key={hist.id} className="hover:bg-[var(--bg-hover)] transition-colors">
                       <td className="p-4 text-sm" style={{ color: 'var(--text-secondary)' }}>{new Date(hist.date).toLocaleDateString()}</td>
@@ -309,3 +309,4 @@ export default function BillingPage() {
     </div>
   );
 }
+

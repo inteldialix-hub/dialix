@@ -53,7 +53,7 @@ export default function CampaignsPage() {
   const fetchCampaigns = async () => {
     try {
       setLoading(true);
-      const res = await api('/campaigns', { token }).catch(() => []);
+      const res = await api('/campaigns', { token: token || undefined }).catch(() => []);
       setCampaigns(res.data || res || []);
     } catch (err: any) {
       setError(err.message || 'Failed to load campaigns');
@@ -65,9 +65,9 @@ export default function CampaignsPage() {
   const loadWizardData = async () => {
     try {
       const [cRes, aRes, pRes] = await Promise.all([
-        api('/contacts', { token }).catch(() => []),
-        api('/agents/all', { token }).catch(() => []),
-        api('/phone-numbers', { token }).catch(() => [])
+        api('/contacts', { token: token || undefined }).catch(() => []),
+        api('/agents/all', { token: token || undefined }).catch(() => []),
+        api('/phone-numbers', { token: token || undefined }).catch(() => [])
       ]);
       setContacts(cRes.contacts || cRes.data || cRes || []);
       setAgents(aRes.data || aRes || []);
@@ -354,3 +354,4 @@ export default function CampaignsPage() {
     </div>
   );
 }
+

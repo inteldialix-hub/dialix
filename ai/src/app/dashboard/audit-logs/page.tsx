@@ -46,7 +46,7 @@ export default function AuditLogsPage() {
         ...(search && { search })
       });
       
-      const response = await api(`/audit?${queryParams}`, { token });
+      const response = await api(`/audit?${queryParams}`, { token: token || undefined });
       if (response) {
         setLogs(response.logs || response.data || (Array.isArray(response) ? response : []));
         setTotalPages(response.totalPages || 1);
@@ -160,7 +160,7 @@ export default function AuditLogsPage() {
                     <th className="p-4 font-medium text-sm">Details</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y" style={{ divideColor: 'var(--border-subtle)' }}>
+                <tbody className="divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
                   {logs.map((log) => (
                     <tr key={log.id} className="hover:bg-[var(--bg-hover)] transition-colors">
                       <td className="p-4 text-sm whitespace-nowrap" style={{ color: 'var(--text-secondary)' }}>
