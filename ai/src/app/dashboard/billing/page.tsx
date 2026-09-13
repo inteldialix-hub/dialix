@@ -4,8 +4,12 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
-import '@/styles/dashboard.css';
+import { useToast } from '@/components/dashboard/shared/ToastProvider';
+import { ConfirmModal } from '@/components/dashboard/shared/ConfirmModal';
+import { EmptyState } from '@/components/dashboard/shared/EmptyState';
 import { FiCheck, FiAlertCircle, FiCreditCard, FiClock } from 'react-icons/fi';
+import { Loader2 } from 'lucide-react';
+import '@/styles/dashboard.css';
 
 interface Plan {
   id: string;
@@ -36,6 +40,7 @@ interface PaymentHistory {
 
 export default function BillingPage() {
   const { token, isAuthenticated } = useAuth();
+  const { addToast } = useToast();
   const [plans, setPlans] = useState<Plan[]>([]);
   const [currentPlan, setCurrentPlan] = useState<CurrentPlan | null>(null);
   const [paymentHistory, setPaymentHistory] = useState<PaymentHistory[]>([]);
@@ -49,7 +54,7 @@ export default function BillingPage() {
     if (isAuthenticated) {
       fetchBillingData();
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, token]);
 
   const fetchBillingData = async () => {
     try {
@@ -127,10 +132,10 @@ export default function BillingPage() {
       if (approvalUrl) {
         window.location.href = approvalUrl;
       } else {
-        alert(res?.error || 'PayPal checkout URL not generated. Please configure PayPal credentials in settings.');
+        addToast(res?.error || 'PayPal checkout URL not generated. Please configure PayPal credentials in settings.', 'error');
       }
     } catch (err: any) {
-      alert(err.message || 'Failed to initiate upgrade');
+      addToast(err.message || 'Failed to initiate upgrade', 'error');
     } finally {
       setActionLoading(null);
     }
@@ -140,10 +145,11 @@ export default function BillingPage() {
     try {
       setActionLoading('cancel');
       await api('/paypal/cancel-subscription', { method: 'POST', body: {}, token: token || undefined });
+      addToast('Subscription cancelled successfully', 'info');
       setShowCancelModal(false);
       fetchBillingData();
     } catch (err: any) {
-      alert(err.message || 'Failed to cancel subscription');
+      addToast(err.message || 'Failed to cancel subscription', 'error');
     } finally {
       setActionLoading(null);
     }
@@ -160,46 +166,60 @@ export default function BillingPage() {
 
   if (loading) {
     return (
-      <div className="p-6 max-w-7xl mx-auto flex items-center justify-center min-h-[50vh]">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--brand-accent)]"></div>
+      <div className="dashboard-content">
+        <div className="page-title-section mb-6">
+          <div>
+            <h1 className="page-title">Billing & Subscription</h1>
+            <p className="page-subtitle">Manage your plan, limits, payments, and invoices</p>
+          </div>
+        </div>
+        <div className="p-16 text-center bg-raised border border-default rounded-xl">
+          <Loader2 className="mx-auto h-8 w-8 text-accent animate-spin mb-3" />
+          <p className="text-sm text-gray-400">Loading billing information...</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-8" style={{ minHeight: '100vh', backgroundColor: 'var(--bg-base)', color: 'var(--text-primary)' }}>
-      <div>
-        <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>Billing & Subscription</h1>
-        <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>Manage your plan, payments, and invoices.</p>
+    <div className="dashboard-content">
+      <div className="page-title-section mb-6">
+        <div>
+          <h1 className="page-title">Billing & Subscription</h1>
+          <p className="page-subtitle">Manage your plan, usage limits, payments, and invoices</p>
+        </div>
       </div>
 
       {error && (
-        <div className="p-4 rounded-lg flex items-center gap-3" style={{ backgroundColor: 'var(--red-bg)', color: 'var(--red)' }}>
-          <FiAlertCircle />
+        <div className="p-4 mb-6 rounded-lg flex items-center gap-3 bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
+          <FiAlertCircle size={18} />
           <span>{error}</span>
         </div>
       )}
 
       {/* Current Plan Overview */}
-      <div className="p-6 rounded-xl border" style={{ backgroundColor: 'var(--bg-raised)', borderColor: 'var(--border-default)' }}>
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+      <div className="p-6 mb-8 rounded-xl border border-default bg-raised">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
-            <h2 className="text-lg font-semibold mb-2">Current Plan</h2>
+            <div className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1.5">Active Subscription</div>
             <div className="flex items-center gap-3">
-              <span className="text-3xl font-bold" style={{ color: 'var(--brand-accent)' }}>
+              <span className="text-2xl font-bold text-white">
                 {currentPlan?.name || plans.find(p => p.id === currentPlan?.planId || p.slug === currentPlan?.planId)?.name || 'Starter'}
               </span>
-              <span className="px-3 py-1 rounded-full text-sm font-medium border" 
+              <span 
+                className="px-2.5 py-0.5 rounded-full text-xs font-medium border"
                 style={{ 
                   color: getStatusColor(currentPlan?.status || 'active'), 
-                  borderColor: getStatusColor(currentPlan?.status || 'active') 
-                }}>
+                  borderColor: getStatusColor(currentPlan?.status || 'active'),
+                  backgroundColor: 'rgba(255,255,255,0.03)'
+                }}
+              >
                 {currentPlan?.status?.toUpperCase() || 'ACTIVE'}
               </span>
             </div>
             {currentPlan?.renewalDate && (
-              <p className="text-sm mt-2 flex items-center gap-2" style={{ color: 'var(--text-secondary)' }}>
-                <FiClock /> Renews on {new Date(currentPlan.renewalDate).toLocaleDateString()}
+              <p className="text-xs mt-2 flex items-center gap-1.5 text-gray-400">
+                <FiClock size={13} /> Next renewal on {new Date(currentPlan.renewalDate).toLocaleDateString()}
               </p>
             )}
           </div>
@@ -207,8 +227,7 @@ export default function BillingPage() {
           {currentPlan?.planId !== 'starter' && currentPlan?.slug !== 'starter' && currentPlan?.status !== 'cancelled' && (
             <button 
               onClick={() => setShowCancelModal(true)}
-              className="px-4 py-2 rounded-lg border transition-colors text-sm font-medium"
-              style={{ backgroundColor: 'var(--red-bg)', borderColor: 'var(--red)', color: 'var(--red)' }}
+              className="btn-danger text-xs font-medium"
             >
               Cancel Subscription
             </button>
@@ -217,55 +236,84 @@ export default function BillingPage() {
       </div>
 
       {/* Plans Grid */}
-      <div>
-        <h2 className="text-xl font-bold mb-4">Available Plans</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="mb-10">
+        <h2 className="text-base font-semibold text-white mb-4">Available Plans</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
           {plans.map((plan) => {
-            const isCurrent = plan.id === currentPlan?.planId;
+            const isCurrent = plan.id === currentPlan?.planId || plan.slug === currentPlan?.planId;
             return (
-              <div key={plan.id} className={`p-6 rounded-xl border flex flex-col ${isCurrent ? 'ring-2 ring-[var(--brand-accent)]' : ''}`}
-                style={{ backgroundColor: 'var(--bg-raised)', borderColor: isCurrent ? 'var(--brand-accent)' : 'var(--border-default)' }}>
+              <div 
+                key={plan.id} 
+                className={`p-6 rounded-xl border flex flex-col transition-all bg-raised ${isCurrent ? 'border-accent shadow-[0_0_15px_rgba(94,106,210,0.15)]' : 'border-default hover:border-white/20'}`}
+              >
                 <div className="mb-4">
-                  <h3 className="text-xl font-bold">{plan.name}</h3>
+                  <div className="flex justify-between items-center mb-1">
+                    <h3 className="text-base font-semibold text-white">{plan.name}</h3>
+                    {isCurrent && (
+                      <span className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded bg-accent/20 text-accent border border-accent/30">
+                        Current
+                      </span>
+                    )}
+                  </div>
                   <div className="mt-2 flex items-baseline gap-1">
-                    <span className="text-3xl font-bold">${plan.price}</span>
-                    <span style={{ color: 'var(--text-secondary)' }}>/mo</span>
+                    <span className="text-3xl font-bold text-white">${plan.price}</span>
+                    <span className="text-xs text-gray-400">/month</span>
                   </div>
                 </div>
                 
-                <div className="flex-1 space-y-4 mb-6 text-sm">
-                  <div>
-                    <strong style={{ color: 'var(--text-primary)' }}>Limits:</strong>
-                    <ul className="mt-2 space-y-2" style={{ color: 'var(--text-secondary)' }}>
-                      <li className="flex items-center gap-2"><FiCheck className="text-[var(--brand-accent)]"/> {plan.maxAgents} Agents max</li>
-                      <li className="flex items-center gap-2"><FiCheck className="text-[var(--brand-accent)]"/> {plan.maxCalls.toLocaleString()} Calls/mo</li>
-                      <li className="flex items-center gap-2"><FiCheck className="text-[var(--brand-accent)]"/> {plan.maxNumbers} Phone Numbers</li>
+                <div className="flex-1 space-y-4 mb-6 text-xs">
+                  <div className="pt-3 border-t border-default">
+                    <span className="font-semibold text-gray-300 block mb-2">Usage Limits</span>
+                    <ul className="space-y-2 text-gray-400">
+                      <li className="flex items-center gap-2">
+                        <FiCheck className="text-accent shrink-0" size={14} /> 
+                        <span>{plan.maxAgents === 999999 ? 'Unlimited' : plan.maxAgents} AI Agent{plan.maxAgents === 1 ? '' : 's'}</span>
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <FiCheck className="text-accent shrink-0" size={14} /> 
+                        <span>{plan.maxCalls === 999999 ? 'Unlimited' : plan.maxCalls.toLocaleString()} Calls/mo</span>
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <FiCheck className="text-accent shrink-0" size={14} /> 
+                        <span>{plan.maxNumbers === 999999 ? 'Unlimited' : plan.maxNumbers} Phone Number{plan.maxNumbers === 1 ? '' : 's'}</span>
+                      </li>
                     </ul>
                   </div>
-                  <div>
-                    <strong style={{ color: 'var(--text-primary)' }}>Features:</strong>
-                    <ul className="mt-2 space-y-2" style={{ color: 'var(--text-secondary)' }}>
-                      {plan.features.map((f, i) => (
-                        <li key={i} className="flex items-center gap-2">
-                          <FiCheck className="text-[var(--brand-accent)]"/> {f}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
+
+                  {plan.features.length > 0 && (
+                    <div className="pt-3 border-t border-default">
+                      <span className="font-semibold text-gray-300 block mb-2">Key Features</span>
+                      <ul className="space-y-2 text-gray-400">
+                        {plan.features.map((f, i) => (
+                          <li key={i} className="flex items-center gap-2">
+                            <FiCheck className="text-accent shrink-0" size={14} /> 
+                            <span>{f}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                 </div>
                 
                 <button
                   disabled={isCurrent || actionLoading !== null}
                   onClick={() => handleUpgrade(plan.id)}
-                  className="w-full py-2.5 rounded-lg font-medium transition-colors border"
-                  style={{ 
-                    backgroundColor: isCurrent ? 'var(--bg-hover)' : 'var(--brand-accent)', 
-                    borderColor: isCurrent ? 'var(--border-subtle)' : 'var(--brand-accent)',
-                    color: isCurrent ? 'var(--text-secondary)' : '#fff',
-                    opacity: actionLoading === plan.id ? 0.7 : 1
-                  }}
+                  className={`w-full py-2 px-3 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-2 ${
+                    isCurrent 
+                      ? 'bg-white/[0.04] text-gray-400 border border-default cursor-default' 
+                      : 'btn-primary'
+                  }`}
                 >
-                  {actionLoading === plan.id ? 'Processing...' : isCurrent ? 'Current Plan' : 'Upgrade'}
+                  {actionLoading === plan.id ? (
+                    <>
+                      <Loader2 size={14} className="animate-spin" />
+                      <span>Redirecting...</span>
+                    </>
+                  ) : isCurrent ? (
+                    'Current Plan'
+                  ) : (
+                    'Select Plan'
+                  )}
                 </button>
               </div>
             );
@@ -274,35 +322,46 @@ export default function BillingPage() {
       </div>
 
       {/* Payment History */}
-      <div>
-        <h2 className="text-xl font-bold mb-4">Payment History</h2>
+      <div className="mb-6">
+        <h2 className="text-base font-semibold text-white mb-4">Payment History</h2>
         {paymentHistory.length === 0 ? (
-          <div className="p-8 text-center rounded-xl border" style={{ backgroundColor: 'var(--bg-raised)', borderColor: 'var(--border-default)' }}>
-            <FiCreditCard className="mx-auto h-12 w-12 mb-4 opacity-30 text-[var(--text-tertiary)]" />
-            <p className="text-lg" style={{ color: 'var(--text-secondary)' }}>You're on the free plan.</p>
-            <p className="text-sm mt-1" style={{ color: 'var(--text-tertiary)' }}>Upgrade to unlock more features.</p>
+          <div className="p-8 rounded-xl border border-default bg-raised">
+            <EmptyState
+              icon="credit-card"
+              title="No billing transactions"
+              description="You do not have any invoices or past payments on record yet."
+            />
           </div>
         ) : (
-          <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: 'var(--bg-raised)', borderColor: 'var(--border-default)' }}>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr style={{ backgroundColor: 'var(--bg-hover)', color: 'var(--text-secondary)' }} className="border-b border-[var(--border-subtle)]">
-                    <th className="p-4 font-medium text-sm">Date</th>
-                    <th className="p-4 font-medium text-sm">Amount</th>
-                    <th className="p-4 font-medium text-sm">Status</th>
-                    <th className="p-4 font-medium text-sm">Payment ID</th>
+          <div className="rounded-xl border border-default bg-raised overflow-hidden">
+            <div className="table-responsive">
+              <table className="w-full text-left">
+                <thead className="bg-base border-b border-default text-gray-400 text-xs font-medium">
+                  <tr>
+                    <th className="p-4">Date</th>
+                    <th className="p-4">Amount</th>
+                    <th className="p-4">Status</th>
+                    <th className="p-4 font-mono">Reference ID</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
+                <tbody className="divide-y divide-default">
                   {paymentHistory.map((hist) => (
-                    <tr key={hist.id} className="hover:bg-[var(--bg-hover)] transition-colors">
-                      <td className="p-4 text-sm" style={{ color: 'var(--text-secondary)' }}>{new Date(hist.date).toLocaleDateString()}</td>
-                      <td className="p-4 text-sm font-medium" style={{ color: 'var(--text-primary)' }}>${hist.amount.toFixed(2)}</td>
-                      <td className="p-4 text-sm">
-                        <span style={{ color: getStatusColor(hist.status) }}>{hist.status}</span>
+                    <tr key={hist.id} className="hover:bg-white/[0.02] transition-colors">
+                      <td className="p-4 text-xs text-gray-300">{hist.date ? new Date(hist.date).toLocaleDateString() : '—'}</td>
+                      <td className="p-4 text-xs font-medium text-white">${Number(hist.amount || 0).toFixed(2)}</td>
+                      <td className="p-4 text-xs">
+                        <span 
+                          className="px-2 py-0.5 rounded text-[11px] font-medium border"
+                          style={{ 
+                            color: getStatusColor(hist.status),
+                            borderColor: getStatusColor(hist.status),
+                            backgroundColor: 'rgba(255,255,255,0.02)'
+                          }}
+                        >
+                          {hist.status}
+                        </span>
                       </td>
-                      <td className="p-4 text-sm font-mono" style={{ color: 'var(--text-tertiary)' }}>{hist.paymentId}</td>
+                      <td className="p-4 text-xs font-mono text-gray-400">{hist.paymentId || hist.id}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -314,31 +373,14 @@ export default function BillingPage() {
 
       {/* Cancel Modal */}
       {showCancelModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="p-6 rounded-xl border max-w-md w-full shadow-xl" style={{ backgroundColor: 'var(--bg-raised)', borderColor: 'var(--border-default)' }}>
-            <h3 className="text-xl font-bold mb-2">Cancel Subscription?</h3>
-            <p className="mb-6" style={{ color: 'var(--text-secondary)' }}>
-              Are you sure you want to cancel? You will lose access to premium features at the end of your current billing cycle.
-            </p>
-            <div className="flex gap-4 justify-end">
-              <button 
-                onClick={() => setShowCancelModal(false)}
-                className="px-4 py-2 rounded-lg border"
-                style={{ backgroundColor: 'var(--bg-hover)', borderColor: 'var(--border-subtle)', color: 'var(--text-primary)' }}
-              >
-                Keep Plan
-              </button>
-              <button 
-                onClick={handleCancelSubscription}
-                disabled={actionLoading === 'cancel'}
-                className="px-4 py-2 rounded-lg font-medium"
-                style={{ backgroundColor: 'var(--red)', color: '#fff' }}
-              >
-                {actionLoading === 'cancel' ? 'Cancelling...' : 'Yes, Cancel'}
-              </button>
-            </div>
-          </div>
-        </div>
+        <ConfirmModal
+          title="Cancel Subscription"
+          message="Are you sure you want to cancel your current subscription? You will retain access to your plan features until the end of your current billing period."
+          confirmLabel="Cancel Subscription"
+          onConfirm={handleCancelSubscription}
+          onCancel={() => setShowCancelModal(false)}
+          danger={true}
+        />
       )}
     </div>
   );

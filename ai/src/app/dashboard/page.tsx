@@ -57,6 +57,8 @@ interface AnalyticsData {
     quality_score?: number;
     created_at: string;
     error_message?: string;
+    agent_name?: string;
+    agent_id?: string;
   }>;
 }
 
@@ -91,18 +93,26 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!token) return;
 
-    // Load dashboard data
-    Promise.all([
+    // Load dashboard data with resilience against partial endpoint failures
+    Promise.allSettled([
       api<Stats>('/stats', { token }),
       api<AnalyticsData>('/calls/analytics', { token }),
       api<{ subscriptions: WebhookSubscription[] }>('/webhooks', { token }),
       api<{ activeCalls: ActiveCall[] }>('/calls/active', { token })
     ])
-      .then(([statsData, analyticsData, webhooksData, activeCallsData]) => {
-        setStats(statsData);
-        setAnalytics(analyticsData);
-        setWebhooks(webhooksData.subscriptions || []);
-        setActiveCalls(activeCallsData.activeCalls || []);
+      .then(([statsRes, analyticsRes, webhooksRes, activeCallsRes]) => {
+        if (statsRes.status === 'fulfilled' && statsRes.value) {
+          setStats(statsRes.value);
+        }
+        if (analyticsRes.status === 'fulfilled' && analyticsRes.value) {
+          setAnalytics(analyticsRes.value);
+        }
+        if (webhooksRes.status === 'fulfilled' && webhooksRes.value?.subscriptions) {
+          setWebhooks(webhooksRes.value.subscriptions);
+        }
+        if (activeCallsRes.status === 'fulfilled' && activeCallsRes.value?.activeCalls) {
+          setActiveCalls(activeCallsRes.value.activeCalls);
+        }
         setLoading(false);
       })
       .catch(() => {
@@ -153,7 +163,7 @@ export default function DashboardPage() {
       document.body.removeChild(a);
 
       addToast(`${format.toUpperCase()} export completed`, 'success');
-    } catch (err) {
+    } catch {
       addToast(`Failed to export ${format.toUpperCase()}`, 'error');
     }
     setExportLoading(null);
@@ -164,25 +174,19 @@ export default function DashboardPage() {
 
     setWebhookLoading(true);
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || ''}/api/webhooks`, {
+      const newWebhook = await api<{ subscription: WebhookSubscription }>('/webhooks', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({ event, url, secret: secret || undefined }),
+        token,
+        body: { event, url, secret: secret || undefined },
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to create webhook');
+      if (newWebhook?.subscription) {
+        setWebhooks(prev => [...prev, newWebhook.subscription]);
       }
-
-      const newWebhook = await response.json();
-      setWebhooks(prev => [...prev, newWebhook.subscription]);
       setShowWebhookForm(false);
       addToast('Webhook created successfully', 'success');
     } catch (err) {
-      addToast('Failed to create webhook', 'error');
+      addToast(err instanceof Error ? err.message : 'Failed to create webhook', 'error');
     } finally {
       setWebhookLoading(false);
     }
@@ -192,21 +196,15 @@ export default function DashboardPage() {
     if (!token) return;
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || ''}/api/webhooks/${id}`, {
+      await api(`/webhooks/${id}`, {
         method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
+        token,
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to delete webhook');
-      }
 
       setWebhooks(prev => prev.filter(w => w.id !== id));
       addToast('Webhook deleted successfully', 'success');
     } catch (err) {
-      addToast('Failed to delete webhook', 'error');
+      addToast(err instanceof Error ? err.message : 'Failed to delete webhook', 'error');
     }
   };
 
@@ -334,6 +332,7 @@ export default function DashboardPage() {
           <div className="dashboard-panel-body">
             {(() => {
               const filteredCalls = analytics?.recentCalls?.filter(call => {
+                if (filterAgent && call.agent_name !== filterAgent && call.agent_id !== filterAgent) return false;
                 if (filterStatus && call.status !== filterStatus) return false;
                 if (filterDateFrom && new Date(call.created_at) < new Date(filterDateFrom)) return false;
                 if (filterDateTo && new Date(call.created_at) > new Date(filterDateTo + 'T23:59:59Z')) return false;
@@ -558,7 +557,7 @@ export default function DashboardPage() {
                   onChange={(e) => setFilterAgent(e.target.value)}
                   options={[
                     { value: '', label: 'All Agents' },
-                    ...(stats?.callsByAgent.map(agent => ({ value: agent.name, label: agent.name })) || [])
+                    ...(stats?.callsByAgent?.map(agent => ({ value: agent.name, label: agent.name })) || [])
                   ]}
                 />
               </div>

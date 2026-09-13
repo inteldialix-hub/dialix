@@ -191,7 +191,7 @@ export default function AdminPage() {
                 </div>
               )}
 
-              <div style={{ borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border-default)' }}>
+              <div className="table-responsive" style={{ borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border-default)' }}>
                 <table className="data-table" style={{ margin: 0 }}>
                   <thead style={{ background: 'var(--bg-overlay)' }}>
                     <tr>

@@ -1258,7 +1258,32 @@ router.get('/:agent_id', authenticate, async (req, res) => {
 
     res.json({ config, can_edit: clientCanEdit, allowed_features: allowedFeatures });
   } catch (err) {
-    console.error('GET /api/agents/:id error:', err);
+    console.error('GET /api/agents/:id error:', err.message || err);
+    try {
+      const fallback = await get("SELECT agent_name, COALESCE(provider, 'elevenlabs') as provider FROM client_agents WHERE agent_id = ? LIMIT 1", [req.params.agent_id]);
+      if (fallback) {
+        return res.json({
+          config: {
+            agent_id: req.params.agent_id,
+            name: fallback.agent_name || 'AI Voice Agent',
+            provider: fallback.provider || 'elevenlabs',
+            first_message: 'Hello! How can I assist you today?',
+            language: 'en',
+            prompt: 'You are a professional voice assistant.',
+            llm: 'gpt-4o-mini',
+            temperature: 0.7,
+            voice_id: '',
+            dynamic_variables: {},
+            tags: [],
+          },
+          can_edit: 1,
+          allowed_features: null,
+          fallback: true,
+        });
+      }
+    } catch (fallbackErr) {
+      console.error('Fallback agent lookup failed:', fallbackErr);
+    }
     res.status(500).json({ error: 'Failed to fetch agent details' });
   }
 });

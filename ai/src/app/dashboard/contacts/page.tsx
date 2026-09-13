@@ -4,7 +4,11 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/auth-context';
 import { api } from '@/lib/api';
-import { Search, Plus, Upload, Download, Trash2, Edit2, MoreVertical, X, PhoneOff, Phone } from 'lucide-react';
+import { useToast } from '@/components/dashboard/shared/ToastProvider';
+import { ConfirmModal } from '@/components/dashboard/shared/ConfirmModal';
+import { CustomSelect } from '@/components/dashboard/shared/CustomSelect';
+import { EmptyState } from '@/components/dashboard/shared/EmptyState';
+import { Search, Plus, Upload, Download, Trash2, Edit2, MoreVertical, X, PhoneOff, Phone, Loader2 } from 'lucide-react';
 import '@/styles/dashboard.css';
 
 interface Contact {
@@ -23,6 +27,7 @@ interface Contact {
 
 export default function ContactsPage() {
   const { token } = useAuth();
+  const { addToast } = useToast();
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [loading, setLoading] = useState(true);
   const [total, setTotal] = useState(0);
@@ -34,6 +39,11 @@ export default function ContactsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingContact, setEditingContact] = useState<Contact | null>(null);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<Contact | null>(null);
+  const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [exporting, setExporting] = useState(false);
   
   // Form states
   const [formData, setFormData] = useState({
@@ -51,8 +61,10 @@ export default function ContactsPage() {
   const limit = 10;
 
   useEffect(() => {
-    fetchContacts();
-  }, [page, search, statusFilter]);
+    if (token) {
+      fetchContacts();
+    }
+  }, [token, page, search, statusFilter]);
 
   const fetchContacts = async () => {
     try {
@@ -66,11 +78,21 @@ export default function ContactsPage() {
       
       const res = await api(`/contacts?${query.toString()}`, { token: token || undefined });
       if (res) {
-        setContacts(res.contacts || []);
-        setTotal(res.total || 0);
+        const contactList = Array.isArray(res?.data?.contacts)
+          ? res.data.contacts
+          : (Array.isArray(res?.contacts)
+            ? res.contacts
+            : (Array.isArray(res?.data)
+              ? res.data
+              : (Array.isArray(res) ? res : [])));
+        const totalCount = res?.data?.total ?? res?.total ?? contactList.length;
+        setContacts(Array.isArray(contactList) ? contactList : []);
+        setTotal(Number(totalCount) || 0);
       }
     } catch (err) {
       console.error('Failed to load contacts', err);
+      setContacts([]);
+      setTotal(0);
     } finally {
       setLoading(false);
     }
@@ -78,41 +100,54 @@ export default function ContactsPage() {
 
   const handleSaveContact = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!formData.first_name.trim() || !formData.phone.trim()) {
+      addToast('First name and phone number are required', 'error');
+      return;
+    }
+    setSaving(true);
     try {
       if (editingContact) {
         await api(`/contacts/${editingContact.id}`, { method: 'PUT', body: formData, token });
+        addToast('Contact updated successfully', 'success');
       } else {
         await api('/contacts', { method: 'POST', body: formData, token });
+        addToast('Contact created successfully', 'success');
       }
       setIsModalOpen(false);
       fetchContacts();
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to save contact', err);
-      alert('Failed to save contact. Check phone format.');
+      addToast(err?.message || 'Failed to save contact. Check phone format.', 'error');
+    } finally {
+      setSaving(false);
     }
   };
 
-  const handleDelete = async (id: number) => {
-    if (confirm('Are you sure you want to delete this contact?')) {
-      try {
-        await api(`/contacts/${id}`, { method: 'DELETE', token });
-        fetchContacts();
-      } catch (err) {
-        console.error('Delete failed', err);
-      }
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    try {
+      await api(`/contacts/${deleteTarget.id}`, { method: 'DELETE', token });
+      addToast(`Contact "${deleteTarget.first_name}" deleted`, 'success');
+      setDeleteTarget(null);
+      fetchContacts();
+    } catch (err) {
+      console.error('Delete failed', err);
+      addToast('Failed to delete contact', 'error');
     }
   };
 
-  const handleBulkDelete = async () => {
+  const confirmBulkDelete = async () => {
     if (selectedIds.size === 0) return;
-    if (confirm(`Delete ${selectedIds.size} contacts?`)) {
-      try {
-        await api('/contacts/bulk-delete', { method: 'POST', body: { ids: Array.from(selectedIds) }, token });
-        setSelectedIds(new Set());
-        fetchContacts();
-      } catch (err) {
-        console.error('Bulk delete failed', err);
-      }
+    const count = selectedIds.size;
+    try {
+      await api('/contacts/bulk-delete', { method: 'POST', body: { ids: Array.from(selectedIds) }, token });
+      addToast(`${count} contacts deleted`, 'success');
+      setSelectedIds(new Set());
+      setShowBulkDeleteModal(false);
+      fetchContacts();
+    } catch (err) {
+      console.error('Bulk delete failed', err);
+      addToast('Failed to delete selected contacts', 'error');
     }
   };
 
@@ -120,12 +155,15 @@ export default function ContactsPage() {
     try {
       if (contact.do_not_call) {
         await api(`/contacts/${contact.id}/dnc`, { method: 'DELETE', token });
+        addToast(`Removed ${contact.first_name} from Do Not Call list`, 'info');
       } else {
         await api(`/contacts/${contact.id}/dnc`, { method: 'POST', body: { reason: 'Manual toggle' }, token });
+        addToast(`Added ${contact.first_name} to Do Not Call list`, 'info');
       }
       fetchContacts();
     } catch (err) {
       console.error('Failed to toggle DNC', err);
+      addToast('Failed to toggle DNC status', 'error');
     }
   };
 
@@ -156,71 +194,138 @@ export default function ContactsPage() {
   };
 
   const handleExport = async () => {
+    setExporting(true);
     try {
+      const authToken = token || (typeof window !== 'undefined' ? (localStorage.getItem('dialix_token') || localStorage.getItem('token')) : '');
       const query = new URLSearchParams({
         ...(search && { search }),
         ...(statusFilter && { status: statusFilter }),
       });
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/contacts/export?${query.toString()}`, {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {})
         }
       });
+      if (!response.ok) {
+        throw new Error(`Export failed (${response.status})`);
+      }
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = 'contacts.csv';
+      a.download = `contacts_${new Date().toISOString().slice(0, 10)}.csv`;
       document.body.appendChild(a);
       a.click();
       a.remove();
+      window.URL.revokeObjectURL(url);
+      addToast('Contacts exported to CSV', 'success');
     } catch (err) {
       console.error('Export failed', err);
+      addToast('Failed to export contacts', 'error');
+    } finally {
+      setExporting(false);
     }
+  };
+
+  const parseCsvLine = (line: string): string[] => {
+    const values: string[] = [];
+    let current = '';
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i];
+      if (char === '"') {
+        if (inQuotes && line[i + 1] === '"') {
+          current += '"';
+          i++;
+        } else {
+          inQuotes = !inQuotes;
+        }
+      } else if (char === ',' && !inQuotes) {
+        values.push(current.trim());
+        current = '';
+      } else {
+        current += char;
+      }
+    }
+    values.push(current.trim());
+    return values;
+  };
+
+  const normalizeHeader = (header: string): string => {
+    const h = header.toLowerCase().replace(/[\s_-]+/g, '');
+    if (h === 'firstname' || h === 'first' || h === 'givenname') return 'first_name';
+    if (h === 'lastname' || h === 'last' || h === 'surname') return 'last_name';
+    if (h === 'phone' || h === 'phonenumber' || h === 'telephone' || h === 'mobile' || h === 'cell') return 'phone';
+    if (h === 'email' || h === 'emailaddress') return 'email';
+    if (h === 'company' || h === 'organization' || h === 'org' || h === 'business') return 'company';
+    if (h === 'status') return 'status';
+    return header.trim();
   };
 
   const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    setImporting(true);
     const reader = new FileReader();
     reader.onload = async (event) => {
       try {
         const text = event.target?.result as string;
-        const lines = text.split('\n');
-        if (lines.length < 2) return alert('Invalid CSV');
-        
-        const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
+        const rawLines = text.split(/\r?\n/).filter(l => l.trim().length > 0);
+        if (rawLines.length < 2) {
+          addToast('Invalid CSV format: requires header and at least one data row', 'error');
+          setImporting(false);
+          return;
+        }
+
+        const rawHeaders = parseCsvLine(rawLines[0]);
+        const headers = rawHeaders.map(h => normalizeHeader(h));
         const rows = [];
-        
-        for (let i = 1; i < lines.length; i++) {
-          if (!lines[i].trim()) continue;
-          const values = lines[i].split(',').map(v => v.trim().replace(/"/g, ''));
+
+        for (let i = 1; i < rawLines.length; i++) {
+          const values = parseCsvLine(rawLines[i]);
           const row: any = {};
           headers.forEach((h, index) => {
-            row[h] = values[index];
+            if (values[index] !== undefined) {
+              row[h] = values[index];
+            }
           });
-          rows.push(row);
+          if (row.first_name || row.phone) {
+            rows.push(row);
+          }
+        }
+
+        if (rows.length === 0) {
+          addToast('No valid contact records found in CSV file', 'error');
+          setImporting(false);
+          return;
         }
 
         const res = await api('/contacts/import', { method: 'POST', body: { rows }, token });
-        alert(`Imported: ${res.imported}, Updated: ${res.updated}, Skipped: ${res.skipped}, Invalid: ${res.invalid}`);
+        addToast(`Imported: ${res.imported || 0}, Updated: ${res.updated || 0}, Skipped: ${res.skipped || 0}`, 'success');
         fetchContacts();
         setIsImportModalOpen(false);
-      } catch (err) {
+      } catch (err: any) {
         console.error('Import failed', err);
-        alert('Failed to import contacts');
+        addToast(err?.message || 'Failed to import contacts', 'error');
+      } finally {
+        setImporting(false);
+        e.target.value = '';
       }
     };
     reader.readAsText(file);
   };
 
+  const isAllCurrentPageSelected = contacts.length > 0 && contacts.every(c => selectedIds.has(c.id));
+
   const toggleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newSet = new Set(selectedIds);
     if (e.target.checked) {
-      setSelectedIds(new Set(contacts.map(c => c.id)));
+      contacts.forEach(c => newSet.add(c.id));
     } else {
-      setSelectedIds(new Set());
+      contacts.forEach(c => newSet.delete(c.id));
     }
+    setSelectedIds(newSet);
   };
 
   const toggleSelect = (id: number) => {
@@ -233,23 +338,42 @@ export default function ContactsPage() {
     setSelectedIds(newSet);
   };
 
-  const totalPages = Math.ceil(total / limit);
+  const statusOptions = [
+    { value: '', label: 'All Statuses' },
+    { value: 'active', label: 'Active' },
+    { value: 'lead', label: 'Lead' },
+    { value: 'customer', label: 'Customer' },
+    { value: 'inactive', label: 'Inactive' },
+  ];
+
+  const totalPages = Math.max(1, Math.ceil(total / limit));
 
   return (
     <div className="dashboard-content">
-      <div className="flex justify-between items-center mb-6">
+      <div className="page-title-section mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-white">Contacts</h1>
-          <p className="text-gray-400">Manage your leads and customers</p>
+          <h1 className="page-title">Contacts</h1>
+          <p className="page-subtitle">Manage your leads, customers, and outreach targets</p>
         </div>
-        <div className="flex gap-3">
-          <button className="btn-secondary flex items-center gap-2" onClick={handleExport}>
-            <Download size={16} /> Export
+        <div className="flex items-center gap-3 flex-wrap">
+          <button 
+            className="btn-secondary flex items-center gap-2" 
+            onClick={handleExport}
+            disabled={exporting}
+          >
+            {exporting ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
+            {exporting ? 'Exporting...' : 'Export CSV'}
           </button>
-          <button className="btn-secondary flex items-center gap-2" onClick={() => setIsImportModalOpen(true)}>
-            <Upload size={16} /> Import
+          <button 
+            className="btn-secondary flex items-center gap-2" 
+            onClick={() => setIsImportModalOpen(true)}
+          >
+            <Upload size={16} /> Import CSV
           </button>
-          <button className="btn-primary flex items-center gap-2" onClick={openNewModal}>
+          <button 
+            className="btn-primary flex items-center gap-2" 
+            onClick={openNewModal}
+          >
             <Plus size={16} /> Add Contact
           </button>
         </div>
@@ -257,122 +381,137 @@ export default function ContactsPage() {
 
       <div className="bg-raised rounded-lg border border-default p-4 mb-6">
         <div className="flex flex-col md:flex-row gap-4 justify-between items-center">
-          <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+          <div className="relative flex-1 w-full md:max-w-md">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={16} />
             <input
               type="text"
-              placeholder="Search contacts..."
-              className="form-input pl-10 w-full bg-input"
+              placeholder="Search by name, phone, or email..."
+              className="form-input w-full bg-input"
+              style={{ paddingLeft: '38px' }}
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPage(1);
+              }}
             />
           </div>
-          <div className="flex gap-3 w-full md:w-auto items-center">
+          <div className="flex gap-3 w-full md:w-auto items-center justify-between md:justify-end">
             {selectedIds.size > 0 && (
               <button 
-                className="bg-red-500/20 text-red-500 hover:bg-red-500/30 px-3 py-2 rounded text-sm flex items-center gap-2 transition-colors"
-                onClick={handleBulkDelete}
+                className="bg-red-500/20 text-red-400 hover:bg-red-500/30 px-3 py-1.5 rounded-md text-xs font-medium flex items-center gap-1.5 transition-colors border border-red-500/30"
+                onClick={() => setShowBulkDeleteModal(true)}
               >
-                <Trash2 size={16} /> Delete Selected ({selectedIds.size})
+                <Trash2 size={14} /> Delete Selected ({selectedIds.size})
               </button>
             )}
-            <select
-              className="form-input bg-input min-w-[150px]"
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-            >
-              <option value="">All Statuses</option>
-              <option value="active">Active</option>
-              <option value="lead">Lead</option>
-              <option value="customer">Customer</option>
-              <option value="inactive">Inactive</option>
-            </select>
+            <div className="w-44">
+              <CustomSelect
+                value={statusFilter}
+                onChange={(e) => {
+                  setStatusFilter(e.target.value);
+                  setPage(1);
+                }}
+                options={statusOptions}
+                small
+              />
+            </div>
           </div>
         </div>
       </div>
 
       <div className="bg-raised border border-default rounded-lg overflow-hidden">
-        <div className="overflow-x-auto">
+        <div className="table-responsive">
           <table className="w-full text-left">
-            <thead className="bg-base border-b border-default text-gray-400 text-sm">
+            <thead className="bg-base border-b border-default text-gray-400 text-xs font-medium">
               <tr>
-                <th className="p-4 w-[50px]">
+                <th className="p-4 w-[48px]">
                   <input 
                     type="checkbox" 
-                    checked={contacts.length > 0 && selectedIds.size === contacts.length}
+                    checked={isAllCurrentPageSelected}
                     onChange={toggleSelectAll}
-                    className="rounded border-gray-600 bg-transparent"
+                    className="rounded border-gray-600 bg-transparent cursor-pointer"
                   />
                 </th>
-                <th className="p-4 font-medium">Name</th>
-                <th className="p-4 font-medium">Contact</th>
-                <th className="p-4 font-medium">Company</th>
-                <th className="p-4 font-medium">Status</th>
-                <th className="p-4 font-medium">Actions</th>
+                <th className="p-4">Name</th>
+                <th className="p-4">Phone & Email</th>
+                <th className="p-4">Company</th>
+                <th className="p-4">Status</th>
+                <th className="p-4 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-default">
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="p-8 text-center text-gray-400">Loading contacts...</td>
+                  <td colSpan={6} className="p-12 text-center text-gray-400">
+                    <div className="flex items-center justify-center gap-2">
+                      <Loader2 size={18} className="animate-spin text-accent" />
+                      <span>Loading contacts...</span>
+                    </div>
+                  </td>
                 </tr>
-              ) : contacts.length === 0 ? (
+              ) : !Array.isArray(contacts) || contacts.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="p-8 text-center text-gray-400">
-                    No contacts found. Try adjusting filters or adding a new contact.
+                  <td colSpan={6} className="p-10">
+                    <EmptyState
+                      icon="users"
+                      title="No contacts found"
+                      description={search || statusFilter ? "No contacts match your current search or status filter." : "Start building your contact lists by adding contacts manually or importing a CSV file."}
+                      action="Add Contact"
+                      onAction={openNewModal}
+                    />
                   </td>
                 </tr>
               ) : (
-                contacts.map((contact) => (
-                  <tr key={contact.id} className="hover:bg-white/5 transition-colors group">
+                Array.isArray(contacts) && contacts.map((contact) => (
+                  <tr key={contact.id} className="hover:bg-white/[0.03] transition-colors group">
                     <td className="p-4">
                       <input 
                         type="checkbox" 
                         checked={selectedIds.has(contact.id)}
                         onChange={() => toggleSelect(contact.id)}
-                        className="rounded border-gray-600 bg-transparent"
+                        className="rounded border-gray-600 bg-transparent cursor-pointer"
                       />
                     </td>
                     <td className="p-4">
                       <div className="font-medium text-white flex items-center gap-2">
-                        {contact.first_name} {contact.last_name}
+                        {contact.first_name} {contact.last_name || ''}
                         {contact.do_not_call === 1 && (
-                          <span className="bg-red-500/20 text-red-500 text-xs px-2 py-0.5 rounded-full" title="Do Not Call">DNC</span>
+                          <span className="bg-red-500/15 text-red-400 border border-red-500/20 text-[10px] px-2 py-0.5 rounded-full font-medium" title="Do Not Call">DNC</span>
                         )}
                       </div>
                     </td>
                     <td className="p-4 text-sm text-gray-300">
-                      <div>{contact.phone}</div>
-                      {contact.email && <div className="text-gray-500">{contact.email}</div>}
+                      <div className="font-mono text-xs text-gray-200">{contact.phone}</div>
+                      {contact.email && <div className="text-xs text-gray-500 mt-0.5">{contact.email}</div>}
                     </td>
-                    <td className="p-4 text-sm text-gray-300">{contact.company || '-'}</td>
+                    <td className="p-4 text-sm text-gray-400">{contact.company || '—'}</td>
                     <td className="p-4">
-                      <span className="px-2 py-1 bg-white/10 text-gray-300 rounded text-xs capitalize">
+                      <span className="px-2.5 py-1 bg-white/[0.06] text-gray-300 border border-white/10 rounded-full text-xs capitalize font-medium">
                         {contact.status}
                       </span>
                     </td>
-                    <td className="p-4">
-                      <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <td className="p-4 text-right">
+                      <div className="flex items-center justify-end gap-1 opacity-90 sm:opacity-0 group-hover:opacity-100 transition-opacity">
                         <button 
                           onClick={() => toggleDnc(contact)}
-                          className={`p-1.5 rounded hover:bg-white/10 ${contact.do_not_call ? 'text-red-400' : 'text-gray-400'}`}
-                          title={contact.do_not_call ? "Remove from DNC" : "Mark as DNC"}
+                          className={`p-1.5 rounded-md hover:bg-white/10 transition-colors ${contact.do_not_call ? 'text-red-400' : 'text-gray-400 hover:text-gray-200'}`}
+                          title={contact.do_not_call ? "Remove from Do Not Call" : "Mark as Do Not Call"}
                         >
-                          {contact.do_not_call ? <PhoneOff size={16} /> : <Phone size={16} />}
+                          {contact.do_not_call ? <PhoneOff size={15} /> : <Phone size={15} />}
                         </button>
                         <button 
                           onClick={() => openEditModal(contact)}
-                          className="p-1.5 rounded hover:bg-white/10 text-gray-400 hover:text-white"
-                          title="Edit"
+                          className="p-1.5 rounded-md hover:bg-white/10 text-gray-400 hover:text-white transition-colors"
+                          title="Edit Contact"
                         >
-                          <Edit2 size={16} />
+                          <Edit2 size={15} />
                         </button>
                         <button 
-                          onClick={() => handleDelete(contact.id)}
-                          className="p-1.5 rounded hover:bg-white/10 text-gray-400 hover:text-red-400"
-                          title="Delete"
+                          onClick={() => setDeleteTarget(contact)}
+                          className="p-1.5 rounded-md hover:bg-white/10 text-gray-400 hover:text-red-400 transition-colors"
+                          title="Delete Contact"
                         >
-                          <Trash2 size={16} />
+                          <Trash2 size={15} />
                         </button>
                       </div>
                     </td>
@@ -385,20 +524,21 @@ export default function ContactsPage() {
         
         {/* Pagination */}
         {totalPages > 1 && (
-          <div className="p-4 border-t border-default flex justify-between items-center bg-base text-sm">
-            <div className="text-gray-400">
-              Showing {(page - 1) * limit + 1} to {Math.min(page * limit, total)} of {total}
+          <div className="p-4 border-t border-default flex justify-between items-center bg-base text-xs text-gray-400">
+            <div>
+              Showing <span className="text-white font-medium">{(page - 1) * limit + 1}</span> to <span className="text-white font-medium">{Math.min(page * limit, total)}</span> of <span className="text-white font-medium">{total}</span> contacts
             </div>
-            <div className="flex gap-2">
+            <div className="flex items-center gap-2">
               <button 
-                className="btn-secondary py-1 px-3"
+                className="btn-secondary py-1 px-3 text-xs"
                 disabled={page === 1}
                 onClick={() => setPage(p => Math.max(1, p - 1))}
               >
                 Previous
               </button>
+              <span className="px-2 text-gray-500">Page {page} of {totalPages}</span>
               <button 
-                className="btn-secondary py-1 px-3"
+                className="btn-secondary py-1 px-3 text-xs"
                 disabled={page >= totalPages}
                 onClick={() => setPage(p => Math.min(totalPages, p + 1))}
               >
@@ -411,133 +551,187 @@ export default function ContactsPage() {
 
       {/* Add/Edit Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-raised border border-default rounded-xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
-            <div className="p-4 border-b border-default flex justify-between items-center shrink-0">
-              <h2 className="text-xl font-bold text-white">{editingContact ? 'Edit Contact' : 'Add New Contact'}</h2>
-              <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-white">
-                <X size={20} />
+        <div className="modal-overlay" onClick={() => setIsModalOpen(false)}>
+          <div className="modal-container" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '520px' }}>
+            <div className="modal-header flex justify-between items-center">
+              <h2 className="text-base font-semibold text-white">{editingContact ? 'Edit Contact' : 'Add New Contact'}</h2>
+              <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-white transition-colors">
+                <X size={18} />
               </button>
             </div>
             
-            <div className="p-4 overflow-y-auto flex-1">
-              <form id="contact-form" onSubmit={handleSaveContact} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
+            <form id="contact-form" onSubmit={handleSaveContact}>
+              <div className="modal-body space-y-4">
+                <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="form-label text-sm text-gray-400 mb-1 block">First Name *</label>
+                    <label className="form-label text-xs text-gray-400 mb-1 block">First Name *</label>
                     <input 
                       type="text" 
                       required
                       className="form-input w-full bg-input"
                       value={formData.first_name}
                       onChange={(e) => setFormData({...formData, first_name: e.target.value})}
+                      placeholder="e.g. Sarah"
                     />
                   </div>
                   <div>
-                    <label className="form-label text-sm text-gray-400 mb-1 block">Last Name</label>
+                    <label className="form-label text-xs text-gray-400 mb-1 block">Last Name</label>
                     <input 
                       type="text" 
                       className="form-input w-full bg-input"
                       value={formData.last_name}
                       onChange={(e) => setFormData({...formData, last_name: e.target.value})}
+                      placeholder="e.g. Connor"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="form-label text-sm text-gray-400 mb-1 block">Phone Number *</label>
+                  <label className="form-label text-xs text-gray-400 mb-1 block">Phone Number (E.164) *</label>
                   <input 
                     type="text" 
                     required
                     placeholder="+1234567890"
-                    className="form-input w-full bg-input"
+                    className="form-input w-full bg-input font-mono text-sm"
                     value={formData.phone}
                     onChange={(e) => setFormData({...formData, phone: e.target.value})}
                   />
-                  <p className="text-xs text-gray-500 mt-1">Include country code (e.g. +1 for US)</p>
+                  <p className="text-[11px] text-gray-500 mt-1">Include country code with plus prefix (e.g. +1 for US/Canada)</p>
                 </div>
 
                 <div>
-                  <label className="form-label text-sm text-gray-400 mb-1 block">Email</label>
+                  <label className="form-label text-xs text-gray-400 mb-1 block">Email</label>
                   <input 
                     type="email" 
                     className="form-input w-full bg-input"
                     value={formData.email}
+                    placeholder="sarah@example.com"
                     onChange={(e) => setFormData({...formData, email: e.target.value})}
                   />
                 </div>
 
                 <div>
-                  <label className="form-label text-sm text-gray-400 mb-1 block">Company</label>
+                  <label className="form-label text-xs text-gray-400 mb-1 block">Company</label>
                   <input 
                     type="text" 
                     className="form-input w-full bg-input"
                     value={formData.company}
+                    placeholder="Acme Inc."
                     onChange={(e) => setFormData({...formData, company: e.target.value})}
                   />
                 </div>
 
                 <div>
-                  <label className="form-label text-sm text-gray-400 mb-1 block">Status</label>
-                  <select 
-                    className="form-input w-full bg-input"
+                  <label className="form-label text-xs text-gray-400 mb-1 block">Status</label>
+                  <CustomSelect
                     value={formData.status}
                     onChange={(e) => setFormData({...formData, status: e.target.value})}
-                  >
-                    <option value="active">Active</option>
-                    <option value="lead">Lead</option>
-                    <option value="customer">Customer</option>
-                    <option value="inactive">Inactive</option>
-                  </select>
+                    options={[
+                      { value: 'active', label: 'Active' },
+                      { value: 'lead', label: 'Lead' },
+                      { value: 'customer', label: 'Customer' },
+                      { value: 'inactive', label: 'Inactive' },
+                    ]}
+                  />
                 </div>
-              </form>
-            </div>
-            
-            <div className="p-4 border-t border-default flex justify-end gap-3 shrink-0">
-              <button className="btn-secondary" onClick={() => setIsModalOpen(false)}>Cancel</button>
-              <button type="submit" form="contact-form" className="btn-primary">
-                {editingContact ? 'Save Changes' : 'Add Contact'}
-              </button>
-            </div>
+              </div>
+              
+              <div className="modal-footer flex justify-end gap-3 mt-4">
+                <button type="button" className="btn-ghost" onClick={() => setIsModalOpen(false)}>Cancel</button>
+                <button type="submit" className="btn-primary flex items-center gap-2" disabled={saving}>
+                  {saving && <Loader2 size={15} className="animate-spin" />}
+                  {saving ? 'Saving...' : editingContact ? 'Save Changes' : 'Add Contact'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
 
       {/* Import Modal */}
       {isImportModalOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-raised border border-default rounded-xl w-full max-w-md">
-            <div className="p-4 border-b border-default flex justify-between items-center">
-              <h2 className="text-xl font-bold text-white">Import Contacts</h2>
-              <button onClick={() => setIsImportModalOpen(false)} className="text-gray-400 hover:text-white">
-                <X size={20} />
+        <div className="modal-overlay" onClick={() => !importing && setIsImportModalOpen(false)}>
+          <div className="modal-container" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '480px' }}>
+            <div className="modal-header flex justify-between items-center">
+              <h2 className="text-base font-semibold text-white">Import Contacts from CSV</h2>
+              <button 
+                onClick={() => !importing && setIsImportModalOpen(false)} 
+                className="text-gray-400 hover:text-white transition-colors"
+                disabled={importing}
+              >
+                <X size={18} />
               </button>
             </div>
             
-            <div className="p-6">
-              <div className="border-2 border-dashed border-gray-600 rounded-lg p-8 text-center bg-base hover:bg-white/5 transition-colors relative">
+            <div className="modal-body p-6">
+              <div className="border border-dashed border-white/20 rounded-xl p-8 text-center bg-base/50 hover:bg-white/[0.02] transition-colors relative cursor-pointer">
                 <input 
                   type="file" 
                   accept=".csv"
+                  disabled={importing}
                   onChange={handleImport}
                   className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                 />
-                <Upload className="mx-auto mb-3 text-gray-400" size={32} />
-                <p className="text-white font-medium mb-1">Click or drag CSV to upload</p>
-                <p className="text-sm text-gray-500">Requires first_name and phone columns</p>
+                {importing ? (
+                  <div className="flex flex-col items-center">
+                    <Loader2 className="mx-auto mb-3 text-accent animate-spin" size={32} />
+                    <p className="text-white font-medium text-sm">Processing and uploading contacts...</p>
+                  </div>
+                ) : (
+                  <>
+                    <Upload className="mx-auto mb-3 text-gray-400" size={30} />
+                    <p className="text-white font-medium text-sm mb-1">Click to browse or drop CSV file here</p>
+                    <p className="text-xs text-gray-500">Requires header with first_name and phone</p>
+                  </>
+                )}
               </div>
               
-              <div className="mt-6 text-sm text-gray-400">
-                <p className="font-medium text-gray-300 mb-2">Example CSV format:</p>
-                <div className="bg-base p-3 rounded font-mono text-xs">
-                  first_name,last_name,phone,email<br/>
-                  John,Doe,+1234567890,john@example.com<br/>
-                  Jane,Smith,+0987654321,jane@example.com
+              <div className="mt-5 text-xs text-gray-400">
+                <p className="font-medium text-gray-300 mb-2">Supported CSV columns:</p>
+                <div className="bg-base p-3 rounded-lg border border-default font-mono text-[11px] text-gray-400 leading-relaxed">
+                  first_name,last_name,phone,email,company<br/>
+                  Sarah,Connor,+14155552671,sarah@example.com,Cyberdyne<br/>
+                  John,Doe,+12125550199,john@example.com,Acme
                 </div>
               </div>
             </div>
+
+            <div className="modal-footer flex justify-end">
+              <button 
+                type="button" 
+                className="btn-ghost" 
+                onClick={() => setIsImportModalOpen(false)}
+                disabled={importing}
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
+      )}
+
+      {/* Delete Single Contact Confirm */}
+      {deleteTarget && (
+        <ConfirmModal
+          title="Delete Contact"
+          message={`Are you sure you want to delete "${deleteTarget.first_name}${deleteTarget.last_name ? ' ' + deleteTarget.last_name : ''}" (${deleteTarget.phone})? This action cannot be undone.`}
+          confirmLabel="Delete Contact"
+          onConfirm={confirmDelete}
+          onCancel={() => setDeleteTarget(null)}
+          danger={true}
+        />
+      )}
+
+      {/* Bulk Delete Confirm */}
+      {showBulkDeleteModal && (
+        <ConfirmModal
+          title="Delete Selected Contacts"
+          message={`Are you sure you want to permanently delete ${selectedIds.size} selected contact${selectedIds.size === 1 ? '' : 's'}?`}
+          confirmLabel={`Delete (${selectedIds.size})`}
+          onConfirm={confirmBulkDelete}
+          onCancel={() => setShowBulkDeleteModal(false)}
+          danger={true}
+        />
       )}
     </div>
   );

@@ -7,6 +7,7 @@ import { useToast } from '@/components/dashboard/shared/ToastProvider';
 import { Icon } from '@/components/dashboard/shared/Icon';
 import { CustomSelect, type SelectOption } from '@/components/dashboard/shared/CustomSelect';
 import { SkeletonRows } from '@/components/dashboard/shared/SkeletonRows';
+import { ConfirmModal } from '@/components/dashboard/shared/ConfirmModal';
 import { api } from '@/lib/api';
 import { FALLBACK_LLM_OPTIONS, FALLBACK_TTS_MODEL_OPTIONS, FALLBACK_LANGUAGE_OPTIONS, VAPI_MODEL_PROVIDERS, VAPI_LLM_OPTIONS, VAPI_VOICE_PROVIDERS, VAPI_TRANSCRIBER_PROVIDERS, VAPI_FIRST_MESSAGE_MODES, VAPI_BACKGROUND_SOUNDS, VAPI_TRANSCRIBER_MODELS, VAPI_VOICEMAIL_DETECTION, VAPI_VOICE_MODELS, VAPI_VOICE_SPEED_PROVIDERS, GEMINI_VOICES, GEMINI_MODELS, GEMINI_THINKING_LEVELS, GEMINI_MEDIA_RESOLUTIONS } from '@/lib/constants';
 import TestCallView from '@/components/dashboard/TestCallView';
@@ -46,7 +47,6 @@ export default function AgentDetailPage() {
   const [liveLLMs, setLiveLLMs] = useState<SelectOption[]>(FALLBACK_LLM_OPTIONS);
   const [liveTTSModels, setLiveTTSModels] = useState<SelectOption[]>(FALLBACK_TTS_MODEL_OPTIONS);
   const [liveLanguages, setLiveLanguages] = useState<SelectOption[]>(FALLBACK_LANGUAGE_OPTIONS);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [rawTTSData, setRawTTSData] = useState<Record<string, unknown>[]>([]);
 
   // Quick Call state
@@ -64,6 +64,13 @@ export default function AgentDetailPage() {
   const [showTestCall, setShowTestCall] = useState(false);
   const [showLeadNamePrompt, setShowLeadNamePrompt] = useState(false);
   const [testLeadName, setTestLeadName] = useState('');
+  const [confirmAction, setConfirmAction] = useState<{
+    title: string;
+    message: string;
+    confirmLabel: string;
+    onConfirm: () => void;
+    danger?: boolean;
+  } | null>(null);
 
   // ── All editable fields ──
   const [name, setName] = useState('');
@@ -404,18 +411,26 @@ export default function AgentDetailPage() {
     }
   };
 
-  const handleDeleteKnowledgeDoc = async (id: number) => {
-    if (!confirm('Remove this document from knowledge base?')) return;
-    try {
-      await api(`/agents/${agentId}/knowledge/${id}`, {
-        method: 'DELETE',
-        token: token!,
-      });
-      addToast('Document removed', 'success');
-      loadKnowledgeDocs();
-    } catch (err) {
-      addToast(err instanceof Error ? err.message : 'Failed to remove document', 'error');
-    }
+  const handleDeleteKnowledgeDoc = (id: number) => {
+    setConfirmAction({
+      title: 'Remove Knowledge Document',
+      message: 'Are you sure you want to remove this document from the agent knowledge base?',
+      confirmLabel: 'Remove Document',
+      danger: true,
+      onConfirm: async () => {
+        setConfirmAction(null);
+        try {
+          await api(`/agents/${agentId}/knowledge/${id}`, {
+            method: 'DELETE',
+            token: token!,
+          });
+          addToast('Document removed', 'success');
+          loadKnowledgeDocs();
+        } catch (err) {
+          addToast(err instanceof Error ? err.message : 'Failed to remove document', 'error');
+        }
+      }
+    });
   };
 
   // ── Tools & Actions Handlers ──
@@ -477,18 +492,26 @@ export default function AgentDetailPage() {
     }
   };
 
-  const handleDeleteTool = async (id: number) => {
-    if (!confirm('Remove this tool from agent?')) return;
-    try {
-      await api(`/agents/${agentId}/tools/${id}`, {
-        method: 'DELETE',
-        token: token!,
-      });
-      addToast('Tool removed', 'success');
-      loadToolsList();
-    } catch (err) {
-      addToast(err instanceof Error ? err.message : 'Failed to remove tool', 'error');
-    }
+  const handleDeleteTool = (id: number) => {
+    setConfirmAction({
+      title: 'Remove Tool from Agent',
+      message: 'Are you sure you want to remove this tool from the agent configuration?',
+      confirmLabel: 'Remove Tool',
+      danger: true,
+      onConfirm: async () => {
+        setConfirmAction(null);
+        try {
+          await api(`/agents/${agentId}/tools/${id}`, {
+            method: 'DELETE',
+            token: token!,
+          });
+          addToast('Tool removed', 'success');
+          loadToolsList();
+        } catch (err) {
+          addToast(err instanceof Error ? err.message : 'Failed to remove tool', 'error');
+        }
+      }
+    });
   };
 
   const handleToggleTool = async (id: number) => {
@@ -535,7 +558,6 @@ export default function AgentDetailPage() {
 
   const loadExtras = useCallback(async () => {
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const [v, p, m] = await Promise.allSettled([
         api<{ voices: Voice[] }>('/agents/voices', { token: token! }),
         api<{ phoneNumbers: PhoneNumber[] }>('/phone-numbers', { token: token! }),
@@ -864,6 +886,8 @@ export default function AgentDetailPage() {
             color: 'var(--text-secondary)',
             cursor: syncing ? 'not-allowed' : 'pointer',
             marginRight: 8,
+            whiteSpace: 'nowrap',
+            flexShrink: 0,
           }}
           onClick={handleSyncWithProvider}
           disabled={syncing}
@@ -885,28 +909,32 @@ export default function AgentDetailPage() {
       )}
 
       {/* Quick Call bar */}
-      {isFeatureVisible('call') && <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 32px', borderBottom: '1px solid var(--border-default)', background: 'var(--bg-secondary)' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1 }}>
-          <span style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-quaternary)' }}>Lead Name</span>
-          <input className="form-input" value={leadName} onChange={e => setLeadName(e.target.value)} placeholder="e.g. John" style={{ padding: '6px 10px', fontSize: 13 }} />
+      {isFeatureVisible('call') && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', gap: 12, padding: '12px 24px', borderBottom: '1px solid var(--border-default)', background: 'var(--bg-raised)' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: '1 1 180px', minWidth: 150 }}>
+            <span style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-quaternary)' }}>Lead Name</span>
+            <input className="form-input" value={leadName} onChange={e => setLeadName(e.target.value)} placeholder="e.g. John" style={{ padding: '7px 10px', fontSize: 13 }} />
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: '1 1 200px', minWidth: 180 }}>
+            <span style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-quaternary)' }}>Outbound Line</span>
+            <CustomSelect 
+              value={callPhoneId} 
+              onChange={e => setCallPhoneId(e.target.value)} 
+              options={[
+                { value: '', label: 'Select line...' },
+                ...phoneNumbers.filter(p => !p.assigned_agent_id || p.assigned_agent_id === agentId).map(p => ({ value: p.id, label: p.label }))
+              ]} 
+            />
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: '1 1 180px', minWidth: 160 }}>
+            <span style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-quaternary)' }}>Recipient Phone</span>
+            <input className="form-input" value={callToNumber} onChange={e => setCallToNumber(e.target.value)} placeholder="+1 234 567 8900" style={{ padding: '7px 10px', fontSize: 13 }} />
+          </div>
+          <div style={{ flexShrink: 0, paddingBottom: 1 }}>
+            <SneakyButton text={calling ? 'Calling...' : 'Call Now'} onClick={handleCall} loading={calling} disabled={calling || !callPhoneId || !callToNumber} />
+          </div>
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 2, width: 200 }}>
-          <span style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-quaternary)' }}>Phone Number</span>
-          <CustomSelect 
-            value={callPhoneId} 
-            onChange={e => setCallPhoneId(e.target.value)} 
-            options={[
-              { value: '', label: 'Select...' },
-              ...phoneNumbers.filter(p => !p.assigned_agent_id || p.assigned_agent_id === agentId).map(p => ({ value: p.id, label: p.label }))
-            ]} 
-          />
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1 }}>
-          <span style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-quaternary)' }}>Phone Number</span>
-          <input className="form-input" value={callToNumber} onChange={e => setCallToNumber(e.target.value)} placeholder="+1 234 567 8900" style={{ padding: '6px 10px', fontSize: 13 }} />
-        </div>
-        <SneakyButton text={calling ? 'Calling...' : 'Call Now'} onClick={handleCall} loading={calling} disabled={calling || !callPhoneId || !callToNumber} />
-      </div>}
+      )}
 
       {/* Tab strip */}
       <div className="config-tabs">
@@ -2113,6 +2141,18 @@ export default function AgentDetailPage() {
           token={token}
           provider={provider}
           onClose={() => setShowTestCall(false)}
+        />
+      )}
+
+      {/* Confirmation Dialog */}
+      {confirmAction && (
+        <ConfirmModal
+          title={confirmAction.title}
+          message={confirmAction.message}
+          confirmLabel={confirmAction.confirmLabel}
+          onConfirm={confirmAction.onConfirm}
+          onCancel={() => setConfirmAction(null)}
+          danger={confirmAction.danger ?? true}
         />
       )}
     </div>

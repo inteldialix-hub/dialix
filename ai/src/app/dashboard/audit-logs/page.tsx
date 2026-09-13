@@ -4,15 +4,21 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
+import { CustomSelect } from '@/components/dashboard/shared/CustomSelect';
+import { EmptyState } from '@/components/dashboard/shared/EmptyState';
+import { SkeletonRows } from '@/components/dashboard/shared/SkeletonRows';
+import { Search, ShieldAlert, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
 import '@/styles/dashboard.css';
-import { FiSearch, FiFilter, FiChevronLeft, FiChevronRight, FiClock } from 'react-icons/fi';
 
 interface AuditLog {
   id: string;
-  timestamp: string;
-  actorEmail: string;
+  timestamp?: string;
+  created_at?: string;
+  actorEmail?: string;
+  actor_email?: string;
   action: string;
-  resourceType: string;
+  resourceType?: string;
+  resource_type?: string;
   details: any;
 }
 
@@ -23,6 +29,7 @@ export default function AuditLogsPage() {
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
   
   // Filters
   const [search, setSearch] = useState('');
@@ -48,10 +55,13 @@ export default function AuditLogsPage() {
       
       const response = await api(`/audit?${queryParams}`, { token: token || undefined });
       if (response) {
-        setLogs(response.logs || response.data || (Array.isArray(response) ? response : []));
-        setTotalPages(response.totalPages || 1);
+        const rawLogs = response.logs || response.data || (Array.isArray(response) ? response : []);
+        setLogs(rawLogs);
+        setTotalPages(response.totalPages || Math.ceil((response.total || rawLogs.length) / 15) || 1);
+        setTotal(response.total || rawLogs.length);
       } else {
         setLogs([]);
+        setTotal(0);
       }
     } catch (err: any) {
       setError(err.message || 'Failed to fetch audit logs');
@@ -66,153 +76,201 @@ export default function AuditLogsPage() {
     fetchLogs();
   };
 
-  const getActionColor = (action: string) => {
-    const act = action.toLowerCase();
-    if (act.includes('create')) return 'var(--green)';
-    if (act.includes('update')) return 'var(--brand-accent)';
-    if (act.includes('delete')) return 'var(--red)';
-    return 'var(--text-secondary)';
+  const formatTimestamp = (raw?: string) => {
+    if (!raw) return '—';
+    try {
+      const d = new Date(raw);
+      if (isNaN(d.getTime())) return '—';
+      return d.toLocaleString(undefined, {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+      });
+    } catch {
+      return '—';
+    }
   };
 
-  const getActionBg = (action: string) => {
-    const act = action.toLowerCase();
-    if (act.includes('create')) return 'var(--green-bg)';
-    if (act.includes('update')) return 'rgba(56, 189, 248, 0.1)';
-    if (act.includes('delete')) return 'var(--red-bg)';
-    return 'var(--bg-hover)';
+  const formatDetails = (details: any) => {
+    if (!details) return '—';
+    if (typeof details === 'string') {
+      try {
+        const parsed = JSON.parse(details);
+        return typeof parsed === 'object' ? Object.entries(parsed).map(([k, v]) => `${k}: ${v}`).join(', ') : details;
+      } catch {
+        return details;
+      }
+    }
+    if (typeof details === 'object') {
+      const entries = Object.entries(details).filter(([, v]) => v !== undefined && v !== null && v !== '');
+      if (entries.length === 0) return '—';
+      return entries.slice(0, 3).map(([k, v]) => `${k}: ${typeof v === 'object' ? JSON.stringify(v) : v}`).join(', ');
+    }
+    return String(details);
   };
+
+  const getActionBadgeClass = (action: string) => {
+    const act = (action || '').toLowerCase();
+    if (act.includes('create') || act.includes('add') || act.includes('register')) {
+      return 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30';
+    }
+    if (act.includes('update') || act.includes('edit') || act.includes('assign')) {
+      return 'bg-sky-500/15 text-sky-400 border-sky-500/30';
+    }
+    if (act.includes('delete') || act.includes('remove') || act.includes('cancel')) {
+      return 'bg-rose-500/15 text-rose-400 border-rose-500/30';
+    }
+    if (act.includes('login') || act.includes('auth')) {
+      return 'bg-purple-500/15 text-purple-400 border-purple-500/30';
+    }
+    return 'bg-white/10 text-gray-300 border-white/10';
+  };
+
+  const actionOptions = [
+    { value: 'ALL', label: 'All Actions' },
+    { value: 'CREATE', label: 'Create' },
+    { value: 'UPDATE', label: 'Update' },
+    { value: 'DELETE', label: 'Delete' },
+    { value: 'LOGIN', label: 'Login' },
+  ];
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-6" style={{ minHeight: '100vh', backgroundColor: 'var(--bg-base)', color: 'var(--text-primary)' }}>
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+    <div className="dashboard-content">
+      <div className="page-title-section mb-6">
         <div>
-          <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>Audit Logs</h1>
-          <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>Track all system activities and changes.</p>
+          <h1 className="page-title">Audit Logs</h1>
+          <p className="page-subtitle">Track security events, data changes, and administrative actions</p>
         </div>
       </div>
 
       {/* Filters */}
-      <div className="p-4 rounded-xl border flex flex-col md:flex-row gap-4" style={{ backgroundColor: 'var(--bg-raised)', borderColor: 'var(--border-default)' }}>
-        <form onSubmit={handleSearch} className="flex-1 flex gap-2">
+      <div className="p-4 mb-6 rounded-xl border border-default bg-raised flex flex-col md:flex-row gap-4 items-center justify-between">
+        <form onSubmit={handleSearch} className="flex-1 w-full flex gap-2">
           <div className="relative flex-1">
-            <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
             <input
               type="text"
-              placeholder="Search logs..."
+              placeholder="Search by action, email, or resource..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 rounded-lg border focus:outline-none focus:ring-1 transition-colors"
-              style={{ backgroundColor: 'var(--bg-input)', borderColor: 'var(--border-subtle)', color: 'var(--text-primary)' }}
+              className="form-input pl-9 w-full bg-input text-xs"
             />
           </div>
-          <button type="submit" className="px-4 py-2 rounded-lg font-medium transition-colors border" style={{ backgroundColor: 'var(--bg-hover)', borderColor: 'var(--border-default)', color: 'var(--text-primary)' }}>
+          <button type="submit" className="btn-secondary text-xs">
             Search
           </button>
         </form>
         
-        <div className="flex items-center gap-2">
-          <FiFilter className="text-gray-400" />
-          <select
+        <div className="w-full md:w-52">
+          <CustomSelect
             value={actionType}
-            onChange={(e) => { setActionType(e.target.value); setPage(1); }}
-            className="px-4 py-2 rounded-lg border focus:outline-none appearance-none"
-            style={{ backgroundColor: 'var(--bg-input)', borderColor: 'var(--border-subtle)', color: 'var(--text-primary)' }}
-          >
-            <option value="ALL">All Actions</option>
-            <option value="CREATE">Create</option>
-            <option value="UPDATE">Update</option>
-            <option value="DELETE">Delete</option>
-            <option value="LOGIN">Login</option>
-          </select>
+            onChange={(e) => {
+              setActionType(e.target.value);
+              setPage(1);
+            }}
+            options={actionOptions}
+            small
+          />
         </div>
       </div>
 
       {/* Content */}
-      <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: 'var(--bg-raised)', borderColor: 'var(--border-default)' }}>
+      <div className="rounded-xl border border-default bg-raised overflow-hidden">
         {loading ? (
-          <div className="p-12 text-center" style={{ color: 'var(--text-secondary)' }}>
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-current mx-auto mb-4"></div>
-            Loading audit logs...
+          <div className="p-8">
+            <SkeletonRows count={5} />
           </div>
         ) : error ? (
-          <div className="p-12 text-center" style={{ color: 'var(--red)' }}>
-            <p>{error}</p>
-            <button onClick={fetchLogs} className="mt-4 px-4 py-2 rounded-lg border" style={{ backgroundColor: 'var(--bg-hover)', borderColor: 'var(--border-subtle)' }}>
+          <div className="p-12 text-center text-red-400">
+            <ShieldAlert className="mx-auto h-8 w-8 mb-2 opacity-80" />
+            <p className="text-sm">{error}</p>
+            <button onClick={fetchLogs} className="btn-secondary mt-4 text-xs">
               Retry
             </button>
           </div>
         ) : logs.length === 0 ? (
-          <div className="p-12 text-center" style={{ color: 'var(--text-tertiary)' }}>
-            <FiClock className="mx-auto h-12 w-12 mb-4 opacity-50" />
-            <p className="text-lg">No audit logs found</p>
-            <p className="text-sm mt-1">Adjust your filters to see more results.</p>
+          <div className="p-10">
+            <EmptyState
+              icon="shield"
+              title="No audit logs found"
+              description={search || actionType !== 'ALL' ? "No activity logs match your search filter." : "Audit log entries will record here as actions occur across the organization."}
+            />
           </div>
         ) : (
           <div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr style={{ backgroundColor: 'var(--bg-hover)', color: 'var(--text-secondary)' }} className="border-b border-[var(--border-subtle)]">
-                    <th className="p-4 font-medium text-sm">Timestamp</th>
-                    <th className="p-4 font-medium text-sm">Actor</th>
-                    <th className="p-4 font-medium text-sm">Action</th>
-                    <th className="p-4 font-medium text-sm">Resource</th>
-                    <th className="p-4 font-medium text-sm">Details</th>
+            <div className="table-responsive">
+              <table className="w-full text-left">
+                <thead className="bg-base border-b border-default text-gray-400 text-xs font-medium">
+                  <tr>
+                    <th className="p-4">Timestamp</th>
+                    <th className="p-4">Actor</th>
+                    <th className="p-4">Action</th>
+                    <th className="p-4">Resource</th>
+                    <th className="p-4">Event Details</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
-                  {logs.map((log) => (
-                    <tr key={log.id} className="hover:bg-[var(--bg-hover)] transition-colors">
-                      <td className="p-4 text-sm whitespace-nowrap" style={{ color: 'var(--text-secondary)' }}>
-                        {new Date(log.timestamp).toLocaleString()}
-                      </td>
-                      <td className="p-4 text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
-                        {log.actorEmail}
-                      </td>
-                      <td className="p-4 text-sm">
-                        <span 
-                          className="px-2.5 py-1 rounded-full text-xs font-semibold"
-                          style={{ color: getActionColor(log.action), backgroundColor: getActionBg(log.action) }}
-                        >
-                          {log.action}
-                        </span>
-                      </td>
-                      <td className="p-4 text-sm" style={{ color: 'var(--text-secondary)' }}>
-                        {log.resourceType}
-                      </td>
-                      <td className="p-4 text-sm max-w-xs truncate" style={{ color: 'var(--text-tertiary)' }} title={JSON.stringify(log.details)}>
-                        {JSON.stringify(log.details)}
-                      </td>
-                    </tr>
-                  ))}
+                <tbody className="divide-y divide-default">
+                  {logs.map((log) => {
+                    const timeStr = formatTimestamp(log.timestamp || log.created_at);
+                    const actor = log.actorEmail || log.actor_email || 'System';
+                    const resource = log.resourceType || log.resource_type || '—';
+                    const detailsStr = formatDetails(log.details);
+
+                    return (
+                      <tr key={log.id} className="hover:bg-white/[0.02] transition-colors">
+                        <td className="p-4 text-xs font-mono text-gray-400 whitespace-nowrap">
+                          {timeStr}
+                        </td>
+                        <td className="p-4 text-xs font-medium text-white">
+                          {actor}
+                        </td>
+                        <td className="p-4 text-xs">
+                          <span 
+                            className={`px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${getActionBadgeClass(log.action)}`}
+                          >
+                            {log.action}
+                          </span>
+                        </td>
+                        <td className="p-4 text-xs text-gray-300">
+                          {resource}
+                        </td>
+                        <td className="p-4 text-xs font-mono text-gray-400 max-w-sm truncate" title={typeof log.details === 'object' ? JSON.stringify(log.details) : String(log.details)}>
+                          {detailsStr}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
             
             {/* Pagination */}
-            <div className="p-4 border-t flex justify-between items-center" style={{ borderColor: 'var(--border-subtle)' }}>
-              <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-                Page {page} of {totalPages}
-              </span>
-              <div className="flex gap-2">
-                <button 
-                  disabled={page === 1}
-                  onClick={() => setPage(p => p - 1)}
-                  className="p-2 rounded border disabled:opacity-50"
-                  style={{ backgroundColor: 'var(--bg-input)', borderColor: 'var(--border-subtle)', color: 'var(--text-primary)' }}
-                >
-                  <FiChevronLeft />
-                </button>
-                <button 
-                  disabled={page === totalPages}
-                  onClick={() => setPage(p => p + 1)}
-                  className="p-2 rounded border disabled:opacity-50"
-                  style={{ backgroundColor: 'var(--bg-input)', borderColor: 'var(--border-subtle)', color: 'var(--text-primary)' }}
-                >
-                  <FiChevronRight />
-                </button>
+            {totalPages > 1 && (
+              <div className="p-4 border-t border-default flex justify-between items-center bg-base text-xs text-gray-400">
+                <span>
+                  Page <span className="text-white font-medium">{page}</span> of <span className="text-white font-medium">{totalPages}</span> ({total} records)
+                </span>
+                <div className="flex gap-2 items-center">
+                  <button 
+                    disabled={page === 1}
+                    onClick={() => setPage(p => Math.max(1, p - 1))}
+                    className="btn-secondary py-1 px-2.5 text-xs flex items-center gap-1"
+                  >
+                    <ChevronLeft size={14} /> Previous
+                  </button>
+                  <button 
+                    disabled={page === totalPages}
+                    onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                    className="btn-secondary py-1 px-2.5 text-xs flex items-center gap-1"
+                  >
+                    Next <ChevronRight size={14} />
+                  </button>
+                </div>
               </div>
-            </div>
+            )}
           </div>
         )}
       </div>

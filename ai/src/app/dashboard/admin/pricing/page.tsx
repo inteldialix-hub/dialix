@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
 import { useToast } from '@/components/dashboard/shared/ToastProvider';
 import { Icon } from '@/components/dashboard/shared/Icon';
+import { ConfirmModal } from '@/components/dashboard/shared/ConfirmModal';
 import { api } from '@/lib/api';
 
 interface PricingPlan {
@@ -31,6 +32,9 @@ interface ClientWithPlan {
   plan_name: string | null;
   plan_slug: string | null;
   plan_price: number | null;
+  billing_period: string | null;
+  agents_count: number;
+  numbers_count: number;
   created_at: string;
 }
 
@@ -50,12 +54,13 @@ const emptyPlan = {
   name: '',
   slug: '',
   price: 0,
-  billing_period: 'monthly',
-  max_agents: -1,
-  max_calls_per_month: -1,
-  max_phone_numbers: -1,
+  billing_period: 'month',
+  max_agents: 1,
+  max_calls_per_month: 100,
+  max_phone_numbers: 1,
   features: {} as Record<string, boolean>,
   is_default: 0,
+  is_active: 1,
   sort_order: 0,
 };
 
@@ -69,6 +74,7 @@ export default function AdminPricingPage() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingPlan, setEditingPlan] = useState<PricingPlan | null>(null);
+  const [deleteTargetPlan, setDeleteTargetPlan] = useState<PricingPlan | null>(null);
   const [form, setForm] = useState(emptyPlan);
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState<'plans' | 'clients'>('plans');
@@ -88,17 +94,19 @@ export default function AdminPricingPage() {
       setPlans(plansRes.plans);
       setClients(clientsRes.clients);
     } catch (err) {
-      addToast('Failed to load pricing data', 'error');
+      addToast(err instanceof Error ? err.message : 'Failed to load pricing data', 'error');
     } finally {
       setLoading(false);
     }
   }, [token, addToast]);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   const openCreateForm = () => {
     setEditingPlan(null);
-    setForm({ ...emptyPlan, sort_order: plans.length });
+    setForm(emptyPlan);
     setShowForm(true);
   };
 
@@ -114,6 +122,7 @@ export default function AdminPricingPage() {
       max_phone_numbers: plan.max_phone_numbers,
       features: { ...plan.features },
       is_default: plan.is_default,
+      is_active: plan.is_active,
       sort_order: plan.sort_order,
     });
     setShowForm(true);
@@ -150,11 +159,12 @@ export default function AdminPricingPage() {
     }
   };
 
-  const handleDelete = async (planId: number) => {
-    if (!confirm('Are you sure you want to delete this plan?')) return;
+  const confirmDeletePlan = async () => {
+    if (!deleteTargetPlan) return;
     try {
-      await api(`/pricing/admin/plans/${planId}`, { method: 'DELETE', token: token || undefined });
-      addToast('Plan deleted', 'success');
+      await api(`/pricing/admin/plans/${deleteTargetPlan.id}`, { method: 'DELETE', token: token || undefined });
+      addToast(`Plan "${deleteTargetPlan.name}" deleted`, 'success');
+      setDeleteTargetPlan(null);
       fetchData();
     } catch (err) {
       addToast(err instanceof Error ? err.message : 'Failed to delete plan', 'error');
@@ -264,7 +274,7 @@ export default function AdminPricingPage() {
                     <button className="btn-icon" onClick={() => openEditForm(plan)} title="Edit">
                       <Icon name="pencil" size={14} />
                     </button>
-                    <button className="btn-icon" onClick={() => handleDelete(plan.id)} title="Delete" style={{ color: 'var(--red)' }}>
+                    <button className="btn-icon" onClick={() => setDeleteTargetPlan(plan)} title="Delete" style={{ color: 'var(--red)' }}>
                       <Icon name="trash-2" size={14} />
                     </button>
                   </div>
@@ -529,6 +539,17 @@ export default function AdminPricingPage() {
               </div>
             </div>
           </div>
+        )}
+
+        {deleteTargetPlan && (
+          <ConfirmModal
+            title="Delete Pricing Plan"
+            message={`Are you sure you want to permanently delete the "${deleteTargetPlan.name}" (${deleteTargetPlan.slug}) plan?`}
+            confirmLabel="Delete Plan"
+            onConfirm={confirmDeletePlan}
+            onCancel={() => setDeleteTargetPlan(null)}
+            danger={true}
+          />
         )}
       </div>
     </div>

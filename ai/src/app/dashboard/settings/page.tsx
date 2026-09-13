@@ -7,6 +7,7 @@ import { useToast } from '@/components/dashboard/shared/ToastProvider';
 import { api } from '@/lib/api';
 import { Icon } from '@/components/dashboard/shared/Icon';
 import { SkeletonRows } from '@/components/dashboard/shared/SkeletonRows';
+import { ConfirmModal } from '@/components/dashboard/shared/ConfirmModal';
 
 type SettingsTab = 'account' | 'team' | 'api-keys' | 'webhooks' | 'telemetry';
 
@@ -68,6 +69,13 @@ export default function SettingsPage() {
 
   const [activeTab, setActiveTab] = useState<SettingsTab>('account');
   const [apiStatus, setApiStatus] = useState<{ status?: string; timestamp?: string } | null>(null);
+  const [confirmAction, setConfirmAction] = useState<{
+    title: string;
+    message: string;
+    confirmLabel: string;
+    onConfirm: () => void;
+    danger?: boolean;
+  } | null>(null);
 
   // ── Account & Password State ──
   const [currentPassword, setCurrentPassword] = useState('');
@@ -271,15 +279,23 @@ export default function SettingsPage() {
     }
   };
 
-  const handleRemoveMember = async (id: number, nameOrEmail: string) => {
-    if (!confirm(`Are you sure you want to remove ${nameOrEmail} from the team?`)) return;
-    try {
-      await api(`/team/members/${id}`, { method: 'DELETE', token: token! });
-      addToast('Member removed from team', 'success');
-      loadTeam();
-    } catch (err) {
-      addToast(err instanceof Error ? err.message : 'Failed to remove member', 'error');
-    }
+  const handleRemoveMember = (id: number, nameOrEmail: string) => {
+    setConfirmAction({
+      title: 'Remove Team Member',
+      message: `Are you sure you want to remove ${nameOrEmail} from the team?`,
+      confirmLabel: 'Remove Member',
+      danger: true,
+      onConfirm: async () => {
+        setConfirmAction(null);
+        try {
+          await api(`/team/members/${id}`, { method: 'DELETE', token: token! });
+          addToast('Member removed from team', 'success');
+          loadTeam();
+        } catch (err) {
+          addToast(err instanceof Error ? err.message : 'Failed to remove member', 'error');
+        }
+      }
+    });
   };
 
   const handleChangeRole = async (id: number, role: 'admin' | 'manager' | 'viewer') => {
@@ -317,15 +333,23 @@ export default function SettingsPage() {
     }
   };
 
-  const handleRevokeApiKey = async (id: number, name: string) => {
-    if (!confirm(`Revoke API key "${name}"? Any systems using it will immediately lose access.`)) return;
-    try {
-      await api(`/api-keys/${id}`, { method: 'DELETE', token: token! });
-      addToast('API key revoked', 'success');
-      loadApiKeys();
-    } catch (err) {
-      addToast(err instanceof Error ? err.message : 'Failed to revoke API key', 'error');
-    }
+  const handleRevokeApiKey = (id: number, name: string) => {
+    setConfirmAction({
+      title: 'Revoke API Key',
+      message: `Revoke API key "${name}"? Any systems using it will immediately lose access.`,
+      confirmLabel: 'Revoke Key',
+      danger: true,
+      onConfirm: async () => {
+        setConfirmAction(null);
+        try {
+          await api(`/api-keys/${id}`, { method: 'DELETE', token: token! });
+          addToast('API key revoked', 'success');
+          loadApiKeys();
+        } catch (err) {
+          addToast(err instanceof Error ? err.message : 'Failed to revoke API key', 'error');
+        }
+      }
+    });
   };
 
   const handleCreateWebhook = async (e: React.FormEvent) => {
@@ -356,15 +380,23 @@ export default function SettingsPage() {
     }
   };
 
-  const handleDeleteWebhook = async (id: number) => {
-    if (!confirm('Delete this webhook endpoint?')) return;
-    try {
-      await api(`/webhooks/${id}`, { method: 'DELETE', token: token! });
-      addToast('Webhook deleted', 'success');
-      loadWebhooks();
-    } catch (err) {
-      addToast(err instanceof Error ? err.message : 'Failed to delete webhook', 'error');
-    }
+  const handleDeleteWebhook = (id: number) => {
+    setConfirmAction({
+      title: 'Delete Webhook Endpoint',
+      message: 'Delete this webhook endpoint? Dialix will immediately stop sending event notifications to this URL.',
+      confirmLabel: 'Delete Webhook',
+      danger: true,
+      onConfirm: async () => {
+        setConfirmAction(null);
+        try {
+          await api(`/webhooks/${id}`, { method: 'DELETE', token: token! });
+          addToast('Webhook deleted', 'success');
+          loadWebhooks();
+        } catch (err) {
+          addToast(err instanceof Error ? err.message : 'Failed to delete webhook', 'error');
+        }
+      }
+    });
   };
 
   const handleTestWebhook = async (id: number) => {
@@ -436,7 +468,7 @@ export default function SettingsPage() {
   });
 
   return (
-    <div style={{ maxWidth: 960, padding: '24px 32px', display: 'flex', flexDirection: 'column', gap: 20 }}>
+    <div className="dashboard-content" style={{ maxWidth: 960, padding: '24px 32px', display: 'flex', flexDirection: 'column', gap: 20 }}>
       {/* Page Title */}
       <div>
         <h2 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
@@ -1440,6 +1472,17 @@ export default function SettingsPage() {
             )}
           </div>
         </div>
+      )}
+
+      {confirmAction && (
+        <ConfirmModal
+          title={confirmAction.title}
+          message={confirmAction.message}
+          confirmLabel={confirmAction.confirmLabel}
+          onConfirm={confirmAction.onConfirm}
+          onCancel={() => setConfirmAction(null)}
+          danger={confirmAction.danger ?? true}
+        />
       )}
     </div>
   );

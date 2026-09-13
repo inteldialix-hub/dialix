@@ -115,14 +115,15 @@ export default function AgentsPage() {
   return (
     <>
       <div className="page-title-section">
-        <h2>Agents</h2>
-        <p>Create and manage your AI calling agents</p>
-      </div>
-
-      <div style={{ padding: '0 40px 16px', display: 'flex', justifyContent: 'flex-end' }}>
-        <button className="btn-primary" onClick={handleOpenCreate} style={{ marginLeft: 0 }}>
-          <Icon name="plus" size={14} /> New Agent
-        </button>
+        <div>
+          <h2>Agents</h2>
+          <p>Create and manage your AI calling agents</p>
+        </div>
+        <div className="page-actions">
+          <button className="btn-primary" onClick={handleOpenCreate} style={{ marginLeft: 0 }}>
+            <Icon name="plus" size={14} /> New Agent
+          </button>
+        </div>
       </div>
 
       {agents.length === 0 ? (
@@ -334,7 +335,7 @@ function CreateAgentModal({ token, voices, templates, onClose, onCreated }: {
                   alignItems: 'flex-start',
                   gap: '8px',
                   padding: '16px',
-                  border: '1px dashed var(--border)',
+                  border: '1px dashed var(--border-default)',
                   borderRadius: '10px',
                   background: 'transparent',
                   color: 'var(--text-primary)',
@@ -365,7 +366,7 @@ function CreateAgentModal({ token, voices, templates, onClose, onCreated }: {
                     alignItems: 'flex-start',
                     gap: '8px',
                     padding: '16px',
-                    border: '1px solid var(--border)',
+                    border: '1px solid var(--border-default)',
                     borderRadius: '10px',
                     background: 'var(--bg-secondary, transparent)',
                     color: 'var(--text-primary)',
@@ -445,7 +446,7 @@ function CreateAgentModal({ token, voices, templates, onClose, onCreated }: {
                     style={{
                       flex: 1,
                       padding: '10px 16px',
-                      border: provider === p.value ? '1px solid var(--brand-accent)' : '1px solid var(--border)',
+                      border: provider === p.value ? '1px solid var(--brand-accent)' : '1px solid var(--border-default)',
                       borderRadius: '8px',
                       background: provider === p.value ? 'rgba(124, 58, 237, 0.1)' : 'transparent',
                       color: provider === p.value ? 'var(--brand-accent)' : 'var(--text-secondary)',
