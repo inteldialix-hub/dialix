@@ -48,9 +48,11 @@ export const FALLBACK_LLM_OPTIONS = [
 /* ─── TTS (Text-to-Speech) Models ────────────────────────── */
 
 export const FALLBACK_TTS_MODEL_OPTIONS = [
-  { value: 'eleven_v3_conversational', label: 'V3 Conversational' },
-  { value: 'eleven_flash_v2', label: 'Flash (Fastest)' },
-  { value: 'eleven_turbo_v2', label: 'Turbo' },
+  { value: 'eleven_v3_conversational', label: 'V3 Conversational', badge: 'Now GA', supportsExpressive: true },
+  { value: 'eleven_flash_v2_5', label: 'Flash v2.5', badge: 'Low Latency', supportsExpressive: true },
+  { value: 'eleven_flash_v2', label: 'Flash v2', badge: 'Fastest', supportsExpressive: false },
+  { value: 'eleven_multilingual_v2', label: 'Multilingual v2', badge: '29 Languages', supportsExpressive: false },
+  { value: 'eleven_turbo_v2', label: 'Turbo v2', badge: null, supportsExpressive: false },
 ];
 
 /* ─── Languages (Flash v2.5 32-language set) ─────────────── */

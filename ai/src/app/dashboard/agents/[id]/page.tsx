@@ -800,105 +800,112 @@ export default function AgentDetailPage() {
                 </div>
               </div>
             </div>
-
-            <div className="rounded-lg border border-border bg-card p-6">
-              <h3 className="text-sm font-medium mb-4 flex items-center gap-2"><Mic className="size-4" /> Voice</h3>
-              
-              {provider !== 'vapi' && provider !== 'gemini' && (
-                <div className="mb-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-2 max-h-[300px] overflow-y-auto">
-                    {voices.map(v => (
-                      <div key={v.voice_id} 
-                        onClick={() => set(setVoiceId)(v.voice_id)}
-                        className={cn("p-4 rounded-lg border cursor-pointer transition-all flex flex-col gap-2", voiceId === v.voice_id ? "border-primary bg-primary/5" : "border-border bg-background hover:border-muted-foreground/50")}
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className="font-medium text-sm">{v.name}</span>
-                          <button 
-                            className="p-1.5 rounded-md hover:bg-accent text-muted-foreground"
-                            onClick={e => { e.stopPropagation(); playVoicePreview(v.voice_id); }}
-                          >
-                            {previewingId === v.voice_id ? <Square className="size-4" /> : <Play className="size-4" />}
-                          </button>
-                        </div>
-                        {v.labels && <div className="text-xs text-muted-foreground truncate">{Object.values(v.labels).join(' • ')}</div>}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {provider === 'vapi' && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="text-sm font-medium text-foreground mb-1.5 block">Voice provider</label>
-                    <select className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground" value={voiceProvider} onChange={e => set(setVoiceProvider)(e.target.value)}>
-                      {VAPI_VOICE_PROVIDERS.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-foreground mb-1.5 block">Voice ID</label>
-                    <input className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring" value={voiceId} onChange={e => set(setVoiceId)(e.target.value)} />
-                  </div>
-                </div>
-              )}
-            </div>
           </div>
         )}
 
         {activeTab === 'voice' && (
           <div className="space-y-6">
-            {/* TTS Model selector */}
-            <div className="rounded-lg border border-border bg-card p-6">
-              <h3 className="text-sm font-medium mb-4 flex items-center gap-2"><Volume2 className="size-4" /> TTS Model</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="text-sm font-medium text-foreground mb-1.5 block">Model</label>
-                  <select className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring" value={ttsModel} onChange={e => set(setTtsModel)(e.target.value)}>
-                    {liveTTSModels.map((m: any) => <option key={m.value} value={m.value}>{m.label}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-foreground mb-1.5 block">Audio format</label>
-                  <select className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring" value={audioFormat} onChange={e => set(setAudioFormat)(e.target.value)}>
-                    <option value="pcm_16000">PCM 16kHz</option>
-                    <option value="pcm_22050">PCM 22.05kHz</option>
-                    <option value="pcm_24000">PCM 24kHz</option>
-                    <option value="pcm_44100">PCM 44.1kHz</option>
-                    <option value="ulaw_8000">uLaw 8kHz</option>
-                  </select>
-                </div>
+            {/* TTS Model Family — ElevenLabs only */}
+            {provider !== 'vapi' && provider !== 'gemini' && (
+              <div className="rounded-lg border border-border bg-card p-6">
+                <h3 className="text-sm font-medium mb-1 flex items-center gap-2"><Volume2 className="size-4" /> TTS model family</h3>
+                <p className="text-xs text-muted-foreground mb-4">Select the ElevenLabs model family used for text-to-speech generation.</p>
+                <select className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring" value={ttsModel} onChange={e => set(setTtsModel)(e.target.value)}>
+                  {liveTTSModels.map((m: any) => (
+                    <option key={m.value} value={m.value}>
+                      {m.label}{m.badge ? ` \u2014 ${m.badge}` : ''}
+                    </option>
+                  ))}
+                </select>
+
+                {/* V3 / Flash v2.5: Expressive mode + Audio tags */}
+                {(ttsModel === 'eleven_v3_conversational' || ttsModel === 'eleven_flash_v2_5') && (
+                  <div className="mt-6 space-y-5">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <span className="text-sm font-medium text-foreground">Expressive mode</span>
+                        <p className="text-xs text-muted-foreground mt-0.5">Enables richer vocal expressions and emotional range</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => set(setExpressiveMode)(!expressiveMode)}
+                        className={cn(
+                          "relative inline-flex h-6 w-11 items-center rounded-full transition-colors shrink-0",
+                          expressiveMode ? "bg-foreground" : "bg-muted"
+                        )}
+                      >
+                        <span className={cn(
+                          "inline-block size-4 rounded-full bg-background transition-transform",
+                          expressiveMode ? "translate-x-6" : "translate-x-1"
+                        )} />
+                      </button>
+                    </div>
+
+                    <div>
+                      <span className="text-sm font-medium text-foreground block mb-2">Suggested audio tags</span>
+                      <div className="flex flex-wrap gap-2">
+                        {['Empathetically', 'Confidently', 'Warmly', 'Excitedly', 'Patiently', 'Enthusiastically', 'Seriously', 'Chuckles', 'Laughing', 'Sighs'].map(tag => {
+                          const isActive = audioTags.some(t => t.name === tag);
+                          return (
+                            <button key={tag} type="button"
+                              onClick={() => { if (isActive) { set(setAudioTags)(audioTags.filter(t => t.name !== tag)); } else { set(setAudioTags)([...audioTags, { name: tag }]); } }}
+                              className={cn("px-3 py-1.5 rounded-full text-xs font-medium border transition-colors", isActive ? "border-foreground bg-foreground/10 text-foreground" : "border-border bg-background text-muted-foreground hover:border-muted-foreground/50")}
+                            >
+                              {isActive ? '' : '+ '}{tag}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <div className="flex items-center gap-2 mt-3">
+                        <input className="flex-1 rounded-md border border-border bg-background px-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring" placeholder="Add custom tag..." value={customTagInput} onChange={e => setCustomTagInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && customTagInput.trim()) { set(setAudioTags)([...audioTags, { name: customTagInput.trim() }]); setCustomTagInput(''); } }} />
+                        <button type="button" onClick={() => { if (customTagInput.trim()) { set(setAudioTags)([...audioTags, { name: customTagInput.trim() }]); setCustomTagInput(''); } }} className="text-xs text-muted-foreground hover:text-foreground px-2 py-1.5 rounded-md hover:bg-accent transition-colors">Add</button>
+                      </div>
+                    </div>
+
+                    <div className="rounded-md bg-muted/50 border border-border px-4 py-3 flex items-start gap-2.5">
+                      <Info className="size-4 text-muted-foreground mt-0.5 shrink-0" />
+                      <p className="text-xs text-muted-foreground">Voice settings (Stability, Speed, Similarity) are not customizable for V3 models. Use audio tags and expressive mode instead.</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Multilingual / Turbo / Flash v2: Stability, Speed, Similarity */}
+                {ttsModel !== 'eleven_v3_conversational' && ttsModel !== 'eleven_flash_v2_5' && (
+                  <div className="mt-6 space-y-5">
+                    <div>
+                      <span className="text-sm font-medium text-foreground block mb-1">Stability</span>
+                      <div className="flex items-center justify-between text-[11px] text-muted-foreground mb-1"><span>More expressive</span><span>More consistent</span></div>
+                      <input type="range" className="w-full accent-foreground" min="0" max="1" step="0.01" value={stability} onChange={e => set(setStability)(parseFloat(e.target.value))} />
+                    </div>
+                    <div>
+                      <span className="text-sm font-medium text-foreground block mb-1">Speed</span>
+                      <div className="flex items-center justify-between text-[11px] text-muted-foreground mb-1"><span>Slower</span><span>Faster</span></div>
+                      <input type="range" className="w-full accent-foreground" min="0.5" max="2" step="0.05" value={speed} onChange={e => set(setSpeed)(parseFloat(e.target.value))} />
+                    </div>
+                    <div>
+                      <span className="text-sm font-medium text-foreground block mb-1">Similarity</span>
+                      <div className="flex items-center justify-between text-[11px] text-muted-foreground mb-1"><span>Low</span><span>High</span></div>
+                      <input type="range" className="w-full accent-foreground" min="0" max="1" step="0.01" value={similarityBoost} onChange={e => set(setSimilarityBoost)(parseFloat(e.target.value))} />
+                    </div>
+                  </div>
+                )}
               </div>
-            </div>
+            )}
 
             {/* Voice selection */}
             <div className="rounded-lg border border-border bg-card p-6">
-              <h3 className="text-sm font-medium mb-4 flex items-center gap-2"><Mic className="size-4" /> Voice selection</h3>
-
+              <h3 className="text-sm font-medium mb-4 flex items-center gap-2"><Mic className="size-4" /> Voice</h3>
               {provider !== 'vapi' && provider !== 'gemini' && (
                 <div>
                   <div className="mb-4">
-                    <input
-                      className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-                      placeholder="Search voices..."
-                      value={voiceFilter}
-                      onChange={e => setVoiceFilter(e.target.value)}
-                    />
+                    <input className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring" placeholder="Search voices..." value={voiceFilter} onChange={e => setVoiceFilter(e.target.value)} />
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 max-h-[400px] overflow-y-auto">
-                    {voices
-                      .filter(v => !voiceFilter || v.name.toLowerCase().includes(voiceFilter.toLowerCase()) || (v.labels && Object.values(v.labels).some(l => l.toLowerCase().includes(voiceFilter.toLowerCase()))))
-                      .map(v => (
-                      <div key={v.voice_id}
-                        onClick={() => set(setVoiceId)(v.voice_id)}
-                        className={cn("p-4 rounded-lg border cursor-pointer transition-all flex flex-col gap-2", voiceId === v.voice_id ? "border-foreground bg-foreground/5" : "border-border bg-background hover:border-muted-foreground/50")}
-                      >
+                    {voices.filter(v => !voiceFilter || v.name.toLowerCase().includes(voiceFilter.toLowerCase()) || (v.labels && Object.values(v.labels).some(l => l.toLowerCase().includes(voiceFilter.toLowerCase())))).map(v => (
+                      <div key={v.voice_id} onClick={() => set(setVoiceId)(v.voice_id)} className={cn("p-4 rounded-lg border cursor-pointer transition-all flex flex-col gap-2", voiceId === v.voice_id ? "border-foreground bg-foreground/5" : "border-border bg-background hover:border-muted-foreground/50")}>
                         <div className="flex items-center justify-between">
                           <span className="font-medium text-sm">{v.name}</span>
-                          <button
-                            className="p-1.5 rounded-md hover:bg-accent text-muted-foreground"
-                            onClick={e => { e.stopPropagation(); playVoicePreview(v.voice_id); }}
-                          >
+                          <button className="p-1.5 rounded-md hover:bg-accent text-muted-foreground" onClick={e => { e.stopPropagation(); playVoicePreview(v.voice_id); }}>
                             {previewingId === v.voice_id ? <Square className="size-4" /> : <Play className="size-4" />}
                           </button>
                         </div>
@@ -908,7 +915,6 @@ export default function AgentDetailPage() {
                   </div>
                 </div>
               )}
-
               {provider === 'vapi' && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
@@ -923,7 +929,6 @@ export default function AgentDetailPage() {
                   </div>
                 </div>
               )}
-
               {provider === 'gemini' && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
@@ -935,33 +940,6 @@ export default function AgentDetailPage() {
                 </div>
               )}
             </div>
-
-            {/* Voice tuning */}
-            {provider !== 'vapi' && provider !== 'gemini' && (
-              <div className="rounded-lg border border-border bg-card p-6">
-                <h3 className="text-sm font-medium mb-4 flex items-center gap-2"><Sliders className="size-4" /> Voice tuning</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="text-sm font-medium text-foreground mb-1.5 block">Stability: {stability.toFixed(2)}</label>
-                    <input type="range" className="w-full accent-foreground" min="0" max="1" step="0.01" value={stability} onChange={e => set(setStability)(parseFloat(e.target.value))} />
-                    <p className="text-xs text-muted-foreground mt-1">Lower = more expressive, higher = more consistent</p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-foreground mb-1.5 block">Speed: {speed.toFixed(2)}x</label>
-                    <input type="range" className="w-full accent-foreground" min="0.5" max="2" step="0.05" value={speed} onChange={e => set(setSpeed)(parseFloat(e.target.value))} />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-foreground mb-1.5 block">Similarity boost: {similarityBoost.toFixed(2)}</label>
-                    <input type="range" className="w-full accent-foreground" min="0" max="1" step="0.01" value={similarityBoost} onChange={e => set(setSimilarityBoost)(parseFloat(e.target.value))} />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-foreground mb-1.5 block">Streaming latency: {streamingLatency}</label>
-                    <input type="range" className="w-full accent-foreground" min="0" max="4" step="1" value={streamingLatency} onChange={e => set(setStreamingLatency)(parseInt(e.target.value))} />
-                    <p className="text-xs text-muted-foreground mt-1">0 = lowest latency, 4 = best quality</p>
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
         )}
 
