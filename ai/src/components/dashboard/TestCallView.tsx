@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useEffect, useState, useRef, useCallback } from 'react';
-import { Icon } from '@/components/dashboard/shared/Icon';
+import { ArrowLeft, X, PhoneOff, Mic, MicOff, Bot, User, Clock, Phone, MessageSquare, Trash2 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { VoicePoweredOrb } from '@/components/dashboard/shared/VoicePoweredOrb';
 import { api } from '@/lib/api';
 import Vapi from '@vapi-ai/web';
@@ -539,59 +540,59 @@ export default function TestCallView({ agentId, agentName, leadName, token, prov
   // Viewing a past call's transcript
   if (viewingCall) {
     return (
-      <div className="tcv-overlay">
-        <div className="tcv-header">
-          <button className="tcv-back-btn" onClick={() => setViewingCall(null)}>
-            <Icon name="arrow-left" size={14} /> Back
+      <div className="fixed inset-0 z-50 bg-background flex flex-col">
+        <div className="flex items-center gap-3 px-6 py-4 border-b border-border shrink-0">
+          <button className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground" onClick={() => setViewingCall(null)}>
+            <ArrowLeft className="size-3.5" /> Back
           </button>
-          <div className="tcv-agent-name">{viewingCall.agentName}</div>
-          <div className="tcv-timer">
+          <span className="text-sm font-medium text-foreground">{viewingCall.agentName}</span>
+          <div className="flex items-center gap-2 text-sm text-muted-foreground ml-auto">
             <span>{fmtDate(viewingCall.timestamp)} · {fmtTime(viewingCall.duration)}</span>
           </div>
-          <button className="tcv-close-btn" onClick={onClose}>
-            <Icon name="x" size={14} /> Close
+          <button className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground" onClick={onClose}>
+            <X className="size-3.5" /> Close
           </button>
         </div>
-        <div className="tcv-body">
+        <div className="flex-1 flex overflow-hidden">
           {/* Left — info */}
-          <div className="tcv-orb-panel" style={{ justifyContent: 'flex-start', paddingTop: '48px' }}>
-            <div className="tcv-history-call-info">
-              <div className="tcv-hci-icon"><Icon name="phone" size={24} /></div>
-              <h3>Past Call</h3>
-              <div className="tcv-hci-meta">
-                <span>Lead: {viewingCall.leadName}</span>
-                <span>Duration: {fmtTime(viewingCall.duration)}</span>
-                <span>{fmtDate(viewingCall.timestamp)}</span>
+          <div className="flex-1 flex flex-col items-center justify-center">
+            <div className="rounded-lg border border-border bg-card p-6 text-center max-w-xs">
+              <Phone className="size-8 text-muted-foreground mx-auto mb-3" />
+              <h3 className="text-lg font-medium text-foreground mb-3">Past Call</h3>
+              <div className="space-y-1 text-sm text-muted-foreground">
+                <p>Lead: {viewingCall.leadName}</p>
+                <p>Duration: {fmtTime(viewingCall.duration)}</p>
+                <p>{fmtDate(viewingCall.timestamp)}</p>
               </div>
-              <div className="tcv-hci-stats">
-                <div className="tcv-hci-stat">
-                  <span className="tcv-hci-stat-num">{viewingCall.transcript.filter(e => e.role === 'agent').length}</span>
-                  <span className="tcv-hci-stat-label">Agent Messages</span>
+              <div className="flex justify-center gap-6 mt-4">
+                <div className="text-center">
+                  <div className="text-lg font-semibold text-foreground">{viewingCall.transcript.filter(e => e.role === 'agent').length}</div>
+                  <div className="text-xs text-muted-foreground">Agent messages</div>
                 </div>
-                <div className="tcv-hci-stat">
-                  <span className="tcv-hci-stat-num">{viewingCall.transcript.filter(e => e.role === 'user').length}</span>
-                  <span className="tcv-hci-stat-label">User Messages</span>
+                <div className="text-center">
+                  <div className="text-lg font-semibold text-foreground">{viewingCall.transcript.filter(e => e.role === 'user').length}</div>
+                  <div className="text-xs text-muted-foreground">User messages</div>
                 </div>
               </div>
             </div>
           </div>
           {/* Right — saved transcript */}
-          <div className="tcv-transcript-panel">
-            <div className="tcv-transcript-header">
-              <Icon name="message-square" size={14} /> Transcript
+          <div className="w-96 border-l border-border flex flex-col bg-card">
+            <div className="flex items-center gap-2 px-4 py-3 border-b border-border text-sm font-medium text-foreground">
+              <MessageSquare className="size-3.5" /> Transcript
             </div>
-            <div className="tcv-transcript-body">
+            <div className="flex-1 overflow-y-auto p-4 space-y-3">
               {viewingCall.transcript.map((entry, i) => (
-                <div key={i} className={`tcv-msg ${entry.role}`}>
+                <div key={i}>
                   {entry.role === 'system' ? (
-                    <div className="tcv-msg-system">{entry.text}</div>
+                    <div className="text-xs text-muted-foreground text-center py-1">{entry.text}</div>
                   ) : (
-                    <div className="tcv-msg-bubble">
-                      <div className="tcv-msg-role">
-                        <Icon name={entry.role === 'agent' ? 'bot' : 'user'} size={12} />
+                    <div className={cn("rounded-lg p-3 text-sm", entry.role === 'agent' ? "bg-accent" : "bg-muted")}>
+                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1">
+                        {entry.role === 'agent' ? <Bot className="size-3" /> : <User className="size-3" />}
                         {entry.role === 'agent' ? viewingCall.agentName : 'You'}
                       </div>
-                      <div className="tcv-msg-text">{entry.text}</div>
+                      <div className="text-foreground">{entry.text}</div>
                     </div>
                   )}
                 </div>
@@ -604,15 +605,19 @@ export default function TestCallView({ agentId, agentName, leadName, token, prov
   }
 
   return (
-    <div className="tcv-overlay">
+    <div className="fixed inset-0 z-50 bg-background flex flex-col">
       {/* ── Header ── */}
-      <div className="tcv-header">
-        <button className="tcv-back-btn" onClick={() => { doCleanup(); onClose(); }}>
-          <Icon name="arrow-left" size={14} /> Back
+      <div className="flex items-center gap-3 px-6 py-4 border-b border-border shrink-0">
+        <button className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground" onClick={() => { doCleanup(); onClose(); }}>
+          <ArrowLeft className="size-3.5" /> Back
         </button>
-        <div className="tcv-agent-name">{agentName}</div>
-        <div className="tcv-timer">
-          <div className={`tcv-status-dot ${status}`} />
+        <span className="text-sm font-medium text-foreground">{agentName}</span>
+        <div className="flex items-center gap-2 text-sm text-muted-foreground ml-auto">
+          <span className={cn("size-2 rounded-full", 
+            status === 'active' ? "bg-green-500" : 
+            status === 'connecting' ? "bg-yellow-500 animate-pulse" : 
+            status === 'error' ? "bg-red-500" : "bg-muted-foreground"
+          )} />
           {status === 'active' && <span>{fmtTime(callTime)}</span>}
           {status === 'connecting' && <span>Connecting…</span>}
           {status === 'ended' && <span>Ended · {fmtTime(callTime)}</span>}
@@ -621,31 +626,30 @@ export default function TestCallView({ agentId, agentName, leadName, token, prov
         {/* History button */}
         {callHistory.length > 0 && (
           <button
-            className={`tcv-history-toggle ${showHistory ? 'active' : ''}`}
+            className={cn("flex items-center gap-1.5 text-sm px-2 py-1 rounded-md transition-colors", showHistory ? "bg-accent text-foreground" : "text-muted-foreground hover:bg-accent hover:text-foreground")}
             onClick={() => setShowHistory(prev => !prev)}
             title="Call History"
           >
-            <Icon name="clock" size={14} />
-            <span className="tcv-history-count">{callHistory.length}</span>
+            <Clock className="size-3.5" /> <span className="text-xs">{callHistory.length}</span>
           </button>
         )}
         {status === 'active' && (
-          <button className="tcv-end-btn" onClick={endCall}>
-            <Icon name="phone-off" size={13} /> End Call
+          <button className="flex items-center gap-1.5 bg-red-500 text-white rounded-md px-3 py-1.5 text-sm font-medium hover:bg-red-600" onClick={endCall}>
+            <PhoneOff className="size-3.5" /> End Call
           </button>
         )}
         {(status === 'ended' || status === 'error') && (
-          <button className="tcv-close-btn" onClick={onClose}>
-            <Icon name="x" size={14} /> Close
+          <button className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground" onClick={onClose}>
+            <X className="size-3.5" /> Close
           </button>
         )}
       </div>
 
       {/* ── Body ── */}
-      <div className="tcv-body">
+      <div className="flex-1 flex overflow-hidden">
         {/* Left — Orb + Controls (ElevenLabs) or Vapi iframe */}
-        <div className="tcv-orb-panel">
-            <div className="tcv-orb-wrapper">
+        <div className="flex-1 flex flex-col items-center justify-center">
+            <div className="w-48 h-48">
               <VoicePoweredOrb
                 audioLevelRef={audioLevelRef}
                 hue={isVapiCall ? 210 : 0}
@@ -656,35 +660,37 @@ export default function TestCallView({ agentId, agentName, leadName, token, prov
 
             {/* Speaking indicator */}
             {status === 'active' && (
-              <div className="tcv-speaking-indicator">
-                <div className="tcv-speaking-bars">
-                  <span /><span /><span /><span /><span />
+              <div className="flex items-center gap-2 mt-6 text-sm text-muted-foreground">
+                <div className="flex items-center gap-0.5 h-4">
+                  {[...Array(5)].map((_, i) => (
+                    <span key={i} className="w-0.5 bg-foreground/40 rounded-full animate-pulse" style={{height: `${8 + (i % 3) * 4}px`, animationDelay: `${i * 0.1}s`}} />
+                  ))}
                 </div>
-                <span className="tcv-speaking-label">Listening…</span>
+                <span>Listening…</span>
               </div>
             )}
 
             {/* Controls */}
-            <div className="tcv-controls">
+            <div className="flex items-center gap-4 mt-8">
               {status === 'active' && (
                 <>
-                  <button className={`tcv-mute-btn ${isMuted ? 'muted' : ''}`} onClick={toggleMute} title={isMuted ? 'Unmute' : 'Mute'}>
-                    <Icon name={isMuted ? 'mic-off' : 'mic'} size={18} />
+                  <button className={cn("flex size-12 items-center justify-center rounded-full border transition-colors", isMuted ? "border-red-500/50 bg-red-500/10 text-red-400" : "border-border bg-card text-foreground hover:bg-accent")} onClick={toggleMute} title={isMuted ? 'Unmute' : 'Mute'}>
+                    {isMuted ? <MicOff className="size-5" /> : <Mic className="size-5" />}
                   </button>
-                  <button className="tcv-hangup-btn" onClick={endCall} title="End Call">
-                    <Icon name="phone-off" size={18} />
+                  <button className="flex size-12 items-center justify-center rounded-full bg-red-500 text-white hover:bg-red-600" onClick={endCall} title="End Call">
+                    <PhoneOff className="size-5" />
                   </button>
                 </>
               )}
               {status === 'connecting' && (
-                <div className="tcv-connecting-label">
-                  <div className="spinner" style={{ width: 16, height: 16 }} />
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <div className="size-4 border-2 border-muted-foreground border-t-transparent rounded-full animate-spin" />
                   Requesting microphone…
                 </div>
               )}
               {(status === 'ended' || status === 'error') && (
-                <button className="tcv-new-call-btn" onClick={onClose}>
-                  <Icon name="arrow-left" size={14} /> Back to Agent
+                <button className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground" onClick={onClose}>
+                  <ArrowLeft className="size-3.5" /> Back to Agent
                 </button>
               )}
             </div>
@@ -692,47 +698,43 @@ export default function TestCallView({ agentId, agentName, leadName, token, prov
 
         {/* Right — Transcript (live or history drawer) */}
         {showHistory ? (
-          <div className="tcv-transcript-panel">
-            <div className="tcv-transcript-header">
-              <Icon name="clock" size={14} /> Call History
-              <button className="tcv-history-close" onClick={() => setShowHistory(false)}>
-                <Icon name="x" size={12} />
+          <div className="w-96 border-l border-border flex flex-col bg-card">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+              <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                <Clock className="size-3.5" /> Call History
+              </div>
+              <button onClick={() => setShowHistory(false)} className="text-muted-foreground hover:text-foreground">
+                <X className="size-3.5" />
               </button>
             </div>
-            <div className="tcv-history-list">
+            <div className="flex-1 overflow-y-auto">
               {callHistory.length === 0 ? (
-                <div className="tcv-transcript-empty">No past calls yet</div>
+                <div className="text-sm text-muted-foreground text-center py-8">No past calls yet</div>
               ) : (
                 callHistory.map((call) => (
-                  <div key={call.id} className="tcv-history-item" onClick={() => { setViewingCall(call); setShowHistory(false); }}>
-                    <div className="tcv-history-item-top">
-                      <div className="tcv-history-item-icon"><Icon name="phone" size={12} /></div>
-                      <div className="tcv-history-item-info">
-                        <span className="tcv-history-item-name">{call.agentName}</span>
-                        <span className="tcv-history-item-lead">Lead: {call.leadName}</span>
-                      </div>
-                      <span className="tcv-history-item-time">{relativeTime(call.timestamp)}</span>
+                  <div key={call.id} className="px-4 py-3 border-b border-border cursor-pointer hover:bg-accent transition-colors" onClick={() => { setViewingCall(call); setShowHistory(false); }}>
+                    <div className="flex items-center gap-2">
+                      <Phone className="size-3 text-muted-foreground" />
+                      <span className="text-sm font-medium text-foreground">{call.agentName}</span>
+                      <span className="text-xs text-muted-foreground ml-auto">{relativeTime(call.timestamp)}</span>
                     </div>
-                    <div className="tcv-history-item-bottom">
-                      <span className="tcv-history-item-duration">
-                        <Icon name="clock" size={10} /> {fmtTime(call.duration)}
-                      </span>
-                      <span className="tcv-history-item-msgs">
-                        {call.transcript.filter(e => e.role !== 'system').length} messages
-                      </span>
+                    <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
+                      <span>Lead: {call.leadName}</span>
+                      <span className="flex items-center gap-1"><Clock className="size-2.5" />{fmtTime(call.duration)}</span>
+                      <span>{call.transcript.filter(e => e.role !== 'system').length} messages</span>
                       <button
-                        className="tcv-history-item-delete"
+                        className="ml-auto text-muted-foreground hover:text-red-400"
                         onClick={(e) => { e.stopPropagation(); handleDeleteHistory(call.id); }}
                         title="Delete"
                       >
-                        <Icon name="trash-2" size={11} />
+                        <Trash2 className="size-3" />
                       </button>
                     </div>
                     {/* Preview — first agent message */}
                     {(() => {
                       const firstAgent = call.transcript.find(e => e.role === 'agent');
                       return firstAgent ? (
-                        <div className="tcv-history-item-preview">
+                        <div className="mt-1 text-xs text-muted-foreground/60 truncate italic">
                           &quot;{firstAgent.text.length > 80 ? firstAgent.text.slice(0, 80) + '…' : firstAgent.text}&quot;
                         </div>
                       ) : null;
@@ -743,25 +745,25 @@ export default function TestCallView({ agentId, agentName, leadName, token, prov
             </div>
           </div>
         ) : (
-          <div className="tcv-transcript-panel">
-            <div className="tcv-transcript-header">
-              <Icon name="message-square" size={14} /> Transcript
+          <div className="w-96 border-l border-border flex flex-col bg-card">
+            <div className="flex items-center gap-2 px-4 py-3 border-b border-border text-sm font-medium text-foreground">
+              <MessageSquare className="size-3.5" /> Transcript
             </div>
-            <div className="tcv-transcript-body">
+            <div className="flex-1 overflow-y-auto p-4 space-y-3">
               {transcript.length === 0 && (
-                <div className="tcv-transcript-empty">Waiting for conversation…</div>
+                <div className="text-sm text-muted-foreground text-center py-8">Waiting for conversation…</div>
               )}
               {transcript.map((entry, i) => (
-                <div key={i} className={`tcv-msg ${entry.role}`}>
+                <div key={i}>
                   {entry.role === 'system' ? (
-                    <div className="tcv-msg-system">{entry.text}</div>
+                    <div className="text-xs text-muted-foreground text-center py-1">{entry.text}</div>
                   ) : (
-                    <div className="tcv-msg-bubble">
-                      <div className="tcv-msg-role">
-                        <Icon name={entry.role === 'agent' ? 'bot' : 'user'} size={12} />
+                    <div className={cn("rounded-lg p-3 text-sm", entry.role === 'agent' ? "bg-accent" : "bg-muted")}>
+                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1">
+                        {entry.role === 'agent' ? <Bot className="size-3" /> : <User className="size-3" />}
                         {entry.role === 'agent' ? agentName : 'You'}
                       </div>
-                      <div className="tcv-msg-text">{entry.text}</div>
+                      <div className="text-foreground">{entry.text}</div>
                     </div>
                   )}
                 </div>

@@ -189,7 +189,7 @@ export function Sidebar() {
       {/* Sidebar */}
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex w-56 flex-col bg-card border-r border-border transition-transform duration-200 md:translate-x-0 md:static md:z-auto",
+          "fixed inset-y-0 left-0 z-50 flex w-56 flex-col bg-card border-r border-border transition-transform duration-200 md:translate-x-0 md:sticky md:top-0 md:h-screen md:z-auto",
           mobileOpen ? "translate-x-0" : "-translate-x-full"
         )}
         aria-label="Dashboard navigation"

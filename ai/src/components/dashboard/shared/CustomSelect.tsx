@@ -2,6 +2,8 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
+import { ChevronDown } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 /**
  * CustomSelect — dark-themed dropdown replacement for native <select>.
@@ -111,40 +113,34 @@ export function CustomSelect({
       }
     }}>
       <DropdownMenu.Trigger asChild disabled={disabled}>
-        <div className={`custom-select ${small ? 'small' : ''} ${disabled ? 'disabled' : ''} ${open ? 'is-open' : ''}`}>
-          <div className="custom-select-trigger">
-            <span className={selectedOption ? '' : 'placeholder'} style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
-              {selectedOption?.provider && (
-                <span className="cs-provider-dot" style={{ background: providerColor(selectedOption.provider) }} />
-              )}
-              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{displayLabel}</span>
-              {selectedOption?.latency_ms != null && selectedOption.latency_ms > 0 && (
-                <span className={`cs-latency-badge ${selectedOption.latency_ms <= 250 ? 'cs-latency-fast' : selectedOption.latency_ms <= 500 ? 'cs-latency-med' : 'cs-latency-slow'}`}>~{selectedOption.latency_ms}ms</span>
-              )}
-              {selectedOption?.context_window && (
-                <span className="cs-badge cs-badge-ctx">{formatTokens(selectedOption.context_window)} ctx</span>
-              )}
-            </span>
-            <svg
-              width="10"
-              height="10"
-              viewBox="0 0 10 10"
-              style={{
-                transform: open ? 'rotate(180deg)' : 'rotate(0deg)',
-                transition: 'transform 0.15s ease',
-                opacity: 0.4,
-                flexShrink: 0,
-              }}
-            >
-              <path d="M2 3.5L5 6.5L8 3.5" stroke="currentColor" strokeWidth="1.5" fill="none" />
-            </svg>
-          </div>
+        <div className={cn(
+          "flex items-center justify-between rounded-md border border-border bg-background px-3 py-2 text-sm cursor-pointer hover:border-muted-foreground/50 transition-colors",
+          small && "py-1.5 text-xs",
+          disabled && "opacity-50 cursor-not-allowed",
+          open && "border-ring"
+        )}>
+          <span className="flex items-center gap-1.5 min-w-0 truncate">
+            {selectedOption?.provider && (
+              <span className="size-2 rounded-full shrink-0" style={{ background: providerColor(selectedOption.provider) }} />
+            )}
+            <span className={cn("truncate", !selectedOption && "text-muted-foreground")}>{displayLabel}</span>
+            {selectedOption?.latency_ms != null && selectedOption.latency_ms > 0 && (
+              <span className={cn(
+                "text-[10px] px-1.5 py-0.5 rounded-full",
+                selectedOption.latency_ms <= 250 ? 'bg-green-500/10 text-green-500' : selectedOption.latency_ms <= 500 ? 'bg-yellow-500/10 text-yellow-500' : 'bg-red-500/10 text-red-500'
+              )}>~{selectedOption.latency_ms}ms</span>
+            )}
+            {selectedOption?.context_window && (
+              <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">{formatTokens(selectedOption.context_window)} ctx</span>
+            )}
+          </span>
+          <ChevronDown className={cn("size-3.5 text-muted-foreground shrink-0 transition-transform", open && "rotate-180")} />
         </div>
       </DropdownMenu.Trigger>
 
       <DropdownMenu.Portal>
         <DropdownMenu.Content
-          className={`custom-select-dropdown ${hasRichMeta ? 'rich' : ''}`}
+          className="z-50 rounded-md border border-border bg-card shadow-lg overflow-hidden max-h-72 overflow-y-auto"
           align="start"
           sideOffset={6}
           style={{ width: 'var(--radix-dropdown-menu-trigger-width)' }}
@@ -155,10 +151,10 @@ export function CustomSelect({
         >
           {/* Search within dropdown */}
           {options.length > 6 && (
-            <div className="cs-search-wrap" onClick={e => e.stopPropagation()} onKeyDown={e => e.stopPropagation()}>
+            <div className="p-2 border-b border-border" onClick={e => e.stopPropagation()} onKeyDown={e => e.stopPropagation()}>
               <input
                 ref={searchRef}
-                className="cs-search"
+                className="w-full rounded-md border border-border bg-background px-3 py-1.5 text-sm placeholder:text-muted-foreground focus:outline-none"
                 placeholder="Search..."
                 value={search}
                 onChange={e => setSearch(e.target.value)}
@@ -172,36 +168,37 @@ export function CustomSelect({
             const maxTokStr = formatTokens(opt.max_tokens);
             const isIncompat = !!opt.incompatible;
 
-            let latencyClass = '';
-            if (opt.latency_ms) {
-              if (opt.latency_ms <= 250) latencyClass = 'cs-latency-fast';
-              else if (opt.latency_ms <= 500) latencyClass = 'cs-latency-med';
-              else latencyClass = 'cs-latency-slow';
-            }
-
             return (
               <DropdownMenu.Item
                 key={opt.value}
-                className={`custom-select-option ${isSelected ? 'selected' : ''} ${hasRichMeta ? 'rich' : ''} ${isIncompat ? 'incompatible' : ''}`}
+                className={cn(
+                  "px-3 py-2 text-sm cursor-pointer outline-none",
+                  "hover:bg-accent focus:bg-accent",
+                  isSelected && "bg-accent font-medium",
+                  isIncompat && "opacity-50"
+                )}
                 onSelect={(e) => {
                   e.preventDefault(); // allow us to handle state
                   onChange({ target: { value: opt.value } });
                   setOpen(false);
                 }}
               >
-                <div className="cs-opt-main">
-                  <div className="cs-opt-label-row">
+                <div className="flex flex-col gap-1">
+                  <div className="flex items-center gap-1.5">
                     {opt.provider && (
-                      <span className="cs-provider-dot" style={{ background: providerColor(opt.provider) }} />
+                      <span className="size-2 rounded-full shrink-0" style={{ background: providerColor(opt.provider) }} />
                     )}
-                    <span className="cs-opt-label">{opt.label}</span>
+                    <span className="truncate">{opt.label}</span>
                     {opt.latency_ms != null && opt.latency_ms > 0 && (
-                      <span className={`cs-latency-badge ${latencyClass}`} title={`Estimated first-token latency`}>
+                      <span className={cn(
+                        "text-[10px] px-1.5 py-0.5 rounded-full",
+                        opt.latency_ms <= 250 ? 'bg-green-500/10 text-green-500' : opt.latency_ms <= 500 ? 'bg-yellow-500/10 text-yellow-500' : 'bg-red-500/10 text-red-500'
+                      )} title={`Estimated first-token latency`}>
                         ~{opt.latency_ms}ms
                       </span>
                     )}
                     {opt.provider && (
-                      <span className="cs-provider-tag" style={{ color: providerColor(opt.provider), borderColor: providerColor(opt.provider) }}>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded border" style={{ color: providerColor(opt.provider), borderColor: providerColor(opt.provider) }}>
                         {opt.provider}
                       </span>
                     )}
@@ -209,19 +206,19 @@ export function CustomSelect({
 
                   {/* Metadata badges row */}
                   {hasRichMeta && (
-                    <div className="cs-opt-meta">
-                      {ctxStr && <span className="cs-badge" title="Context window">{ctxStr} ctx</span>}
-                      {maxTokStr && <span className="cs-badge" title="Max output tokens">{maxTokStr} out</span>}
-                      {opt.supports_image && <span className="cs-badge cs-badge-cap" title="Image input">🖼️</span>}
-                      {opt.supports_document && <span className="cs-badge cs-badge-cap" title="Document input">📄</span>}
-                      {opt.supports_parallel_tools && <span className="cs-badge cs-badge-cap" title="Parallel tools">⚡</span>}
+                    <div className="flex flex-wrap items-center gap-1 mt-1">
+                      {ctxStr && <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded" title="Context window">{ctxStr} ctx</span>}
+                      {maxTokStr && <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded" title="Max output tokens">{maxTokStr} out</span>}
+                      {opt.supports_image && <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded" title="Image input">🖼️</span>}
+                      {opt.supports_document && <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded" title="Document input">📄</span>}
+                      {opt.supports_parallel_tools && <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded" title="Parallel tools">⚡</span>}
                       {opt.language_count != null && opt.language_count > 0 && (
-                        <span className="cs-badge" title="Supported languages">{opt.language_count} lang{opt.language_count !== 1 ? 's' : ''}</span>
+                        <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded" title="Supported languages">{opt.language_count} lang{opt.language_count !== 1 ? 's' : ''}</span>
                       )}
                       {isIncompat && opt.incompatible_reason && (
-                        <span className="cs-badge cs-badge-warn">{opt.incompatible_reason}</span>
+                        <span className="text-[10px] text-red-400 bg-red-400/10 px-1.5 py-0.5 rounded">{opt.incompatible_reason}</span>
                       )}
-                      {opt.description && <span className="cs-opt-desc">{opt.description}</span>}
+                      {opt.description && <span className="text-xs text-muted-foreground w-full truncate block mt-0.5">{opt.description}</span>}
                     </div>
                   )}
                 </div>
@@ -230,7 +227,7 @@ export function CustomSelect({
           })}
 
           {filtered.length === 0 && (
-            <div style={{ padding: '12px 14px', fontSize: 12, color: 'var(--text-quaternary)', textAlign: 'center' }}>No matches</div>
+            <div className="py-3 text-center text-xs text-muted-foreground">No matches</div>
           )}
         </DropdownMenu.Content>
       </DropdownMenu.Portal>

@@ -1,7 +1,8 @@
 'use client';
 
 import { useRef, useState, useCallback, useEffect, useMemo } from 'react';
-import { Icon } from './dashboard/shared/Icon';
+import { Play, Pause, MicOff, Volume2, Volume1, VolumeX, Download } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
 
@@ -52,7 +53,6 @@ export default function AudioPlayer({
   const [prevVolume, setPrevVolume] = useState(1);
   const [speed, setSpeed] = useState(1);
   const [isDragging, setIsDragging] = useState(false);
-  const [isHovering, setIsHovering] = useState(false);
 
   const waveform = useMemo(() => generateWaveform(BAR_COUNT), []);
 
@@ -197,13 +197,9 @@ export default function AudioPlayer({
   // No recording state
   if (!loading && (error || !src)) {
     return (
-      <div className="ap-container ap-no-recording">
-        <div className="ap-no-recording-inner">
-          <div className="ap-no-icon">
-            <Icon name="mic-off" size={18} />
-          </div>
-          <span>No recording available for this conversation</span>
-        </div>
+      <div className="rounded-lg border border-border bg-card p-6 text-center">
+        <MicOff className="size-5 text-muted-foreground mx-auto mb-2" />
+        <span className="text-sm text-muted-foreground">No recording available</span>
       </div>
     );
   }
@@ -211,20 +207,16 @@ export default function AudioPlayer({
   // Loading state
   if (loading) {
     return (
-      <div className="ap-container ap-loading-state">
-        <div className="ap-loading-inner">
-          <div className="ap-loading-pulse"></div>
-          <span>Loading high-quality audio...</span>
-        </div>
+      <div className="rounded-lg border border-border bg-card p-6 text-center">
+        <div className="size-5 rounded-full border-2 border-muted-foreground border-t-transparent animate-spin mx-auto mb-2" />
+        <span className="text-sm text-muted-foreground">Loading audio...</span>
       </div>
     );
   }
 
   return (
     <div 
-      className="ap-container"
-      onMouseEnter={() => setIsHovering(true)} 
-      onMouseLeave={() => setIsHovering(false)}
+      className="rounded-lg border border-border bg-card p-4"
       tabIndex={0}
       onKeyDown={(e) => {
         if (e.code === 'Space') {
@@ -245,21 +237,21 @@ export default function AudioPlayer({
         />
       )}
 
-      <div className="ap-main-row">
+      <div className="flex items-center gap-3">
         {/* Play Button */}
         <button 
-          className="ap-play-btn"
+          className="flex size-9 items-center justify-center rounded-full bg-foreground text-background hover:bg-foreground/90 transition-colors shrink-0"
           onClick={togglePlay} 
           disabled={!src}
         >
-          <Icon name={isPlaying ? 'pause' : 'play'} size={20} className={isPlaying ? '' : 'ml-1'} />
+          {isPlaying ? <Pause className="size-4" /> : <Play className="size-4 ml-0.5" />}
         </button>
 
-        <div className="ap-time ap-time-current">{fmtTime(currentTime)}</div>
+        <span className="text-xs text-muted-foreground tabular-nums w-10 text-right">{fmtTime(currentTime)}</span>
 
         {/* Waveform Area */}
         <div
-          className="ap-waveform"
+          className="flex-1 flex items-center gap-px h-12 cursor-pointer"
           ref={progressRef}
           onMouseDown={(e) => {
             setIsDragging(true);
@@ -272,30 +264,28 @@ export default function AudioPlayer({
             return (
               <div
                 key={i}
-                className={`ap-bar ${isPlayed ? 'played' : ''}`}
+                className={cn(
+                  "flex-1 rounded-full transition-colors",
+                  isPlayed ? "bg-foreground" : "bg-muted-foreground/30"
+                )}
                 style={{ height: `${Math.max(12, h * 100)}%` }}
               />
             );
           })}
-          {/* Playhead indicator */}
-          <div 
-            className="ap-playhead" 
-            style={{ left: `${progress}%` }} 
-          />
         </div>
 
-        <div className="ap-time ap-time-total">{fmtTime(effectiveDuration)}</div>
+        <span className="text-xs text-muted-foreground tabular-nums w-10">{fmtTime(effectiveDuration)}</span>
       </div>
 
-      {/* Controls Row (visible on hover) */}
-      <div className={`ap-controls-row ${isHovering || isDragging ? 'visible' : ''}`}>
-        <button className="ap-speed-btn" onClick={cycleSpeed} title="Playback speed">
+      {/* Controls Row */}
+      <div className="flex items-center gap-3 mt-3 pt-3 border-t border-border">
+        <button className="text-xs text-muted-foreground hover:text-foreground px-2 py-1 rounded-md hover:bg-accent transition-colors" onClick={cycleSpeed} title="Playback speed">
           {speed}x Speed
         </button>
 
-        <div className="ap-volume-group">
-          <button className="ap-vol-btn" onClick={toggleMute} title={volume === 0 ? 'Unmute' : 'Mute'}>
-            <Icon name={volume === 0 ? 'volume-x' : volume < 0.5 ? 'volume-1' : 'volume-2'} size={16} />
+        <div className="flex items-center gap-2">
+          <button className="text-muted-foreground hover:text-foreground" onClick={toggleMute} title={volume === 0 ? 'Unmute' : 'Mute'}>
+            {volume === 0 ? <VolumeX className="size-4" /> : volume < 0.5 ? <Volume1 className="size-4" /> : <Volume2 className="size-4" />}
           </button>
           <input
             type="range"
@@ -304,18 +294,14 @@ export default function AudioPlayer({
             step={0.05}
             value={volume}
             onChange={handleVolumeChange}
-            className="ap-vol-slider"
-            style={{
-              background: `linear-gradient(to right, var(--text-secondary) ${(volume * 100)}%, rgba(255,255,255,0.1) ${(volume * 100)}%)`
-            }}
+            className="w-20 h-1 accent-foreground"
           />
         </div>
 
-        <div className="ap-controls-spacer" />
+        <div className="flex-1" />
 
-        <button className="ap-download-btn" onClick={handleDownload} title="Download recording">
-          <Icon name="download" size={14} />
-          Download
+        <button className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground px-2 py-1 rounded-md hover:bg-accent transition-colors" onClick={handleDownload} title="Download recording">
+          <Download className="size-3.5" /> Download
         </button>
       </div>
     </div>
