@@ -5,11 +5,15 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
 import { useToast } from '@/components/dashboard/shared/ToastProvider';
-import { Icon } from '@/components/dashboard/shared/Icon';
+import { cn } from '@/lib/utils';
+import { 
+  Plus, Layers, Radio, PhoneOutgoing, CheckCircle, 
+  ChevronUp, ChevronDown, Play, Pause, Square, Copy, 
+  Megaphone, TrendingUp, TrendingDown, Minus, X
+} from 'lucide-react';
 import { EmptyState } from '@/components/dashboard/shared/EmptyState';
 import { ConfirmModal } from '@/components/dashboard/shared/ConfirmModal';
 import { SkeletonRows } from '@/components/dashboard/shared/SkeletonRows';
-import '@/styles/dashboard.css';
 
 interface CampaignStats {
   total?: number;
@@ -266,20 +270,18 @@ export default function CampaignsPage() {
     const s = (status || '').toLowerCase();
     switch (s) {
       case 'draft':
-        return <span className="badge draft">DRAFT</span>;
       case 'scheduled':
-        return <span className="badge scheduled">SCHEDULED</span>;
-      case 'running':
-        return <span className="badge running">RUNNING</span>;
-      case 'paused':
-        return <span className="badge paused">PAUSED</span>;
       case 'completed':
-        return <span className="badge completed">COMPLETED</span>;
+        return <span className="bg-blue-500/10 text-blue-400 rounded-full px-2 py-0.5 text-xs font-medium capitalize">{s}</span>;
+      case 'running':
+        return <span className="bg-emerald-500/10 text-emerald-400 rounded-full px-2 py-0.5 text-xs font-medium capitalize">{s}</span>;
+      case 'paused':
+        return <span className="bg-yellow-500/10 text-yellow-400 rounded-full px-2 py-0.5 text-xs font-medium capitalize">{s}</span>;
       case 'cancelled':
       case 'failed':
-        return <span className="badge danger">{s.toUpperCase()}</span>;
+        return <span className="bg-red-500/10 text-red-400 rounded-full px-2 py-0.5 text-xs font-medium capitalize">{s}</span>;
       default:
-        return <span className="badge neutral">{status.toUpperCase()}</span>;
+        return <span className="bg-muted text-muted-foreground rounded-full px-2 py-0.5 text-xs font-medium capitalize">{status}</span>;
     }
   };
 
@@ -306,7 +308,6 @@ export default function CampaignsPage() {
     { key: 'sun', label: 'Sun' },
   ];
 
-  // Top-level summary metrics across all campaigns
   const totalCampaigns = Array.isArray(campaigns) ? campaigns.length : 0;
   const activeDialers = Array.isArray(campaigns)
     ? campaigns.filter((c) => (c.status || '').toLowerCase() === 'running').length
@@ -323,208 +324,196 @@ export default function CampaignsPage() {
 
   const summaryCards = [
     {
-      label: 'Total Campaigns',
+      label: 'Total campaigns',
       value: totalCampaigns,
-      icon: 'layers',
+      icon: Layers,
       trend: totalCampaigns > 0 ? 'up' : 'neutral',
-      trendLabel: totalCampaigns > 0 ? `${totalCampaigns} Configured` : 'None',
+      trendLabel: totalCampaigns > 0 ? `${totalCampaigns} configured` : 'None',
     },
     {
-      label: 'Active Dialers',
+      label: 'Active dialers',
       value: activeDialers,
-      icon: 'radio',
+      icon: Radio,
       trend: activeDialers > 0 ? 'up' : 'neutral',
-      trendLabel: activeDialers > 0 ? `${activeDialers} Active` : 'Idle',
+      trendLabel: activeDialers > 0 ? `${activeDialers} active` : 'Idle',
     },
     {
-      label: 'Calls Dispatched',
+      label: 'Calls dispatched',
       value: callsDispatched.toLocaleString(),
-      icon: 'phone-outgoing',
+      icon: PhoneOutgoing,
       trend: callsDispatched > 0 ? 'up' : 'neutral',
       trendLabel: callsDispatched > 0 ? 'Dispatched' : 'Zero',
     },
     {
-      label: 'Answer Rate',
+      label: 'Answer rate',
       value: `${globalAnswerRate}%`,
-      icon: 'check-circle',
+      icon: CheckCircle,
       trend: globalAnswerRate >= 50 ? 'up' : globalAnswerRate > 0 ? 'neutral' : 'down',
-      trendLabel: globalAnswerRate >= 50 ? 'Optimal' : globalAnswerRate > 0 ? 'Normal' : 'No Data',
+      trendLabel: globalAnswerRate >= 50 ? 'Optimal' : globalAnswerRate > 0 ? 'Normal' : 'No data',
     },
   ];
 
   return (
-    <div className="page-body">
-      <div className="page-content">
-        <div className="page-title-section">
-          <div>
-            <h2>Campaigns</h2>
-            <p>Automated outbound call sequences with smart retry algorithms</p>
-          </div>
-          <div className="page-actions">
-            <button className="btn btn-primary" onClick={openWizard}>
-              <Icon name="plus" size={14} /> New Campaign
-            </button>
-          </div>
+    <div className="max-w-7xl mx-auto px-6 py-6">
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Campaigns</h1>
+          <p className="text-sm text-muted-foreground mt-1">Automated outbound call sequences with smart retry algorithms</p>
         </div>
-
-        {/* Top-Level Summary Metric Cards */}
-        <div className="stat-card-grid" style={{ padding: '0 32px 24px' }}>
-          {summaryCards.map((card, i) => (
-            <div key={i} className="stat-card" style={{ animationDelay: `${i * 60}ms` }}>
-              <div className="stat-card-header">
-                <span className="stat-card-label">{card.label}</span>
-                <div className="stat-card-icon"><Icon name={card.icon} size={16} /></div>
-              </div>
-              <div className="stat-card-value">{card.value}</div>
-              <span className={`stat-card-trend ${card.trend}`}>
-                <Icon name={card.trend === 'up' ? 'trending-up' : card.trend === 'down' ? 'trending-down' : 'minus'} size={11} />
-                {card.trendLabel}
-              </span>
-            </div>
-          ))}
+        <div>
+          <button className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md px-4 py-2 text-sm font-medium inline-flex items-center gap-2" onClick={openWizard}>
+            <Plus size={16} /> New Campaign
+          </button>
         </div>
-
-        {loading ? (
-          <div style={{ padding: '24px 32px' }}>
-            <SkeletonRows count={4} />
-          </div>
-        ) : !Array.isArray(campaigns) || campaigns.length === 0 ? (
-          <div style={{ padding: '32px' }}>
-            <EmptyState
-              icon="megaphone"
-              title="No campaigns yet"
-              description="Create automated outbound campaigns to reach your contacts at scale."
-              action="New Campaign"
-              onAction={openWizard}
-            />
-          </div>
-        ) : (
-          <div style={{ padding: '0 32px 32px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            {Array.isArray(campaigns) && campaigns.map((camp) => {
-              const totalCount = calculateTotalContacts(camp);
-              const completedCount = camp.stats?.completed ?? camp.calls_completed ?? 0;
-              const answeredCount = camp.stats?.answered ?? camp.calls_answered ?? 0;
-              const failedCount = camp.stats?.failed ?? camp.calls_failed ?? 0;
-              const answerRate = totalCount > 0 ? Math.round((answeredCount / totalCount) * 100) : 0;
-              const isExpanded = expandedId === camp.id;
-              const s = (camp.status || '').toLowerCase();
-
-              return (
-                <div
-                  key={camp.id}
-                  style={{
-                    background: 'rgba(18, 20, 24, 0.7)',
-                    backdropFilter: 'blur(12px)',
-                    WebkitBackdropFilter: 'blur(12px)',
-                    border: '1px solid rgba(255, 255, 255, 0.08)',
-                    boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 4px 20px rgba(0, 0, 0, 0.2)',
-                    borderRadius: '12px',
-                    overflow: 'hidden',
-                    transition: 'border-color 0.2s ease, box-shadow 0.2s ease',
-                  }}
-                >
-                  <div
-                    onClick={() => setExpandedId(isExpanded ? null : camp.id)}
-                    style={{
-                      padding: '18px 24px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      cursor: 'pointer',
-                      background: isExpanded ? 'rgba(255, 255, 255, 0.03)' : 'transparent',
-                    }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                      {getStatusBadge(camp.status)}
-                      <div>
-                        <h3 style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>
-                          {camp.name}
-                        </h3>
-                        <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: '4px 0 0' }}>
-                          {completedCount} completed • {answeredCount} answered ({answerRate}%)
-                          {camp.description && ` • ${camp.description}`}
-                        </p>
-                      </div>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', color: 'var(--text-tertiary)' }}>
-                      <Icon name={isExpanded ? 'chevron-up' : 'chevron-down'} size={18} />
-                    </div>
-                  </div>
-
-                  {isExpanded && (
-                    <div style={{ padding: '20px 24px', borderTop: '1px solid rgba(255, 255, 255, 0.06)', background: 'rgba(12, 14, 18, 0.7)' }}>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '16px', marginBottom: '20px' }}>
-                        <div style={{ padding: '16px', borderRadius: '10px', background: 'rgba(18, 20, 24, 0.7)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', border: '1px solid rgba(255, 255, 255, 0.08)', boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 4px 16px rgba(0, 0, 0, 0.2)' }}>
-                          <div style={{ fontSize: '11px', color: 'var(--text-secondary, #94a3b8)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>Progress</div>
-                          <div style={{ fontSize: '22px', fontWeight: 700, color: '#ffffff', marginTop: '6px', letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums' }}>
-                            {completedCount} <span style={{ fontSize: '13px', fontWeight: 400, color: 'var(--text-secondary, #94a3b8)' }}>/ {totalCount}</span>
-                          </div>
-                        </div>
-                        <div style={{ padding: '16px', borderRadius: '10px', background: 'rgba(18, 20, 24, 0.7)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', border: '1px solid rgba(255, 255, 255, 0.08)', boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 4px 16px rgba(0, 0, 0, 0.2)' }}>
-                          <div style={{ fontSize: '11px', color: 'var(--text-secondary, #94a3b8)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>Answer Rate</div>
-                          <div style={{ fontSize: '22px', fontWeight: 700, color: '#34d399', marginTop: '6px', letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums' }}>
-                            {answerRate}%
-                          </div>
-                        </div>
-                        <div style={{ padding: '16px', borderRadius: '10px', background: 'rgba(18, 20, 24, 0.7)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', border: '1px solid rgba(255, 255, 255, 0.08)', boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 4px 16px rgba(0, 0, 0, 0.2)' }}>
-                          <div style={{ fontSize: '11px', color: 'var(--text-secondary, #94a3b8)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>Failed / No Answer</div>
-                          <div style={{ fontSize: '22px', fontWeight: 700, color: failedCount > 0 ? '#f87171' : 'var(--text-secondary, #94a3b8)', marginTop: '6px', letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums' }}>
-                            {failedCount}
-                          </div>
-                        </div>
-                        <div style={{ padding: '16px', borderRadius: '10px', background: 'rgba(18, 20, 24, 0.7)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', border: '1px solid rgba(255, 255, 255, 0.08)', boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 4px 16px rgba(0, 0, 0, 0.2)' }}>
-                          <div style={{ fontSize: '11px', color: 'var(--text-secondary, #94a3b8)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>Concurrency Limit</div>
-                          <div style={{ fontSize: '22px', fontWeight: 700, color: '#ffffff', marginTop: '6px', letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums' }}>
-                            {camp.max_concurrent || 1} <span style={{ fontSize: '13px', fontWeight: 400, color: 'var(--text-secondary, #94a3b8)' }}>line{(camp.max_concurrent || 1) > 1 ? 's' : ''}</span>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
-                        {['draft', 'paused', 'scheduled'].includes(s) && (
-                          <button
-                            className="btn btn-sm btn-primary"
-                            onClick={(e) => { e.stopPropagation(); handleAction(camp.id, 'start'); }}
-                            disabled={actionLoading === `${camp.id}-start`}
-                          >
-                            <Icon name="play" size={13} /> Start Campaign
-                          </button>
-                        )}
-                        {s === 'running' && (
-                          <button
-                            className="btn btn-sm btn-secondary"
-                            onClick={(e) => { e.stopPropagation(); handleAction(camp.id, 'pause'); }}
-                            disabled={actionLoading === `${camp.id}-pause`}
-                          >
-                            <Icon name="pause" size={13} /> Pause
-                          </button>
-                        )}
-                        {['running', 'paused', 'scheduled'].includes(s) && (
-                          <button
-                            className="btn btn-sm btn-danger"
-                            onClick={(e) => { e.stopPropagation(); setConfirmCancelTarget(camp); }}
-                          >
-                            <Icon name="square" size={13} /> Cancel Campaign
-                          </button>
-                        )}
-                        <button
-                          className="btn btn-sm btn-secondary"
-                          onClick={(e) => { e.stopPropagation(); handleAction(camp.id, 'duplicate'); }}
-                          disabled={actionLoading === `${camp.id}-duplicate`}
-                        >
-                          <Icon name="copy" size={13} /> Duplicate
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
       </div>
 
-      {/* Confirmation Modal for Cancel Campaign */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        {summaryCards.map((card, i) => {
+          const IconComponent = card.icon;
+          return (
+            <div key={i} className="rounded-lg border border-border bg-card p-6">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm text-muted-foreground">{card.label}</span>
+                <IconComponent size={16} className="text-muted-foreground" />
+              </div>
+              <div className="text-2xl font-semibold font-mono tabular-nums mb-1">{card.value}</div>
+              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                {card.trend === 'up' ? <TrendingUp size={12} className="text-emerald-500" /> : card.trend === 'down' ? <TrendingDown size={12} className="text-red-500" /> : <Minus size={12} />}
+                <span>{card.trendLabel}</span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {loading ? (
+        <SkeletonRows count={4} />
+      ) : !Array.isArray(campaigns) || campaigns.length === 0 ? (
+        <EmptyState
+          icon={Megaphone}
+          title="No campaigns yet"
+          description="Create automated outbound campaigns to reach your contacts at scale."
+          action={<button onClick={openWizard} className="bg-foreground text-background hover:bg-foreground/90 rounded-md px-4 py-2 text-sm font-medium">New Campaign</button>}
+        />
+      ) : (
+        <div className="flex flex-col gap-4">
+          {Array.isArray(campaigns) && campaigns.map((camp) => {
+            const totalCount = calculateTotalContacts(camp);
+            const completedCount = camp.stats?.completed ?? camp.calls_completed ?? 0;
+            const answeredCount = camp.stats?.answered ?? camp.calls_answered ?? 0;
+            const failedCount = camp.stats?.failed ?? camp.calls_failed ?? 0;
+            const answerRate = totalCount > 0 ? Math.round((answeredCount / totalCount) * 100) : 0;
+            const isExpanded = expandedId === camp.id;
+            const s = (camp.status || '').toLowerCase();
+            const percentage = totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
+
+            return (
+              <div key={camp.id} className="rounded-lg border border-border bg-card">
+                <div
+                  onClick={() => setExpandedId(isExpanded ? null : camp.id)}
+                  className={cn(
+                    "flex items-center justify-between p-4 cursor-pointer transition-colors",
+                    isExpanded ? "bg-accent/50 rounded-t-lg" : "hover:bg-accent/50 rounded-lg"
+                  )}
+                >
+                  <div className="flex items-center gap-4">
+                    {getStatusBadge(camp.status)}
+                    <div>
+                      <h3 className="text-base font-semibold">{camp.name}</h3>
+                      <p className="text-sm text-muted-foreground mt-0.5">
+                        {completedCount} completed • {answeredCount} answered ({answerRate}%)
+                        {camp.description && ` • ${camp.description}`}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-muted-foreground">
+                    {isExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                  </div>
+                </div>
+
+                {isExpanded && (
+                  <div className="p-6 border-t border-border bg-card rounded-b-lg">
+                    
+                    <div className="mb-6">
+                      <div className="flex justify-between text-sm mb-2">
+                        <span className="text-muted-foreground">Campaign progress</span>
+                        <span className="font-mono tabular-nums">{completedCount} / {totalCount}</span>
+                      </div>
+                      <div className="h-2 rounded-full bg-muted">
+                        <div className="h-2 rounded-full bg-emerald-500 transition-all" style={{ width: `${percentage}%` }} />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                      <div className="rounded-lg border border-border bg-background p-4">
+                        <div className="text-xs text-muted-foreground uppercase tracking-wider font-medium mb-1">Progress</div>
+                        <div className="text-xl font-semibold font-mono tabular-nums">
+                          {completedCount} <span className="text-sm font-normal text-muted-foreground">/ {totalCount}</span>
+                        </div>
+                      </div>
+                      <div className="rounded-lg border border-border bg-background p-4">
+                        <div className="text-xs text-muted-foreground uppercase tracking-wider font-medium mb-1">Answer rate</div>
+                        <div className="text-xl font-semibold font-mono tabular-nums text-emerald-500">
+                          {answerRate}%
+                        </div>
+                      </div>
+                      <div className="rounded-lg border border-border bg-background p-4">
+                        <div className="text-xs text-muted-foreground uppercase tracking-wider font-medium mb-1">Failed / No answer</div>
+                        <div className={cn("text-xl font-semibold font-mono tabular-nums", failedCount > 0 ? "text-red-500" : "text-muted-foreground")}>
+                          {failedCount}
+                        </div>
+                      </div>
+                      <div className="rounded-lg border border-border bg-background p-4">
+                        <div className="text-xs text-muted-foreground uppercase tracking-wider font-medium mb-1">Concurrency limit</div>
+                        <div className="text-xl font-semibold font-mono tabular-nums">
+                          {camp.max_concurrent || 1} <span className="text-sm font-normal text-muted-foreground">line{(camp.max_concurrent || 1) > 1 ? 's' : ''}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap gap-2">
+                      {['draft', 'paused', 'scheduled'].includes(s) && (
+                        <button
+                          className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md px-4 py-2 text-sm font-medium inline-flex items-center gap-2"
+                          onClick={(e) => { e.stopPropagation(); handleAction(camp.id, 'start'); }}
+                          disabled={actionLoading === `${camp.id}-start`}
+                        >
+                          <Play size={14} /> Start Campaign
+                        </button>
+                      )}
+                      {s === 'running' && (
+                        <button
+                          className="text-muted-foreground hover:text-foreground hover:bg-accent rounded-md px-3 py-2 text-sm inline-flex items-center gap-2 border border-border"
+                          onClick={(e) => { e.stopPropagation(); handleAction(camp.id, 'pause'); }}
+                          disabled={actionLoading === `${camp.id}-pause`}
+                        >
+                          <Pause size={14} /> Pause
+                        </button>
+                      )}
+                      {['running', 'paused', 'scheduled'].includes(s) && (
+                        <button
+                          className="bg-red-600 text-white hover:bg-red-700 rounded-md px-4 py-2 text-sm font-medium inline-flex items-center gap-2"
+                          onClick={(e) => { e.stopPropagation(); setConfirmCancelTarget(camp); }}
+                        >
+                          <Square size={14} /> Cancel Campaign
+                        </button>
+                      )}
+                      <button
+                        className="text-muted-foreground hover:text-foreground hover:bg-accent rounded-md px-3 py-2 text-sm inline-flex items-center gap-2 border border-border"
+                        onClick={(e) => { e.stopPropagation(); handleAction(camp.id, 'duplicate'); }}
+                        disabled={actionLoading === `${camp.id}-duplicate`}
+                      >
+                        <Copy size={14} /> Duplicate
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       {confirmCancelTarget && (
         <ConfirmModal
           title="Cancel Campaign"
@@ -540,83 +529,66 @@ export default function CampaignsPage() {
         />
       )}
 
-      {/* New Campaign Wizard Modal */}
       {isWizardOpen && (
-        <div className="modal-overlay" onClick={closeWizard}>
-          <div
-            className="modal-container"
-            onClick={(e) => e.stopPropagation()}
-            style={{ maxWidth: '640px', width: '100%' }}
-          >
-            <div className="modal-header">
-              <Icon name="megaphone" size={16} />
-              <span>New Campaign — Step {wizardStep} of 6</span>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-2xl rounded-lg border border-border bg-card p-6" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold flex items-center gap-2">
+                <Megaphone size={18} />
+                New Campaign — Step {wizardStep} of 6
+              </h2>
+              <button onClick={closeWizard} className="text-muted-foreground hover:text-foreground">
+                <X size={20} />
+              </button>
             </div>
 
-            {/* Step indicator bar */}
-            <div style={{ display: 'flex', gap: '4px', padding: '0 24px', margin: '12px 0 6px' }}>
+            <div className="flex gap-1 mb-6">
               {[1, 2, 3, 4, 5, 6].map((st) => (
                 <div
                   key={st}
-                  style={{
-                    flex: 1,
-                    height: '3px',
-                    borderRadius: '2px',
-                    background: st <= wizardStep ? 'var(--brand-accent)' : 'var(--border-subtle)',
-                    transition: 'background var(--transition)',
-                  }}
+                  className={cn(
+                    "h-1.5 flex-1 rounded-full transition-colors",
+                    st <= wizardStep ? "bg-primary" : "bg-muted"
+                  )}
                 />
               ))}
             </div>
 
-            <div className="modal-body" style={{ maxHeight: '60vh', overflowY: 'auto' }}>
+            <div className="max-h-[60vh] overflow-y-auto mb-6 pr-2">
               {wizardStep === 1 && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                  <div className="form-group">
-                    <label className="form-label">Campaign Name *</label>
+                <div className="flex flex-col gap-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-1.5 text-foreground">Campaign name *</label>
                     <input
                       type="text"
-                      className="form-input"
+                      className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
                       placeholder="e.g. Q3 Sales Re-engagement"
                       value={wizardData.name}
                       onChange={(e) => setWizardData({ ...wizardData, name: e.target.value })}
                       autoFocus
                     />
                   </div>
-                  <div className="form-group">
-                    <label className="form-label">Description (Optional)</label>
+                  <div>
+                    <label className="block text-sm font-medium mb-1.5 text-foreground">Description (Optional)</label>
                     <textarea
-                      className="form-input"
+                      className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring min-h-[100px]"
                       placeholder="Objective or notes for this sequence..."
                       value={wizardData.description}
                       onChange={(e) => setWizardData({ ...wizardData, description: e.target.value })}
-                      rows={3}
-                      style={{ resize: 'vertical' }}
                     />
                   </div>
                 </div>
               )}
 
               {wizardStep === 2 && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <label className="form-label">Select Target Contacts</label>
-                    <span style={{ fontSize: '12px', color: 'var(--brand-accent)' }}>
-                      {wizardData.contactIds.length} selected
-                    </span>
+                <div className="flex flex-col gap-4">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-sm font-medium text-foreground">Select target contacts</label>
+                    <span className="text-sm text-primary font-medium">{wizardData.contactIds.length} selected</span>
                   </div>
-                  <div
-                    style={{
-                      maxHeight: '260px',
-                      overflowY: 'auto',
-                      border: '1px solid var(--border-subtle)',
-                      borderRadius: 'var(--radius-md)',
-                      background: 'var(--bg-input)',
-                      padding: '8px',
-                    }}
-                  >
+                  <div className="max-h-[300px] overflow-y-auto rounded-md border border-border bg-background p-2">
                     {!Array.isArray(contacts) || contacts.length === 0 ? (
-                      <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-tertiary)', fontSize: '13px' }}>
+                      <div className="p-6 text-center text-sm text-muted-foreground">
                         No contacts found. Please add contacts from the Contacts tab first.
                       </div>
                     ) : (
@@ -626,18 +598,14 @@ export default function CampaignsPage() {
                         return (
                           <label
                             key={c.id}
-                            style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '10px',
-                              padding: '8px 10px',
-                              borderRadius: 'var(--radius-sm)',
-                              cursor: 'pointer',
-                              background: isChecked ? 'var(--bg-hover)' : 'transparent',
-                            }}
+                            className={cn(
+                              "flex items-center gap-3 p-2 rounded-md cursor-pointer transition-colors",
+                              isChecked ? "bg-accent/50" : "hover:bg-accent/50"
+                            )}
                           >
                             <input
                               type="checkbox"
+                              className="rounded border-border bg-background text-primary focus:ring-primary"
                               checked={isChecked}
                               onChange={(e) => {
                                 const ids = e.target.checked
@@ -646,8 +614,8 @@ export default function CampaignsPage() {
                                 setWizardData({ ...wizardData, contactIds: ids });
                               }}
                             />
-                            <span style={{ fontSize: '13px', color: 'var(--text-primary)', flex: 1 }}>{displayName}</span>
-                            <span style={{ fontSize: '12px', color: 'var(--text-tertiary)', fontFamily: 'var(--font-mono)' }}>{c.phone}</span>
+                            <span className="text-sm flex-1">{displayName}</span>
+                            <span className="text-xs text-muted-foreground font-mono">{c.phone}</span>
                           </label>
                         );
                       })
@@ -657,14 +625,12 @@ export default function CampaignsPage() {
               )}
 
               {wizardStep === 3 && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                  <div className="form-group">
-                    <label className="form-label">Calling Agent *</label>
-                    <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '8px' }}>
-                      Choose the AI agent that will handle these outbound calls.
-                    </div>
+                <div className="flex flex-col gap-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-1 text-foreground">Calling agent *</label>
+                    <p className="text-xs text-muted-foreground mb-3">Choose the AI agent that will handle these outbound calls.</p>
                     <select
-                      className="form-input"
+                      className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
                       value={wizardData.agentId}
                       onChange={(e) => setWizardData({ ...wizardData, agentId: e.target.value })}
                     >
@@ -683,14 +649,12 @@ export default function CampaignsPage() {
               )}
 
               {wizardStep === 4 && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                  <div className="form-group">
-                    <label className="form-label">Outbound Phone Number *</label>
-                    <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '8px' }}>
-                      Select the verified telephony caller ID number.
-                    </div>
+                <div className="flex flex-col gap-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-1 text-foreground">Outbound phone number *</label>
+                    <p className="text-xs text-muted-foreground mb-3">Select the verified telephony caller ID number.</p>
                     <select
-                      className="form-input"
+                      className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
                       value={wizardData.phoneNumberId}
                       onChange={(e) => setWizardData({ ...wizardData, phoneNumberId: e.target.value })}
                     >
@@ -710,13 +674,13 @@ export default function CampaignsPage() {
               )}
 
               {wizardStep === 5 && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
-                    <div className="form-group">
-                      <label className="form-label">Start Date</label>
+                <div className="flex flex-col gap-6">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium mb-1.5 text-foreground">Start date</label>
                       <input
                         type="date"
-                        className="form-input"
+                        className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
                         value={wizardData.schedule.startDate}
                         onChange={(e) =>
                           setWizardData({
@@ -726,11 +690,11 @@ export default function CampaignsPage() {
                         }
                       />
                     </div>
-                    <div className="form-group">
-                      <label className="form-label">End Date</label>
+                    <div>
+                      <label className="block text-sm font-medium mb-1.5 text-foreground">End date</label>
                       <input
                         type="date"
-                        className="form-input"
+                        className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
                         value={wizardData.schedule.endDate}
                         onChange={(e) =>
                           setWizardData({
@@ -742,12 +706,12 @@ export default function CampaignsPage() {
                     </div>
                   </div>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
-                    <div className="form-group">
-                      <label className="form-label">Daily Window Start</label>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium mb-1.5 text-foreground">Daily window start</label>
                       <input
                         type="time"
-                        className="form-input"
+                        className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
                         value={wizardData.schedule.startTime}
                         onChange={(e) =>
                           setWizardData({
@@ -757,11 +721,11 @@ export default function CampaignsPage() {
                         }
                       />
                     </div>
-                    <div className="form-group">
-                      <label className="form-label">Daily Window End</label>
+                    <div>
+                      <label className="block text-sm font-medium mb-1.5 text-foreground">Daily window end</label>
                       <input
                         type="time"
-                        className="form-input"
+                        className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
                         value={wizardData.schedule.endTime}
                         onChange={(e) =>
                           setWizardData({
@@ -773,9 +737,9 @@ export default function CampaignsPage() {
                     </div>
                   </div>
 
-                  <div className="form-group">
-                    <label className="form-label">Calling Days</label>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '6px' }}>
+                  <div>
+                    <label className="block text-sm font-medium mb-2 text-foreground">Calling days</label>
+                    <div className="flex flex-wrap gap-2">
                       {dayOptions.map((d) => {
                         const isSelected = wizardData.schedule.days.includes(d.key);
                         return (
@@ -791,7 +755,12 @@ export default function CampaignsPage() {
                                 schedule: { ...wizardData.schedule, days: newDays },
                               });
                             }}
-                            className={isSelected ? 'btn btn-sm btn-primary' : 'btn btn-sm btn-secondary'}
+                            className={cn(
+                              "rounded-md px-3 py-1.5 text-sm font-medium transition-colors border",
+                              isSelected 
+                                ? "bg-primary text-primary-foreground border-primary" 
+                                : "bg-transparent text-muted-foreground border-border hover:border-muted-foreground"
+                            )}
                           >
                             {d.label}
                           </button>
@@ -803,15 +772,15 @@ export default function CampaignsPage() {
               )}
 
               {wizardStep === 6 && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
-                    <div className="form-group">
-                      <label className="form-label">Concurrent Call Lines</label>
+                <div className="flex flex-col gap-6">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium mb-1.5 text-foreground">Concurrent call lines</label>
                       <input
                         type="number"
                         min="1"
                         max="20"
-                        className="form-input"
+                        className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
                         value={wizardData.limits.maxConcurrent}
                         onChange={(e) =>
                           setWizardData({
@@ -821,12 +790,12 @@ export default function CampaignsPage() {
                         }
                       />
                     </div>
-                    <div className="form-group">
-                      <label className="form-label">Max Calls / Hour</label>
+                    <div>
+                      <label className="block text-sm font-medium mb-1.5 text-foreground">Max calls / hour</label>
                       <input
                         type="number"
                         min="1"
-                        className="form-input"
+                        className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
                         value={wizardData.limits.maxCallsPerHour}
                         onChange={(e) =>
                           setWizardData({
@@ -838,37 +807,35 @@ export default function CampaignsPage() {
                     </div>
                   </div>
 
-                  <div style={{ padding: '16px', background: 'var(--bg-card)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)' }}>
-                    <h4 style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '10px' }}>
-                      Sequence Summary
-                    </h4>
-                    <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr', gap: '8px', fontSize: '12px' }}>
-                      <span style={{ color: 'var(--text-tertiary)' }}>Name:</span>
-                      <span style={{ color: 'var(--text-primary)' }}>{wizardData.name || '—'}</span>
-                      <span style={{ color: 'var(--text-tertiary)' }}>Contacts:</span>
-                      <span style={{ color: 'var(--text-primary)' }}>{wizardData.contactIds.length} target leads</span>
-                      <span style={{ color: 'var(--text-tertiary)' }}>Agent:</span>
-                      <span style={{ color: 'var(--text-primary)' }}>
+                  <div className="rounded-lg border border-border bg-background p-4">
+                    <h4 className="text-sm font-medium mb-3">Sequence summary</h4>
+                    <div className="grid grid-cols-[120px_1fr] gap-y-2 text-sm">
+                      <span className="text-muted-foreground">Name:</span>
+                      <span>{wizardData.name || '—'}</span>
+                      <span className="text-muted-foreground">Contacts:</span>
+                      <span>{wizardData.contactIds.length} target leads</span>
+                      <span className="text-muted-foreground">Agent:</span>
+                      <span>
                         {agents.find((a) => (a.agent_id || a.id) === wizardData.agentId)?.name || 'Not selected'}
                       </span>
-                      <span style={{ color: 'var(--text-tertiary)' }}>Phone Number:</span>
-                      <span style={{ color: 'var(--text-primary)' }}>
+                      <span className="text-muted-foreground">Phone number:</span>
+                      <span>
                         {phoneNumbers.find((n) => n.id === wizardData.phoneNumberId)?.phone_number ||
                           phoneNumbers.find((n) => n.id === wizardData.phoneNumberId)?.number ||
                           'Not selected'}
                       </span>
-                      <span style={{ color: 'var(--text-tertiary)' }}>Calling Days:</span>
-                      <span style={{ color: 'var(--text-primary)' }}>{wizardData.schedule.days.join(', ').toUpperCase()}</span>
+                      <span className="text-muted-foreground">Calling days:</span>
+                      <span>{wizardData.schedule.days.join(', ').toUpperCase()}</span>
                     </div>
                   </div>
                 </div>
               )}
             </div>
 
-            <div className="modal-footer" style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <div className="flex justify-between items-center mt-6">
               <button
                 type="button"
-                className="btn btn-secondary"
+                className="text-muted-foreground hover:text-foreground hover:bg-accent rounded-md px-4 py-2 text-sm font-medium"
                 onClick={() => (wizardStep > 1 ? setWizardStep((s) => s - 1) : closeWizard())}
               >
                 {wizardStep === 1 ? 'Cancel' : 'Back'}
@@ -877,7 +844,7 @@ export default function CampaignsPage() {
               {wizardStep < 6 ? (
                 <button
                   type="button"
-                  className="btn btn-primary"
+                  className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md px-4 py-2 text-sm font-medium"
                   onClick={() => {
                     if (wizardStep === 1 && !wizardData.name.trim()) {
                       addToast('Please enter a campaign name', 'error');
@@ -886,12 +853,12 @@ export default function CampaignsPage() {
                     setWizardStep((s) => s + 1);
                   }}
                 >
-                  Next Step
+                  Next step
                 </button>
               ) : (
                 <button
                   type="button"
-                  className="btn btn-primary"
+                  className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md px-4 py-2 text-sm font-medium disabled:opacity-50"
                   disabled={submittingWizard}
                   onClick={submitWizard}
                 >
@@ -905,4 +872,3 @@ export default function CampaignsPage() {
     </div>
   );
 }
-

@@ -5,11 +5,8 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/auth-context';
 import { api } from '@/lib/api';
 import { useToast } from '@/components/dashboard/shared/ToastProvider';
-import { ConfirmModal } from '@/components/dashboard/shared/ConfirmModal';
-import { CustomSelect } from '@/components/dashboard/shared/CustomSelect';
-import { EmptyState } from '@/components/EmptyState';
-import { Search, Plus, Upload, Download, Trash2, Edit2, MoreVertical, X, PhoneOff, Phone, Loader2 } from 'lucide-react';
-import '@/styles/dashboard.css';
+import { Search, Plus, Upload, Download, Trash2, Edit2, X, PhoneOff, Phone, Loader2, Users } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface Contact {
   id: number;
@@ -339,7 +336,7 @@ export default function ContactsPage() {
   };
 
   const statusOptions = [
-    { value: '', label: 'All Statuses' },
+    { value: '', label: 'All statuses' },
     { value: 'active', label: 'Active' },
     { value: 'lead', label: 'Lead' },
     { value: 'customer', label: 'Customer' },
@@ -349,15 +346,15 @@ export default function ContactsPage() {
   const totalPages = Math.max(1, Math.ceil(total / limit));
 
   return (
-    <div className="dashboard-content">
-      <div className="page-title-section mb-6">
+    <div className="max-w-7xl mx-auto px-6 py-6 space-y-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="page-title">Contacts</h1>
-          <p className="page-subtitle">Manage your leads, customers, and outreach targets</p>
+          <h1 className="text-2xl font-semibold tracking-tight">Contacts</h1>
+          <p className="text-sm text-muted-foreground mt-1">Manage your leads, customers, and outreach targets</p>
         </div>
         <div className="flex items-center gap-3 flex-wrap">
           <button 
-            className="btn-secondary flex items-center gap-2" 
+            className="text-muted-foreground hover:text-foreground hover:bg-accent rounded-md px-3 py-2 text-sm flex items-center gap-2 border border-border" 
             onClick={handleExport}
             disabled={exporting}
           >
@@ -365,29 +362,28 @@ export default function ContactsPage() {
             {exporting ? 'Exporting...' : 'Export CSV'}
           </button>
           <button 
-            className="btn-secondary flex items-center gap-2" 
+            className="text-muted-foreground hover:text-foreground hover:bg-accent rounded-md px-3 py-2 text-sm flex items-center gap-2 border border-border" 
             onClick={() => setIsImportModalOpen(true)}
           >
             <Upload size={16} /> Import CSV
           </button>
           <button 
-            className="btn-primary flex items-center gap-2" 
+            className="bg-foreground text-background hover:bg-foreground/90 rounded-md px-4 py-2 text-sm font-medium flex items-center gap-2" 
             onClick={openNewModal}
           >
-            <Plus size={16} /> Add Contact
+            <Plus size={16} /> Add contact
           </button>
         </div>
       </div>
 
-      <div className="border border-white/[0.08] rounded-lg overflow-hidden  p-4 mb-6">
+      <div className="rounded-lg border border-border bg-card p-4">
         <div className="flex flex-col md:flex-row gap-4 justify-between items-center">
           <div className="relative flex-1 w-full md:max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={16} />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" size={16} />
             <input
               type="text"
               placeholder="Search by name, phone, or email..."
-              className="form-input w-full bg-input"
-              style={{ paddingLeft: '38px' }}
+              className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring pl-9"
               value={search}
               onChange={(e) => {
                 setSearch(e.target.value);
@@ -398,149 +394,153 @@ export default function ContactsPage() {
           <div className="flex gap-3 w-full md:w-auto items-center justify-between md:justify-end">
             {selectedIds.size > 0 && (
               <button 
-                className="bg-red-500/20 text-red-400 hover:bg-red-500/30 px-3 py-1.5 rounded-md text-xs font-medium flex items-center gap-1.5 transition-colors border border-red-500/30"
+                className="bg-red-600 text-white hover:bg-red-700 rounded-md px-4 py-2 text-sm font-medium flex items-center gap-2"
                 onClick={() => setShowBulkDeleteModal(true)}
               >
-                <Trash2 size={14} /> Delete Selected ({selectedIds.size})
+                <Trash2 size={16} /> Delete selected ({selectedIds.size})
               </button>
             )}
             <div className="w-44">
-              <CustomSelect
+              <select
+                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
                 value={statusFilter}
                 onChange={(e) => {
                   setStatusFilter(e.target.value);
                   setPage(1);
                 }}
-                options={statusOptions}
-                small
-              />
+              >
+                {statusOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="border border-white/[0.08] rounded-lg overflow-hidden ">
-        <div className="table-responsive">
-          <table className="w-full text-left border-collapse">
-            <thead className="bg-white/[0.02] border-b border-white/[0.08]">
-              <tr className="h-11">
-                <th className="py-3.5 px-4 w-[48px]">
-                  <input 
-                    type="checkbox" 
-                    checked={isAllCurrentPageSelected}
-                    onChange={toggleSelectAll}
-                    className="rounded border-gray-600 bg-transparent cursor-pointer"
-                  />
-                </th>
-                <th className="py-3.5 px-4 text-xs font-semibold tracking-wider uppercase text-[var(--text-secondary)]">Name</th>
-                <th className="py-3.5 px-4 text-xs font-semibold tracking-wider uppercase text-[var(--text-secondary)]">Phone & Email</th>
-                <th className="py-3.5 px-4 text-xs font-semibold tracking-wider uppercase text-[var(--text-secondary)]">Company</th>
-                <th className="py-3.5 px-4 text-xs font-semibold tracking-wider uppercase text-[var(--text-secondary)]">Status</th>
-                <th className="py-3.5 px-4 text-xs font-semibold tracking-wider uppercase text-[var(--text-secondary)] text-right">Actions</th>
+      <div className="rounded-lg border border-border bg-card overflow-x-auto">
+        <table className="w-full text-left divide-y divide-border">
+          <thead>
+            <tr>
+              <th className="px-4 py-3 w-[48px]">
+                <input 
+                  type="checkbox" 
+                  checked={isAllCurrentPageSelected}
+                  onChange={toggleSelectAll}
+                  className="rounded border-muted-foreground/30 bg-background focus:ring-ring cursor-pointer"
+                />
+              </th>
+              <th className="text-left font-medium text-muted-foreground px-4 py-3 text-sm">Name</th>
+              <th className="text-left font-medium text-muted-foreground px-4 py-3 text-sm">Phone & email</th>
+              <th className="text-left font-medium text-muted-foreground px-4 py-3 text-sm">Company</th>
+              <th className="text-left font-medium text-muted-foreground px-4 py-3 text-sm">Status</th>
+              <th className="text-right font-medium text-muted-foreground px-4 py-3 text-sm">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border">
+            {loading ? (
+              <tr>
+                <td colSpan={6} className="py-12 px-4 text-center text-muted-foreground">
+                  <div className="flex items-center justify-center gap-2">
+                    <Loader2 size={18} className="animate-spin" />
+                    <span className="text-sm">Loading contacts...</span>
+                  </div>
+                </td>
               </tr>
-            </thead>
-            <tbody className="divide-y divide-white/[0.06]">
-              {loading ? (
-                <tr>
-                  <td colSpan={6} className="py-12 px-4 text-center text-secondary">
-                    <div className="flex items-center justify-center gap-2">
-                      <Loader2 size={18} className="animate-spin text-accent" />
-                      <span>Loading contacts...</span>
+            ) : !Array.isArray(contacts) || contacts.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="py-12 px-4">
+                  <div className="flex flex-col items-center justify-center text-center">
+                    <Users className="h-8 w-8 text-muted-foreground mb-3" />
+                    <h3 className="text-lg font-medium">{search || statusFilter ? "No contacts match search" : "No contacts yet"}</h3>
+                    <p className="text-sm text-muted-foreground mt-1 mb-4">{search || statusFilter ? "No contacts match your current search or status filter." : "Start building your contact lists by adding contacts manually or importing a CSV file."}</p>
+                    {!(search || statusFilter) && (
+                      <button 
+                        className="bg-foreground text-background hover:bg-foreground/90 rounded-md px-4 py-2 text-sm font-medium flex items-center gap-2"
+                        onClick={openNewModal}
+                      >
+                        <Plus size={16} /> Add contact
+                      </button>
+                    )}
+                  </div>
+                </td>
+              </tr>
+            ) : (
+              Array.isArray(contacts) && contacts.map((contact) => (
+                <tr key={contact.id} className="hover:bg-accent/50 transition-colors group">
+                  <td className="px-4 py-3">
+                    <input 
+                      type="checkbox" 
+                      checked={selectedIds.has(contact.id)}
+                      onChange={() => toggleSelect(contact.id)}
+                      className="rounded border-muted-foreground/30 bg-background focus:ring-ring cursor-pointer"
+                    />
+                  </td>
+                  <td className="px-4 py-3 text-sm">
+                    <div className="font-medium flex items-center gap-2">
+                      {contact.first_name} {contact.last_name || ''}
+                      {contact.do_not_call === 1 && (
+                        <span className="bg-red-500/10 text-red-400 text-[10px] px-2 py-0.5 rounded-full font-medium" title="Do Not Call">DNC</span>
+                      )}
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-sm">
+                    <div className="font-mono text-xs">{contact.phone}</div>
+                    {contact.email && <div className="text-xs text-muted-foreground mt-0.5">{contact.email}</div>}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-muted-foreground">{contact.company || '—'}</td>
+                  <td className="px-4 py-3 text-sm">
+                    <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-muted text-muted-foreground capitalize">
+                      {contact.status}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-sm text-right">
+                    <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button 
+                        onClick={() => toggleDnc(contact)}
+                        className={cn("p-1.5 rounded-md hover:bg-accent transition-colors", contact.do_not_call ? 'text-red-400 hover:text-red-500' : 'text-muted-foreground hover:text-foreground')}
+                        title={contact.do_not_call ? "Remove from Do Not Call" : "Mark as Do Not Call"}
+                      >
+                        {contact.do_not_call ? <PhoneOff size={16} /> : <Phone size={16} />}
+                      </button>
+                      <button 
+                        onClick={() => openEditModal(contact)}
+                        className="p-1.5 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+                        title="Edit contact"
+                      >
+                        <Edit2 size={16} />
+                      </button>
+                      <button 
+                        onClick={() => setDeleteTarget(contact)}
+                        className="p-1.5 rounded-md hover:bg-accent text-muted-foreground hover:text-red-400 transition-colors"
+                        title="Delete contact"
+                      >
+                        <Trash2 size={16} />
+                      </button>
                     </div>
                   </td>
                 </tr>
-              ) : !Array.isArray(contacts) || contacts.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="py-8 px-4">
-                    <EmptyState
-                      icon="users"
-                      title={search || statusFilter ? "No contacts match search" : "No contacts yet"}
-                      description={search || statusFilter ? "No contacts match your current search or status filter." : "Start building your contact lists by adding contacts manually or importing a CSV file."}
-                      action={search || statusFilter ? undefined : "Add Contact"}
-                      onAction={openNewModal}
-                    />
-                  </td>
-                </tr>
-              ) : (
-                Array.isArray(contacts) && contacts.map((contact) => (
-                  <tr key={contact.id} className="border-b border-white/[0.04] hover:bg-white/[0.02] transition-colors duration-150 group">
-                    <td className="py-3.5 px-4">
-                      <input 
-                        type="checkbox" 
-                        checked={selectedIds.has(contact.id)}
-                        onChange={() => toggleSelect(contact.id)}
-                        className="rounded border-gray-600 bg-transparent cursor-pointer"
-                      />
-                    </td>
-                    <td className="py-3.5 px-4">
-                      <div className="font-medium text-white flex items-center gap-2">
-                        {contact.first_name} {contact.last_name || ''}
-                        {contact.do_not_call === 1 && (
-                          <span className="bg-red-500/15 text-red-400 border border-red-500/20 text-[10px] px-2 py-0.5 rounded-full font-medium" title="Do Not Call">DNC</span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="py-3.5 px-4 text-sm text-gray-300">
-                      <div className="font-mono text-xs text-gray-200">{contact.phone}</div>
-                      {contact.email && <div className="text-xs text-gray-500 mt-0.5">{contact.email}</div>}
-                    </td>
-                    <td className="py-3.5 px-4 text-sm text-gray-400">{contact.company || '—'}</td>
-                    <td className="py-3.5 px-4">
-                      <span className="px-2.5 py-1 bg-white/[0.06] text-gray-300 border border-white/10 rounded-full text-xs capitalize font-medium">
-                        {contact.status}
-                      </span>
-                    </td>
-                    <td className="py-3.5 px-4 text-right">
-                      <div className="flex items-center justify-end gap-1 opacity-90 sm:opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button 
-                          onClick={() => toggleDnc(contact)}
-                          className={`p-1.5 rounded-md hover:bg-white/10 transition-colors ${contact.do_not_call ? 'text-red-400' : 'text-gray-400 hover:text-gray-200'}`}
-                          title={contact.do_not_call ? "Remove from Do Not Call" : "Mark as Do Not Call"}
-                        >
-                          {contact.do_not_call ? <PhoneOff size={15} /> : <Phone size={15} />}
-                        </button>
-                        <button 
-                          onClick={() => openEditModal(contact)}
-                          className="p-1.5 rounded-md hover:bg-white/10 text-gray-400 hover:text-white transition-colors"
-                          title="Edit Contact"
-                        >
-                          <Edit2 size={15} />
-                        </button>
-                        <button 
-                          onClick={() => setDeleteTarget(contact)}
-                          className="p-1.5 rounded-md hover:bg-white/10 text-gray-400 hover:text-red-400 transition-colors"
-                          title="Delete Contact"
-                        >
-                          <Trash2 size={15} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+              ))
+            )}
+          </tbody>
+        </table>
         
         {/* Pagination */}
         {totalPages > 1 && (
-          <div className="p-4 border-t border-white/[0.08] flex justify-between items-center bg-white/[0.01] text-xs text-secondary">
-            <div>
-              Showing <span className="text-white font-medium">{(page - 1) * limit + 1}</span> to <span className="text-white font-medium">{Math.min(page * limit, total)}</span> of <span className="text-white font-medium">{total}</span> contacts
-            </div>
-            <div className="flex items-center gap-2">
+          <div className="flex items-center justify-between px-4 py-3 border-t border-border">
+            <p className="text-sm text-muted-foreground">
+              Showing {(page - 1) * limit + 1} to {Math.min(page * limit, total)} of {total}
+            </p>
+            <div className="flex gap-1">
               <button 
-                className="btn-secondary py-1 px-3 text-xs"
                 disabled={page === 1}
                 onClick={() => setPage(p => Math.max(1, p - 1))}
+                className="text-muted-foreground hover:text-foreground hover:bg-accent rounded-md px-3 py-1 text-sm disabled:opacity-50"
               >
                 Previous
               </button>
-              <span className="px-2 text-gray-500">Page {page} of {totalPages}</span>
               <button 
-                className="btn-secondary py-1 px-3 text-xs"
                 disabled={page >= totalPages}
                 onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                className="text-muted-foreground hover:text-foreground hover:bg-accent rounded-md px-3 py-1 text-sm disabled:opacity-50"
               >
                 Next
               </button>
@@ -551,34 +551,34 @@ export default function ContactsPage() {
 
       {/* Add/Edit Modal */}
       {isModalOpen && (
-        <div className="modal-overlay" onClick={() => setIsModalOpen(false)}>
-          <div className="modal-container" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '520px' }}>
-            <div className="modal-header flex justify-between items-center">
-              <h2 className="text-base font-semibold text-white">{editingContact ? 'Edit Contact' : 'Add New Contact'}</h2>
-              <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-white transition-colors">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-lg rounded-lg border border-border bg-card p-6" onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-lg font-medium">{editingContact ? 'Edit contact' : 'Add new contact'}</h2>
+              <button onClick={() => setIsModalOpen(false)} className="text-muted-foreground hover:text-foreground transition-colors">
                 <X size={18} />
               </button>
             </div>
             
-            <form id="contact-form" onSubmit={handleSaveContact}>
-              <div className="modal-body space-y-4">
-                <div className="grid grid-cols-2 gap-3">
+            <form onSubmit={handleSaveContact}>
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="form-label text-xs text-gray-400 mb-1 block">First Name *</label>
+                    <label className="text-sm text-muted-foreground mb-1 block">First name *</label>
                     <input 
                       type="text" 
                       required
-                      className="form-input w-full bg-input"
+                      className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
                       value={formData.first_name}
                       onChange={(e) => setFormData({...formData, first_name: e.target.value})}
                       placeholder="e.g. Sarah"
                     />
                   </div>
                   <div>
-                    <label className="form-label text-xs text-gray-400 mb-1 block">Last Name</label>
+                    <label className="text-sm text-muted-foreground mb-1 block">Last name</label>
                     <input 
                       type="text" 
-                      className="form-input w-full bg-input"
+                      className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
                       value={formData.last_name}
                       onChange={(e) => setFormData({...formData, last_name: e.target.value})}
                       placeholder="e.g. Connor"
@@ -587,23 +587,23 @@ export default function ContactsPage() {
                 </div>
 
                 <div>
-                  <label className="form-label text-xs text-gray-400 mb-1 block">Phone Number (E.164) *</label>
+                  <label className="text-sm text-muted-foreground mb-1 block">Phone number (E.164) *</label>
                   <input 
                     type="text" 
                     required
                     placeholder="+1234567890"
-                    className="form-input w-full bg-input font-mono text-sm"
+                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground font-mono placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
                     value={formData.phone}
                     onChange={(e) => setFormData({...formData, phone: e.target.value})}
                   />
-                  <p className="text-[11px] text-gray-500 mt-1">Include country code with plus prefix (e.g. +1 for US/Canada)</p>
+                  <p className="text-xs text-muted-foreground mt-1">Include country code with plus prefix (e.g. +1 for US/Canada)</p>
                 </div>
 
                 <div>
-                  <label className="form-label text-xs text-gray-400 mb-1 block">Email</label>
+                  <label className="text-sm text-muted-foreground mb-1 block">Email</label>
                   <input 
                     type="email" 
-                    className="form-input w-full bg-input"
+                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
                     value={formData.email}
                     placeholder="sarah@example.com"
                     onChange={(e) => setFormData({...formData, email: e.target.value})}
@@ -611,10 +611,10 @@ export default function ContactsPage() {
                 </div>
 
                 <div>
-                  <label className="form-label text-xs text-gray-400 mb-1 block">Company</label>
+                  <label className="text-sm text-muted-foreground mb-1 block">Company</label>
                   <input 
                     type="text" 
-                    className="form-input w-full bg-input"
+                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
                     value={formData.company}
                     placeholder="Acme Inc."
                     onChange={(e) => setFormData({...formData, company: e.target.value})}
@@ -622,25 +622,24 @@ export default function ContactsPage() {
                 </div>
 
                 <div>
-                  <label className="form-label text-xs text-gray-400 mb-1 block">Status</label>
-                  <CustomSelect
+                  <label className="text-sm text-muted-foreground mb-1 block">Status</label>
+                  <select
+                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
                     value={formData.status}
                     onChange={(e) => setFormData({...formData, status: e.target.value})}
-                    options={[
-                      { value: 'active', label: 'Active' },
-                      { value: 'lead', label: 'Lead' },
-                      { value: 'customer', label: 'Customer' },
-                      { value: 'inactive', label: 'Inactive' },
-                    ]}
-                  />
+                  >
+                    {statusOptions.filter(o => o.value !== '').map(o => (
+                      <option key={o.value} value={o.value}>{o.label}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
               
-              <div className="modal-footer flex justify-end gap-3 mt-4">
-                <button type="button" className="btn-ghost" onClick={() => setIsModalOpen(false)}>Cancel</button>
-                <button type="submit" className="btn-primary flex items-center gap-2" disabled={saving}>
-                  {saving && <Loader2 size={15} className="animate-spin" />}
-                  {saving ? 'Saving...' : editingContact ? 'Save Changes' : 'Add Contact'}
+              <div className="flex justify-end gap-3 mt-6">
+                <button type="button" className="text-muted-foreground hover:text-foreground hover:bg-accent rounded-md px-3 py-2 text-sm" onClick={() => setIsModalOpen(false)}>Cancel</button>
+                <button type="submit" className="bg-foreground text-background hover:bg-foreground/90 rounded-md px-4 py-2 text-sm font-medium flex items-center gap-2" disabled={saving}>
+                  {saving && <Loader2 size={16} className="animate-spin" />}
+                  {saving ? 'Saving...' : editingContact ? 'Save changes' : 'Add contact'}
                 </button>
               </div>
             </form>
@@ -650,21 +649,21 @@ export default function ContactsPage() {
 
       {/* Import Modal */}
       {isImportModalOpen && (
-        <div className="modal-overlay" onClick={() => !importing && setIsImportModalOpen(false)}>
-          <div className="modal-container" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '480px' }}>
-            <div className="modal-header flex justify-between items-center">
-              <h2 className="text-base font-semibold text-white">Import Contacts from CSV</h2>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => !importing && setIsImportModalOpen(false)}>
+          <div className="w-full max-w-md rounded-lg border border-border bg-card p-6" onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-lg font-medium">Import contacts from CSV</h2>
               <button 
                 onClick={() => !importing && setIsImportModalOpen(false)} 
-                className="text-gray-400 hover:text-white transition-colors"
+                className="text-muted-foreground hover:text-foreground transition-colors"
                 disabled={importing}
               >
                 <X size={18} />
               </button>
             </div>
             
-            <div className="modal-body p-6">
-              <div className="border border-dashed border-white/20 rounded-lg p-8 text-center bg-base/50 hover:bg-white/[0.02] transition-colors relative cursor-pointer">
+            <div className="mb-6">
+              <div className="border-2 border-dashed border-border rounded-lg p-8 text-center bg-muted/20 hover:bg-muted/40 transition-colors relative cursor-pointer">
                 <input 
                   type="file" 
                   accept=".csv"
@@ -674,21 +673,21 @@ export default function ContactsPage() {
                 />
                 {importing ? (
                   <div className="flex flex-col items-center">
-                    <Loader2 className="mx-auto mb-3 text-accent animate-spin" size={32} />
-                    <p className="text-white font-medium text-sm">Processing and uploading contacts...</p>
+                    <Loader2 className="mx-auto mb-3 animate-spin text-muted-foreground" size={32} />
+                    <p className="font-medium text-sm">Processing and uploading contacts...</p>
                   </div>
                 ) : (
                   <>
-                    <Upload className="mx-auto mb-3 text-gray-400" size={30} />
-                    <p className="text-white font-medium text-sm mb-1">Click to browse or drop CSV file here</p>
-                    <p className="text-xs text-gray-500">Requires header with first_name and phone</p>
+                    <Upload className="mx-auto mb-3 text-muted-foreground" size={30} />
+                    <p className="font-medium text-sm mb-1">Click to browse or drop CSV file here</p>
+                    <p className="text-xs text-muted-foreground">Requires header with first_name and phone</p>
                   </>
                 )}
               </div>
               
-              <div className="mt-5 text-xs text-gray-400">
-                <p className="font-medium text-gray-300 mb-2">Supported CSV columns:</p>
-                <div className="bg-base p-3 rounded-lg border border-default font-mono text-[11px] text-gray-400 leading-relaxed">
+              <div className="mt-5 text-xs text-muted-foreground">
+                <p className="font-medium text-foreground mb-2">Supported CSV columns:</p>
+                <div className="bg-muted p-3 rounded-lg border border-border font-mono text-[11px] leading-relaxed">
                   first_name,last_name,phone,email,company<br/>
                   Sarah,Connor,+14155552671,sarah@example.com,Cyberdyne<br/>
                   John,Doe,+12125550199,john@example.com,Acme
@@ -696,10 +695,10 @@ export default function ContactsPage() {
               </div>
             </div>
 
-            <div className="modal-footer flex justify-end">
+            <div className="flex justify-end">
               <button 
                 type="button" 
-                className="btn-ghost" 
+                className="text-muted-foreground hover:text-foreground hover:bg-accent rounded-md px-4 py-2 text-sm font-medium border border-border" 
                 onClick={() => setIsImportModalOpen(false)}
                 disabled={importing}
               >
@@ -712,28 +711,55 @@ export default function ContactsPage() {
 
       {/* Delete Single Contact Confirm */}
       {deleteTarget && (
-        <ConfirmModal
-          title="Delete Contact"
-          message={`Are you sure you want to delete "${deleteTarget.first_name}${deleteTarget.last_name ? ' ' + deleteTarget.last_name : ''}" (${deleteTarget.phone})? This action cannot be undone.`}
-          confirmLabel="Delete Contact"
-          onConfirm={confirmDelete}
-          onCancel={() => setDeleteTarget(null)}
-          danger={true}
-        />
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-md rounded-lg border border-border bg-card p-6">
+            <h3 className="text-lg font-medium mb-2">Delete contact</h3>
+            <p className="text-sm text-muted-foreground mb-6">
+              Are you sure you want to delete "{deleteTarget.first_name}{deleteTarget.last_name ? ' ' + deleteTarget.last_name : ''}" ({deleteTarget.phone})? This action cannot be undone.
+            </p>
+            <div className="flex justify-end gap-3">
+              <button 
+                onClick={() => setDeleteTarget(null)}
+                className="text-muted-foreground hover:text-foreground hover:bg-accent rounded-md px-4 py-2 text-sm font-medium"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={confirmDelete}
+                className="bg-red-600 text-white hover:bg-red-700 rounded-md px-4 py-2 text-sm font-medium flex items-center gap-2"
+              >
+                Delete contact
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Bulk Delete Confirm */}
       {showBulkDeleteModal && (
-        <ConfirmModal
-          title="Delete Selected Contacts"
-          message={`Are you sure you want to permanently delete ${selectedIds.size} selected contact${selectedIds.size === 1 ? '' : 's'}?`}
-          confirmLabel={`Delete (${selectedIds.size})`}
-          onConfirm={confirmBulkDelete}
-          onCancel={() => setShowBulkDeleteModal(false)}
-          danger={true}
-        />
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-md rounded-lg border border-border bg-card p-6">
+            <h3 className="text-lg font-medium mb-2">Delete selected contacts</h3>
+            <p className="text-sm text-muted-foreground mb-6">
+              Are you sure you want to permanently delete {selectedIds.size} selected contact{selectedIds.size === 1 ? '' : 's'}?
+            </p>
+            <div className="flex justify-end gap-3">
+              <button 
+                onClick={() => setShowBulkDeleteModal(false)}
+                className="text-muted-foreground hover:text-foreground hover:bg-accent rounded-md px-4 py-2 text-sm font-medium"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={confirmBulkDelete}
+                className="bg-red-600 text-white hover:bg-red-700 rounded-md px-4 py-2 text-sm font-medium flex items-center gap-2"
+              >
+                Delete ({selectedIds.size})
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
 }
-

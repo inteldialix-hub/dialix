@@ -4,11 +4,8 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
-import { CustomSelect } from '@/components/dashboard/shared/CustomSelect';
-import { EmptyState } from '@/components/dashboard/shared/EmptyState';
-import { SkeletonRows } from '@/components/dashboard/shared/SkeletonRows';
-import { Search, ShieldAlert, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
-import '@/styles/dashboard.css';
+import { Search, ShieldAlert, Loader2, ChevronLeft, ChevronRight, Shield } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface AuditLog {
   id: string;
@@ -115,22 +112,19 @@ export default function AuditLogsPage() {
   const getActionBadgeClass = (action: string) => {
     const act = (action || '').toLowerCase();
     if (act.includes('create') || act.includes('add') || act.includes('register')) {
-      return 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30';
+      return 'bg-emerald-500/10 text-emerald-400';
     }
     if (act.includes('update') || act.includes('edit') || act.includes('assign')) {
-      return 'bg-sky-500/15 text-sky-400 border-sky-500/30';
+      return 'bg-blue-500/10 text-blue-400';
     }
     if (act.includes('delete') || act.includes('remove') || act.includes('cancel')) {
-      return 'bg-rose-500/15 text-rose-400 border-rose-500/30';
+      return 'bg-red-500/10 text-red-400';
     }
-    if (act.includes('login') || act.includes('auth')) {
-      return 'bg-purple-500/15 text-purple-400 border-purple-500/30';
-    }
-    return 'bg-white/10 text-gray-300 border-white/10';
+    return 'bg-muted text-muted-foreground';
   };
 
   const actionOptions = [
-    { value: 'ALL', label: 'All Actions' },
+    { value: 'ALL', label: 'All actions' },
     { value: 'CREATE', label: 'Create' },
     { value: 'UPDATE', label: 'Update' },
     { value: 'DELETE', label: 'Delete' },
@@ -138,136 +132,134 @@ export default function AuditLogsPage() {
   ];
 
   return (
-    <div className="dashboard-content">
-      <div className="page-title-section mb-6">
-        <div>
-          <h1 className="page-title">Audit Logs</h1>
-          <p className="page-subtitle">Track security events, data changes, and administrative actions</p>
-        </div>
+    <div className="max-w-7xl mx-auto px-6 py-6 space-y-6">
+      <div>
+        <h1 className="text-2xl font-semibold tracking-tight">Audit logs</h1>
+        <p className="text-sm text-muted-foreground mt-1">Track security events, data changes, and administrative actions</p>
       </div>
 
       {/* Filters */}
-      <div className="p-4 mb-6 rounded-xl border border-default bg-raised flex flex-col md:flex-row gap-4 items-center justify-between">
+      <div className="rounded-lg border border-border bg-card p-4 flex flex-col md:flex-row gap-4 items-center justify-between">
         <form onSubmit={handleSearch} className="flex-1 w-full flex gap-2">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={16} />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" size={16} />
             <input
               type="text"
               placeholder="Search by action, email, or resource..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="form-input w-full bg-input text-xs"
-              style={{ paddingLeft: '38px' }}
+              className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring pl-9"
             />
           </div>
-          <button type="submit" className="btn-secondary text-xs">
+          <button type="submit" className="text-muted-foreground hover:text-foreground hover:bg-accent rounded-md px-4 py-2 text-sm border border-border">
             Search
           </button>
         </form>
         
         <div className="w-full md:w-52">
-          <CustomSelect
+          <select
+            className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
             value={actionType}
             onChange={(e) => {
               setActionType(e.target.value);
               setPage(1);
             }}
-            options={actionOptions}
-            small
-          />
+          >
+            {actionOptions.map(o => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
+          </select>
         </div>
       </div>
 
       {/* Content */}
-      <div className="rounded-xl border border-default bg-raised overflow-hidden">
+      <div className="rounded-lg border border-border bg-card overflow-hidden">
         {loading ? (
-          <div className="p-8">
-            <SkeletonRows count={5} />
+          <div className="p-6 space-y-4">
+            {[1, 2, 3, 4, 5].map(i => (
+              <div key={i} className="h-10 w-full rounded-md bg-muted animate-pulse" />
+            ))}
           </div>
         ) : error ? (
           <div className="p-12 text-center text-red-400">
             <ShieldAlert className="mx-auto h-8 w-8 mb-2 opacity-80" />
             <p className="text-sm">{error}</p>
-            <button onClick={fetchLogs} className="btn-secondary mt-4 text-xs">
+            <button onClick={fetchLogs} className="mt-4 text-muted-foreground hover:text-foreground hover:bg-accent rounded-md px-3 py-2 text-sm border border-border">
               Retry
             </button>
           </div>
         ) : logs.length === 0 ? (
-          <div className="p-10">
-            <EmptyState
-              icon="shield"
-              title="No audit logs found"
-              description={search || actionType !== 'ALL' ? "No activity logs match your search filter." : "Audit log entries will record here as actions occur across the organization."}
-            />
+          <div className="p-12 flex flex-col items-center justify-center text-center">
+            <Shield className="h-8 w-8 text-muted-foreground mb-3" />
+            <h3 className="text-lg font-medium">No audit logs found</h3>
+            <p className="text-sm text-muted-foreground mt-1">{search || actionType !== 'ALL' ? "No activity logs match your search filter." : "Audit log entries will record here as actions occur across the organization."}</p>
           </div>
         ) : (
-          <div>
-            <div className="table-responsive">
-              <table className="w-full text-left">
-                <thead className="bg-base border-b border-default text-gray-400 text-xs font-medium">
-                  <tr>
-                    <th className="p-4">Timestamp</th>
-                    <th className="p-4">Actor</th>
-                    <th className="p-4">Action</th>
-                    <th className="p-4">Resource</th>
-                    <th className="p-4">Event Details</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-default">
-                  {logs.map((log) => {
-                    const timeStr = formatTimestamp(log.timestamp || log.created_at);
-                    const actor = log.actorEmail || log.actor_email || 'System';
-                    const resource = log.resourceType || log.resource_type || '—';
-                    const detailsStr = formatDetails(log.details);
+          <div className="overflow-x-auto">
+            <table className="w-full text-left divide-y divide-border">
+              <thead>
+                <tr>
+                  <th className="text-left font-medium text-muted-foreground px-4 py-3 text-sm">Timestamp</th>
+                  <th className="text-left font-medium text-muted-foreground px-4 py-3 text-sm">Actor</th>
+                  <th className="text-left font-medium text-muted-foreground px-4 py-3 text-sm">Action</th>
+                  <th className="text-left font-medium text-muted-foreground px-4 py-3 text-sm">Resource</th>
+                  <th className="text-left font-medium text-muted-foreground px-4 py-3 text-sm">Event details</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {logs.map((log) => {
+                  const timeStr = formatTimestamp(log.timestamp || log.created_at);
+                  const actor = log.actorEmail || log.actor_email || 'System';
+                  const resource = log.resourceType || log.resource_type || '—';
+                  const detailsStr = formatDetails(log.details);
 
-                    return (
-                      <tr key={log.id} className="hover:bg-white/[0.02] transition-colors">
-                        <td className="p-4 text-xs font-mono text-gray-400 whitespace-nowrap">
-                          {timeStr}
-                        </td>
-                        <td className="p-4 text-xs font-medium text-white">
-                          {actor}
-                        </td>
-                        <td className="p-4 text-xs">
-                          <span 
-                            className={`px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${getActionBadgeClass(log.action)}`}
-                          >
-                            {log.action}
-                          </span>
-                        </td>
-                        <td className="p-4 text-xs text-gray-300">
-                          {resource}
-                        </td>
-                        <td className="p-4 text-xs font-mono text-gray-400 max-w-sm truncate" title={typeof log.details === 'object' ? JSON.stringify(log.details) : String(log.details)}>
-                          {detailsStr}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                  return (
+                    <tr key={log.id} className="hover:bg-accent/50 transition-colors">
+                      <td className="px-4 py-3 text-sm font-mono text-muted-foreground whitespace-nowrap">
+                        {timeStr}
+                      </td>
+                      <td className="px-4 py-3 text-sm font-medium">
+                        {actor}
+                      </td>
+                      <td className="px-4 py-3 text-sm">
+                        <span 
+                          className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium", getActionBadgeClass(log.action))}
+                        >
+                          {log.action}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-sm text-muted-foreground">
+                        {resource}
+                      </td>
+                      <td className="px-4 py-3 text-sm font-mono text-muted-foreground max-w-sm truncate" title={typeof log.details === 'object' ? JSON.stringify(log.details) : String(log.details)}>
+                        {detailsStr}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
             
             {/* Pagination */}
             {totalPages > 1 && (
-              <div className="p-4 border-t border-default flex justify-between items-center bg-base text-xs text-gray-400">
-                <span>
-                  Page <span className="text-white font-medium">{page}</span> of <span className="text-white font-medium">{totalPages}</span> ({total} records)
-                </span>
-                <div className="flex gap-2 items-center">
+              <div className="flex items-center justify-between px-4 py-3 border-t border-border bg-muted/20">
+                <p className="text-sm text-muted-foreground">
+                  Showing page {page} of {totalPages} ({total} records)
+                </p>
+                <div className="flex gap-1">
                   <button 
                     disabled={page === 1}
                     onClick={() => setPage(p => Math.max(1, p - 1))}
-                    className="btn-secondary py-1 px-2.5 text-xs flex items-center gap-1"
+                    className="text-muted-foreground hover:text-foreground hover:bg-accent rounded-md px-3 py-1.5 text-sm flex items-center gap-1 disabled:opacity-50"
                   >
-                    <ChevronLeft size={14} /> Previous
+                    <ChevronLeft size={16} /> Previous
                   </button>
                   <button 
                     disabled={page === totalPages}
                     onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                    className="btn-secondary py-1 px-2.5 text-xs flex items-center gap-1"
+                    className="text-muted-foreground hover:text-foreground hover:bg-accent rounded-md px-3 py-1.5 text-sm flex items-center gap-1 disabled:opacity-50"
                   >
-                    Next <ChevronRight size={14} />
+                    Next <ChevronRight size={16} />
                   </button>
                 </div>
               </div>

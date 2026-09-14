@@ -4,148 +4,198 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
-import { DiamondLogo } from './shared/DiamondLogo';
-import { Icon } from './shared/Icon';
-
-/**
- * Dashboard Sidebar — uses the CSS class names from dashboard.css
- * (nav-item, nav-section-label, user-avatar, etc.)
- */
+import { cn } from '@/lib/utils';
+import {
+  LayoutDashboard, Bot, Users, Megaphone, Phone,
+  BarChart2, CreditCard, ScrollText, Shield, Settings,
+  LogOut, Menu, X
+} from 'lucide-react';
 
 const NAV_ITEMS = [
-  { href: '/dashboard', icon: 'layout-dashboard', label: 'Dashboard', exact: true },
-  { href: '/dashboard/agents', icon: 'bot', label: 'Agents' },
-  { href: '/dashboard/contacts', icon: 'users', label: 'Contacts' },
-  { href: '/dashboard/campaigns', icon: 'megaphone', label: 'Campaigns' },
-  { href: '/dashboard/phone-numbers', icon: 'phone', label: 'Phone Numbers' },
-  { href: '/dashboard/history', icon: 'bar-chart-2', label: 'Analysis' },
-  { href: '/dashboard/billing', icon: 'credit-card', label: 'Billing' },
-  { href: '/dashboard/audit-logs', icon: 'scroll-text', label: 'Audit Logs' },
+  { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard', exact: true },
+  { href: '/dashboard/agents', icon: Bot, label: 'Agents' },
+  { href: '/dashboard/contacts', icon: Users, label: 'Contacts' },
+  { href: '/dashboard/campaigns', icon: Megaphone, label: 'Campaigns' },
+  { href: '/dashboard/phone-numbers', icon: Phone, label: 'Phone Numbers' },
+  { href: '/dashboard/history', icon: BarChart2, label: 'Analysis' },
+  { href: '/dashboard/billing', icon: CreditCard, label: 'Billing' },
+  { href: '/dashboard/audit-logs', icon: ScrollText, label: 'Audit Logs' },
 ];
 
 const ADMIN_ITEMS = [
-  { href: '/dashboard/admin', icon: 'shield', label: 'Admin Panel', exact: true },
-  { href: '/dashboard/admin/pricing', icon: 'credit-card', label: 'Pricing Plans' },
+  { href: '/dashboard/admin', icon: Shield, label: 'Admin Panel', exact: true },
+  { href: '/dashboard/admin/pricing', icon: CreditCard, label: 'Pricing Plans' },
 ];
 
 export function Sidebar() {
   const pathname = usePathname();
   const { client, logout } = useAuth();
   const isAdmin = client?.is_admin || false;
-  const [mobileExpanded, setMobileExpanded] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   const isActive = (href: string, exact?: boolean) => {
     if (exact) return pathname === href;
     return pathname.startsWith(href);
   };
 
-  const closeMobile = () => setMobileExpanded(false);
+  const closeMobile = () => setMobileOpen(false);
 
   React.useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && mobileExpanded) {
-        setMobileExpanded(false);
-      }
+      if (e.key === 'Escape' && mobileOpen) setMobileOpen(false);
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [mobileExpanded]);
+  }, [mobileOpen]);
 
-  return (
+  const navContent = (
     <>
-      <div
-        className={`sidebar-backdrop ${mobileExpanded ? 'active' : ''}`}
-        onClick={closeMobile}
-        aria-hidden="true"
-      />
-      <aside className={`sidebar ${mobileExpanded ? 'mobile-expanded' : ''}`} aria-label="Dashboard navigation">
-      {/* Logo & Mobile Toggle */}
-      <div className="sidebar-logo">
-        <Link href="/dashboard" onClick={closeMobile} style={{ display: 'flex', alignItems: 'center', gap: '10px', textDecoration: 'none', color: 'inherit' }}>
-          <DiamondLogo size={22} />
-          <span>Dialix</span>
+      {/* Logo */}
+      <div className="flex items-center gap-2.5 px-4 py-5">
+        <Link href="/dashboard" onClick={closeMobile} className="flex items-center gap-2.5 text-foreground no-underline">
+          <div className="flex size-7 items-center justify-center rounded-md bg-foreground">
+            <span className="text-xs font-bold text-background">D</span>
+          </div>
+          <span className="text-sm font-semibold">Dialix</span>
         </Link>
         <button
-          className="mobile-nav-toggle"
-          onClick={() => setMobileExpanded(!mobileExpanded)}
-          aria-label={mobileExpanded ? 'Close navigation menu' : 'Open navigation menu'}
+          className="ml-auto md:hidden flex items-center justify-center rounded-md p-1 text-muted-foreground hover:text-foreground"
+          onClick={() => setMobileOpen(!mobileOpen)}
+          aria-label={mobileOpen ? 'Close menu' : 'Open menu'}
           type="button"
         >
-          <Icon name={mobileExpanded ? 'x' : 'menu'} size={18} />
+          {mobileOpen ? <X className="size-5" /> : <Menu className="size-5" />}
         </button>
       </div>
 
-      <div className="sidebar-scrollable">
-        {/* Navigation */}
-        <nav aria-label="Main navigation">
-          <div className="nav-section-label">Workspace</div>
-          {NAV_ITEMS.map(item => (
+      {/* Navigation */}
+      <nav className="flex-1 overflow-y-auto px-3 py-2" aria-label="Main navigation">
+        <p className="px-3 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+          Workspace
+        </p>
+        {NAV_ITEMS.map(item => {
+          const Icon = item.icon;
+          const active = isActive(item.href, item.exact);
+          return (
             <Link
               key={item.href}
               href={item.href}
               onClick={closeMobile}
-              className={`nav-item ${isActive(item.href, item.exact) ? 'active' : ''}`}
+              className={cn(
+                "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
+                active
+                  ? "bg-accent text-foreground font-medium"
+                  : "text-muted-foreground hover:bg-accent hover:text-foreground"
+              )}
             >
-              <Icon name={item.icon} size={18} className="icon" />
+              <Icon className="size-4 shrink-0" />
               <span>{item.label}</span>
             </Link>
-          ))}
+          );
+        })}
 
-          {isAdmin && (
-            <>
-              <div className="nav-section-label">
-                Administration
-              </div>
-              {ADMIN_ITEMS.map(item => (
+        {isAdmin && (
+          <>
+            <p className="mt-6 px-3 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              Administration
+            </p>
+            {ADMIN_ITEMS.map(item => {
+              const Icon = item.icon;
+              const active = isActive(item.href, item.exact);
+              return (
                 <Link
                   key={item.href}
                   href={item.href}
                   onClick={closeMobile}
-                  className={`nav-item ${isActive(item.href, item.exact) ? 'active' : ''}`}
+                  className={cn(
+                    "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
+                    active
+                      ? "bg-accent text-foreground font-medium"
+                      : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                  )}
                 >
-                  <Icon name={item.icon} size={18} className="icon" />
+                  <Icon className="size-4 shrink-0" />
                   <span>{item.label}</span>
                 </Link>
-              ))}
-            </>
+              );
+            })}
+          </>
+        )}
+      </nav>
+
+      {/* Footer: Settings + User */}
+      <div className="border-t border-border px-3 py-3">
+        <Link
+          href="/dashboard/settings"
+          onClick={closeMobile}
+          className={cn(
+            "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
+            isActive('/dashboard/settings')
+              ? "bg-accent text-foreground font-medium"
+              : "text-muted-foreground hover:bg-accent hover:text-foreground"
           )}
-        </nav>
+        >
+          <Settings className="size-4 shrink-0" />
+          <span>Settings</span>
+        </Link>
 
-        {/* Spacer to push footer down */}
-        <div className="sidebar-spacer" />
-
-        {/* Settings + User */}
-        <div className="sidebar-footer">
-          <Link
-            href="/dashboard/settings"
-            onClick={closeMobile}
-            className={`nav-item ${isActive('/dashboard/settings') ? 'active' : ''}`}
-          >
-            <Icon name="settings" size={18} className="icon" />
-            <span>Settings</span>
-          </Link>
-
-          <div className="sidebar-user">
-            <div className="user-avatar">
-              {(client?.name || '?')[0].toUpperCase()}
-            </div>
-            <div className="user-info">
-              <span className="user-name">{client?.name || 'User'}</span>
-              {client?.email && <span className="user-email">{client.email}</span>}
-            </div>
-            <button
-              className="btn-icon"
-              onClick={logout}
-              title="Sign out"
-              aria-label="Sign out"
-              type="button"
-            >
-              <Icon name="log-out" size={14} />
-            </button>
+        <div className="mt-2 flex items-center gap-3 px-3 py-2">
+          <div className="flex size-8 items-center justify-center rounded-full bg-accent text-xs font-medium text-foreground">
+            {(client?.name || '?')[0].toUpperCase()}
           </div>
+          <div className="flex-1 min-w-0">
+            <p className="truncate text-sm font-medium text-foreground">{client?.name || 'User'}</p>
+            {client?.email && (
+              <p className="truncate text-xs text-muted-foreground">{client.email}</p>
+            )}
+          </div>
+          <button
+            onClick={logout}
+            title="Sign out"
+            aria-label="Sign out"
+            type="button"
+            className="flex items-center justify-center rounded-md p-1.5 text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <LogOut className="size-4" />
+          </button>
         </div>
       </div>
-    </aside>
+    </>
+  );
+
+  return (
+    <>
+      {/* Mobile backdrop */}
+      {mobileOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/60 md:hidden"
+          onClick={closeMobile}
+          aria-hidden="true"
+        />
+      )}
+
+      {/* Mobile toggle button (visible only on small screens when sidebar is closed) */}
+      {!mobileOpen && (
+        <button
+          className="fixed top-4 left-4 z-50 md:hidden flex items-center justify-center rounded-md p-2 bg-card border border-border text-foreground"
+          onClick={() => setMobileOpen(true)}
+          aria-label="Open navigation menu"
+          type="button"
+        >
+          <Menu className="size-5" />
+        </button>
+      )}
+
+      {/* Sidebar */}
+      <aside
+        className={cn(
+          "fixed inset-y-0 left-0 z-50 flex w-56 flex-col bg-card border-r border-border transition-transform duration-200 md:translate-x-0 md:static md:z-auto",
+          mobileOpen ? "translate-x-0" : "-translate-x-full"
+        )}
+        aria-label="Dashboard navigation"
+      >
+        {navContent}
+      </aside>
     </>
   );
 }

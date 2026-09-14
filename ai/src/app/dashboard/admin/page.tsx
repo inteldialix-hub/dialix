@@ -4,13 +4,14 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
 import { useToast } from '@/components/dashboard/shared/ToastProvider';
-import { Icon } from '@/components/dashboard/shared/Icon';
 import { CustomSelect } from '@/components/dashboard/shared/CustomSelect';
 import { EmptyState } from '@/components/dashboard/shared/EmptyState';
 import { SkeletonRows } from '@/components/dashboard/shared/SkeletonRows';
 import { ConfirmModal } from '@/components/dashboard/shared/ConfirmModal';
 import { api } from '@/lib/api';
 import { FEATURE_KEYS } from '@/lib/constants';
+import { cn } from '@/lib/utils';
+import { Users, Bot, UserPlus, ChevronDown, ChevronRight, Trash2, Settings, Lock, Unlock, UserMinus, EyeOff, Edit3, Eye, Check, Plus } from 'lucide-react';
 
 interface Client { id: number; name: string; email: string; is_admin: boolean; agent_count: number; }
 interface Agent { agent_id: string; name: string; tags?: string[]; provider?: string; }
@@ -34,7 +35,6 @@ export default function AdminPage() {
   const [assignPerm, setAssignPerm] = useState('edit');
   const [deleteClientTarget, setDeleteClientTarget] = useState<Client | null>(null);
   const [deleteAgentTarget, setDeleteAgentTarget] = useState<Agent | null>(null);
-  // Feature toggle: which agent's feature panel is expanded
   const [expandedFeatureAgent, setExpandedFeatureAgent] = useState<{ clientId: number; agentId: string } | null>(null);
 
   const loadData = useCallback(async () => {
@@ -69,7 +69,6 @@ export default function AdminPage() {
       setShowCreateClient(false); setNewName(''); setNewEmail(''); setNewPassword('');
       loadData();
     } catch (err: unknown) {
-      // Extract Zod validation issues if present
       const msg = err instanceof Error ? err.message : 'Failed';
       addToast(msg, 'error');
     }
@@ -97,16 +96,15 @@ export default function AdminPage() {
     catch (err) { addToast(err instanceof Error ? err.message : 'Failed', 'error'); }
   };
 
-  /** Toggle a single feature flag for a client's agent — matches old dashboard logic exactly */
   const handleToggleFeature = async (clientId: number, agentId: string, featureKey: string) => {
     const agents = clientAgentMap[clientId] || [];
     const ag = agents.find(a => a.agent_id === agentId);
     const current = ag?.allowed_features || {};
     const newFeatures: Record<string, boolean> = { ...current };
     if (newFeatures[featureKey] === false) {
-      delete newFeatures[featureKey]; // removing = enabled
+      delete newFeatures[featureKey];
     } else {
-      newFeatures[featureKey] = false; // explicitly disabled
+      newFeatures[featureKey] = false;
     }
     const hasDisabled = Object.values(newFeatures).some(v => v === false);
     const finalFeatures = hasDisabled ? newFeatures : null;
@@ -116,7 +114,6 @@ export default function AdminPage() {
         token: token!, method: 'PATCH',
         body: { allowed_features: finalFeatures },
       });
-      // Update local state without full reload
       setClientAgentMap(prev => ({
         ...prev,
         [clientId]: prev[clientId].map(a =>
@@ -128,7 +125,6 @@ export default function AdminPage() {
     } catch (err) { addToast(err instanceof Error ? err.message : 'Failed', 'error'); }
   };
 
-  /** Toggle can_edit permission */
   const handleTogglePermission = async (clientId: number, agentId: string, currentCanEdit: boolean) => {
     const newVal = currentCanEdit ? 0 : 1;
     try {
@@ -141,341 +137,350 @@ export default function AdminPage() {
     } catch (err) { addToast(err instanceof Error ? err.message : 'Failed', 'error'); }
   };
 
-  if (loading) return <SkeletonRows count={3} />;
+  if (loading) return (
+    <div className="max-w-7xl mx-auto px-6 py-6">
+      <SkeletonRows count={3} />
+    </div>
+  );
 
   const getAvailable = (cId: number) => { const assigned = (clientAgentMap[cId] || []).map(a => a.agent_id); return allAgents.filter(a => !assigned.includes(a.agent_id)); };
 
+  const tabs = [
+    { id: 'clients', label: `Clients (${clients.length})` },
+    { id: 'agents', label: `Agents (${allAgents.length})` },
+  ];
+
   return (
-    <div className="page-body" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
-      <div className="layout-container" style={{ padding: '40px', maxWidth: '1200px', margin: '0 auto', width: '100%', flexShrink: 0, paddingBottom: '100px' }}>
-        <div className="page-title-section" style={{ marginBottom: '32px', padding: '0' }}>
-          <h2 style={{ fontSize: '24px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '8px' }}>Admin Panel</h2>
-          <p style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>Manage clients, platform permissions, and agent assignments</p>
-        </div>
+    <div className="max-w-7xl mx-auto px-6 py-6">
+      <div className="mb-6">
+        <h1 className="text-2xl font-semibold tracking-tight">Admin panel</h1>
+        <p className="text-sm text-muted-foreground mt-1">Manage clients, platform permissions, and agent assignments</p>
+      </div>
 
-        <div className="config-panel" style={{ padding: '0', border: '1px solid var(--border-default)', background: 'var(--bg-raised)', borderRadius: '12px', width: '100%' }}>
-          <div className="analysis-tabs" style={{ padding: '0 24px', borderBottom: '1px solid var(--border-default)', marginBottom: '24px' }}>
-            <div className={`analysis-tab ${tab === 'clients' ? 'active' : ''}`} onClick={() => setTab('clients')}><Icon name="users" size={14} style={{ display: 'inline', marginRight: '6px' }} /> Clients ({clients.length})</div>
-            <div className={`analysis-tab ${tab === 'agents' ? 'active' : ''}`} onClick={() => setTab('agents')}><Icon name="bot" size={14} style={{ display: 'inline', marginRight: '6px' }} /> Agents ({allAgents.length})</div>
-          </div>
+      <div className="border-b border-border mt-6 mb-6">
+        <nav className="flex gap-6">
+          {tabs.map(t => (
+            <button key={t.id} onClick={() => setTab(t.id)}
+              className={cn(
+                "pb-3 text-sm font-medium border-b-2 -mb-px transition-colors",
+                tab === t.id ? "border-foreground text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"
+              )}>{t.label}</button>
+          ))}
+        </nav>
+      </div>
 
-          <div style={{ padding: '0 24px 24px' }}>
-            {tab === 'clients' && (<>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-                <div style={{ fontSize: '16px', fontWeight: 500, color: 'var(--text-primary)' }}>Client Management</div>
-                <button className="btn-primary" onClick={() => setShowCreateClient(!showCreateClient)}>
-                  <Icon name="user-plus" size={13} /> {showCreateClient ? 'Cancel' : 'New Client'}
-                </button>
+      <div className="space-y-6">
+        {tab === 'clients' && (
+          <>
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-medium text-foreground">Client management</h2>
+              <button 
+                className="bg-foreground text-background hover:bg-foreground/90 rounded-md px-4 py-2 text-sm font-medium flex items-center gap-2"
+                onClick={() => setShowCreateClient(!showCreateClient)}
+              >
+                <UserPlus className="size-4" />
+                {showCreateClient ? 'Cancel' : 'New client'}
+              </button>
+            </div>
+
+            {showCreateClient && (
+              <div className="rounded-lg border border-border bg-card p-6">
+                <h3 className="text-sm font-medium text-foreground mb-4">Create new client</h3>
+                <form onSubmit={handleCreateClient} className="space-y-4">
+                  <div className="flex gap-4">
+                    <div className="flex-1 space-y-1">
+                      <label className="text-sm text-muted-foreground">Name</label>
+                      <input className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm" value={newName} onChange={e => setNewName(e.target.value)} required />
+                    </div>
+                    <div className="flex-1 space-y-1">
+                      <label className="text-sm text-muted-foreground">Email</label>
+                      <input className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm" type="email" value={newEmail} onChange={e => setNewEmail(e.target.value)} required />
+                    </div>
+                  </div>
+                  <div className="w-1/2 space-y-1">
+                    <label className="text-sm text-muted-foreground">Password</label>
+                    <input className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm" type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} required minLength={12} />
+                    <p className="text-xs text-muted-foreground mt-1">Min 12 characters • Uppercase • Lowercase • Number • Symbol</p>
+                  </div>
+                  <div className="flex justify-end gap-3 pt-2">
+                    <button type="button" className="rounded-md px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-muted/50" onClick={() => setShowCreateClient(false)}>Cancel</button>
+                    <button type="submit" className="bg-foreground text-background hover:bg-foreground/90 rounded-md px-4 py-2 text-sm font-medium">Create client</button>
+                  </div>
+                </form>
               </div>
+            )}
 
-              {showCreateClient && (
-                <div className="admin-section" style={{ marginBottom: '24px', padding: '20px', background: 'var(--bg-overlay)', border: '1px solid var(--border-default)', borderRadius: '8px' }}>
-                  <div className="admin-section-title" style={{ marginBottom: '16px', fontSize: '14px', fontWeight: 600 }}>Create New Client</div>
-                  <form onSubmit={handleCreateClient} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                    <div style={{ display: 'flex', gap: '16px' }}>
-                      <div className="form-group" style={{ flex: 1 }}><label className="form-label">Name</label><input className="form-input" value={newName} onChange={e => setNewName(e.target.value)} required /></div>
-                      <div className="form-group" style={{ flex: 1 }}><label className="form-label">Email</label><input className="form-input" type="email" value={newEmail} onChange={e => setNewEmail(e.target.value)} required /></div>
-                    </div>
-                    <div className="form-group" style={{ maxWidth: '50%' }}>
-                      <label className="form-label">Password</label>
-                      <input className="form-input" type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} required minLength={12} />
-                      <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginTop: '6px', lineHeight: '1.5' }}>
-                        Min 12 characters • Uppercase • Lowercase • Number • Symbol
+            <div className="rounded-lg border border-border bg-card overflow-hidden">
+              {clients.length === 0 ? (
+                <div className="p-8 text-center text-sm text-muted-foreground">No clients found.</div>
+              ) : (
+                <div className="divide-y divide-border">
+                  <div className="grid grid-cols-[2fr_2fr_1fr_1fr_auto] gap-4 p-4 text-sm font-medium text-muted-foreground bg-muted/20">
+                    <div>Name</div>
+                    <div>Email</div>
+                    <div>Role</div>
+                    <div>Agents</div>
+                    <div className="text-right w-16">Actions</div>
+                  </div>
+                  {clients.map(c => (
+                    <div key={c.id} className="divide-y divide-border">
+                      <div 
+                        className={cn("grid grid-cols-[2fr_2fr_1fr_1fr_auto] gap-4 p-4 items-center text-sm cursor-pointer hover:bg-muted/30 transition-colors", selectedClient === c.id && "bg-muted/20")}
+                        onClick={() => setSelectedClient(selectedClient === c.id ? null : c.id)}
+                      >
+                        <div className="font-medium text-foreground">{c.name}</div>
+                        <div className="text-muted-foreground truncate">{c.email}</div>
+                        <div>
+                          {c.is_admin ? (
+                            <span className="rounded-full bg-blue-500/10 text-blue-500 px-2 py-0.5 text-xs font-medium">Admin</span>
+                          ) : (
+                            <span className="rounded-full bg-muted text-muted-foreground px-2 py-0.5 text-xs font-medium">Client</span>
+                          )}
+                        </div>
+                        <div className="text-muted-foreground">{c.agent_count} assigned</div>
+                        <div className="flex items-center justify-end gap-2 w-16">
+                          <ChevronRight className={cn("size-4 text-muted-foreground transition-transform", selectedClient === c.id && "rotate-90")} />
+                          {!c.is_admin && (
+                            <button 
+                              className="text-muted-foreground hover:text-red-400 p-1 rounded transition-colors"
+                              onClick={e => { e.stopPropagation(); setDeleteClientTarget(c); }}
+                              title="Delete Client"
+                            >
+                              <Trash2 className="size-4" />
+                            </button>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                    <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '8px' }}>
-                      <button type="button" className="btn-ghost" onClick={() => setShowCreateClient(false)}>Cancel</button>
-                      <button type="submit" className="btn-primary">Create Client</button>
-                    </div>
-                  </form>
-                </div>
-              )}
-
-              <div className="table-responsive" style={{ borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border-default)' }}>
-                <table className="data-table" style={{ margin: 0 }}>
-                  <thead style={{ background: 'var(--bg-overlay)' }}>
-                    <tr>
-                      <th style={{ padding: '12px 16px', fontWeight: 500, color: 'var(--text-secondary)' }}>Name</th>
-                      <th style={{ padding: '12px 16px', fontWeight: 500, color: 'var(--text-secondary)' }}>Email</th>
-                      <th style={{ padding: '12px 16px', fontWeight: 500, color: 'var(--text-secondary)' }}>Role</th>
-                      <th style={{ padding: '12px 16px', fontWeight: 500, color: 'var(--text-secondary)' }}>Agents</th>
-                      <th style={{ padding: '12px 16px', fontWeight: 500, color: 'var(--text-secondary)', textAlign: 'right' }}>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {clients.length === 0 ? (
-                      <tr><td colSpan={5} style={{ textAlign: 'center', padding: '32px', color: 'var(--text-tertiary)' }}>No clients found.</td></tr>
-                    ) : clients.map(c => (
-                    <React.Fragment key={c.id}>
-                      <tr onClick={() => setSelectedClient(selectedClient === c.id ? null : c.id)} style={{ cursor: 'pointer', transition: 'background 0.2s', background: selectedClient === c.id ? 'var(--bg-overlay)' : 'transparent' }} className="hover:bg-zinc-800/30">
-                        <td style={{ padding: '16px' }}><div style={{ fontWeight: 500, color: 'var(--text-primary)' }}>{c.name}</div></td>
-                        <td className="phone-cell" style={{ padding: '16px', color: 'var(--text-secondary)' }}>{c.email}</td>
-                        <td style={{ padding: '16px' }}>{c.is_admin ? <span className="badge sip" style={{ background: 'rgba(124,58,237,0.15)', color: '#a78bfa' }}>Admin</span> : <span style={{ fontSize: '12px', color: 'var(--text-tertiary)', background: 'var(--bg-input)', padding: '4px 8px', borderRadius: '4px' }}>Client</span>}</td>
-                        <td style={{ padding: '16px', fontSize: '13px', color: 'var(--text-secondary)' }}>{c.agent_count} assigned</td>
-                        <td style={{ padding: '16px' }}>
-                          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', justifyContent: 'flex-end' }}>
-                            <Icon name={selectedClient === c.id ? 'chevron-down' : 'chevron-right'} size={16} style={{ color: 'var(--text-tertiary)', transition: 'transform 0.2s' }} />
-                            {!c.is_admin && (
-                              <div className="btn-icon danger" onClick={e => { e.stopPropagation(); setDeleteClientTarget(c); }} title="Delete Client">
-                                <Icon name="trash-2" size={14} />
-                              </div>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
+                      
                       {selectedClient === c.id && (
-                        <tr><td colSpan={5} style={{ padding: 0 }}>
-                          <div style={{ padding: '24px', background: 'var(--bg-input)', borderTop: '1px solid var(--border-default)', borderBottom: '1px solid var(--border-default)' }}>
-                            
-                            {/* ——— Assigned Agents List ——— */}
-                            {(clientAgentMap[c.id] || []).length > 0 && (
-                              <div style={{ marginBottom: '24px' }}>
-                                <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Assigned Agents</div>
-                                <div style={{ borderRadius: '8px', overflow: 'auto', border: '1px solid var(--border-default)' }}>
-                                  <table className="data-table" style={{ margin: 0, width: '100%', borderCollapse: 'collapse' }}>
-                                    <thead style={{ background: 'var(--bg-overlay)' }}>
-                                      <tr>
-                                        <th style={{ padding: '12px 16px', fontWeight: 500, color: 'var(--text-secondary)', textAlign: 'left' }}>Agent Name</th>
-                                        <th style={{ padding: '12px 16px', fontWeight: 500, color: 'var(--text-secondary)', textAlign: 'left' }}>Agent ID</th>
-                                        <th style={{ padding: '12px 16px', fontWeight: 500, color: 'var(--text-secondary)', textAlign: 'left' }}>Provider</th>
-                                        <th style={{ padding: '12px 16px', fontWeight: 500, color: 'var(--text-secondary)', textAlign: 'left' }}>Permissions</th>
-                                        <th style={{ padding: '12px 16px', fontWeight: 500, color: 'var(--text-secondary)', textAlign: 'right', whiteSpace: 'nowrap' }}>Actions</th>
-                                      </tr>
-                                    </thead>
-                                    <tbody>
-                                      {(clientAgentMap[c.id] || []).map(ag => {
-                                        const isFeatureExpanded = expandedFeatureAgent?.clientId === c.id && expandedFeatureAgent?.agentId === ag.agent_id;
-                                        const disabledCount = ag.allowed_features ? Object.values(ag.allowed_features).filter(v => v === false).length : 0;
-                                        return (
-                                          <React.Fragment key={ag.agent_id}>
-                                            <tr className="hover:bg-zinc-800/30" style={{ borderTop: '1px solid var(--border-default)', transition: 'background 0.2s' }}>
-                                              <td style={{ padding: '16px' }}>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                                                  <span className="status-dot active" style={{ width: 8, height: 8, flexShrink: 0 }} />
-                                                  <span style={{ fontSize: '14px', fontWeight: 500, color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>{ag.agent_name}</span>
-                                                  {disabledCount > 0 && (
-                                                    <span style={{
-                                                      display: 'inline-flex', alignItems: 'center', gap: '3px',
-                                                      fontSize: '10px', fontWeight: 600, padding: '2px 6px',
-                                                      borderRadius: '4px', background: 'rgba(239,68,68,0.1)', color: '#ef4444',
-                                                      whiteSpace: 'nowrap', flexShrink: 0,
-                                                    }}>
-                                                      <Icon name="eye-off" size={10} />
-                                                      {disabledCount} hidden
-                                                    </span>
-                                                  )}
-                                                </div>
-                                              </td>
-                                              <td style={{ padding: '16px', fontSize: '12px', color: 'var(--text-tertiary)', fontFamily: 'var(--font-mono)', maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                                {ag.agent_id.slice(0, 12)}...
-                                              </td>
-                                              <td style={{ padding: '16px' }}>
-                                                <span className={`provider-badge provider-${ag.provider || 'elevenlabs'}`}>{ag.provider === 'vapi' ? 'Vapi' : 'ElevenLabs'}</span>
-                                              </td>
-                                              <td style={{ padding: '16px' }}>
-                                                <span style={{
-                                                  display: 'inline-flex', alignItems: 'center', gap: '4px',
-                                                  fontSize: '11px', fontWeight: 600, padding: '4px 8px',
-                                                  borderRadius: '6px', textTransform: 'uppercase', letterSpacing: '0.03em',
-                                                  background: ag.can_edit ? 'rgba(74,222,128,0.1)' : 'rgba(251,191,36,0.1)',
-                                                  color: ag.can_edit ? 'var(--green)' : '#fbbf24',
-                                                }}>
-                                                  <Icon name={ag.can_edit ? 'edit-3' : 'eye'} size={12} />
-                                                  {ag.can_edit ? 'Full Access' : 'View Only'}
-                                                </span>
-                                              </td>
-                                              <td style={{ padding: '16px', whiteSpace: 'nowrap' }}>
-                                                <div style={{ display: 'flex', gap: '8px', alignItems: 'center', justifyContent: 'flex-end', flexWrap: 'nowrap' }}>
-                                                  <button
-                                                    className={`btn-icon ${isFeatureExpanded ? 'active' : ''}`}
-                                                    onClick={(e) => {
-                                                      e.stopPropagation();
-                                                      setExpandedFeatureAgent(isFeatureExpanded ? null : { clientId: c.id, agentId: ag.agent_id });
-                                                    }}
-                                                    title="Manage visible features"
+                        <div className="bg-muted/10 p-6 border-l-2 border-l-foreground/30">
+                          {(clientAgentMap[c.id] || []).length > 0 && (
+                            <div className="mb-6">
+                              <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">Assigned agents</h4>
+                              <div className="rounded-lg border border-border bg-card overflow-hidden">
+                                <div className="divide-y divide-border">
+                                  <div className="grid grid-cols-[2fr_2fr_1fr_1fr_auto] gap-4 p-3 text-xs font-medium text-muted-foreground bg-muted/20">
+                                    <div>Agent name</div>
+                                    <div>Agent ID</div>
+                                    <div>Provider</div>
+                                    <div>Permissions</div>
+                                    <div className="text-right">Actions</div>
+                                  </div>
+                                  {(clientAgentMap[c.id] || []).map(ag => {
+                                    const isFeatureExpanded = expandedFeatureAgent?.clientId === c.id && expandedFeatureAgent?.agentId === ag.agent_id;
+                                    const disabledCount = ag.allowed_features ? Object.values(ag.allowed_features).filter(v => v === false).length : 0;
+                                    return (
+                                      <div key={ag.agent_id} className="divide-y divide-border">
+                                        <div className="grid grid-cols-[2fr_2fr_1fr_1fr_auto] gap-4 p-3 items-center text-sm hover:bg-muted/30 transition-colors">
+                                          <div className="flex items-center gap-2">
+                                            <div className="size-2 rounded-full bg-emerald-500" />
+                                            <span className="font-medium text-foreground">{ag.agent_name}</span>
+                                            {disabledCount > 0 && (
+                                              <span className="flex items-center gap-1 rounded-full bg-red-500/10 text-red-400 px-2 py-0.5 text-[10px] font-semibold">
+                                                <EyeOff className="size-3" />
+                                                {disabledCount} hidden
+                                              </span>
+                                            )}
+                                          </div>
+                                          <div className="font-mono text-xs text-muted-foreground truncate" title={ag.agent_id}>
+                                            {ag.agent_id.slice(0, 12)}...
+                                          </div>
+                                          <div>
+                                            <span className="rounded-full bg-muted text-muted-foreground px-2 py-0.5 text-xs font-medium">
+                                              {ag.provider === 'vapi' ? 'Vapi' : 'ElevenLabs'}
+                                            </span>
+                                          </div>
+                                          <div>
+                                            <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium", ag.can_edit ? "bg-emerald-500/10 text-emerald-500" : "bg-amber-500/10 text-amber-500")}>
+                                              {ag.can_edit ? <Edit3 className="size-3" /> : <Eye className="size-3" />}
+                                              {ag.can_edit ? 'Full access' : 'View only'}
+                                            </span>
+                                          </div>
+                                          <div className="flex items-center justify-end gap-2">
+                                            <button
+                                              className={cn("p-1.5 rounded-md text-muted-foreground hover:bg-muted transition-colors", isFeatureExpanded && "bg-muted text-foreground")}
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                setExpandedFeatureAgent(isFeatureExpanded ? null : { clientId: c.id, agentId: ag.agent_id });
+                                              }}
+                                              title="Manage visible features"
+                                            >
+                                              <Settings className="size-4" />
+                                            </button>
+                                            <button
+                                              className="p-1.5 rounded-md text-muted-foreground hover:bg-muted transition-colors"
+                                              onClick={(e) => { e.stopPropagation(); handleTogglePermission(c.id, ag.agent_id, ag.can_edit); }}
+                                              title={ag.can_edit ? 'Switch to View Only' : 'Switch to Full Access'}
+                                            >
+                                              {ag.can_edit ? <Lock className="size-4" /> : <Unlock className="size-4" />}
+                                            </button>
+                                            <button
+                                              className="p-1.5 rounded-md text-muted-foreground hover:bg-red-500/10 hover:text-red-400 transition-colors"
+                                              onClick={(e) => { e.stopPropagation(); handleUnassign(c.id, ag.agent_id); }}
+                                              title="Remove agent"
+                                            >
+                                              <UserMinus className="size-4" />
+                                            </button>
+                                          </div>
+                                        </div>
+
+                                        {isFeatureExpanded && (
+                                          <div className="bg-background/50 p-4 border-l-2 border-l-border">
+                                            <div className="mb-4 flex items-center justify-between">
+                                              <h5 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Client dashboard features</h5>
+                                              <span className="text-xs text-muted-foreground">Toggle what the client can see</span>
+                                            </div>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                              {FEATURE_KEYS.map(f => {
+                                                const isEnabled = !ag.allowed_features || ag.allowed_features[f.key] !== false;
+                                                return (
+                                                  <div
+                                                    key={f.key}
+                                                    onClick={() => handleToggleFeature(c.id, ag.agent_id, f.key)}
+                                                    className={cn(
+                                                      "flex items-center gap-3 p-3 rounded-lg cursor-pointer border transition-colors",
+                                                      isEnabled ? "border-border bg-card hover:bg-muted/50" : "border-red-500/20 bg-red-500/5 hover:bg-red-500/10"
+                                                    )}
                                                   >
-                                                    <Icon name="settings" size={14} />
-                                                  </button>
-                                                  <button
-                                                    className="btn-icon"
-                                                    onClick={(e) => { e.stopPropagation(); handleTogglePermission(c.id, ag.agent_id, ag.can_edit); }}
-                                                    title={ag.can_edit ? 'Switch to View Only' : 'Switch to Full Access'}
-                                                  >
-                                                    <Icon name={ag.can_edit ? 'lock' : 'unlock'} size={14} />
-                                                  </button>
-                                                  <button
-                                                    className="btn-icon danger"
-                                                    onClick={(e) => { e.stopPropagation(); handleUnassign(c.id, ag.agent_id); }}
-                                                    title="Remove agent"
-                                                  >
-                                                    <Icon name="user-minus" size={14} />
-                                                  </button>
-                                                </div>
-                                              </td>
-                                            </tr>
-                                            
-                                            {/* Feature Toggles Panel */}
-                                            {isFeatureExpanded && (
-                                              <tr>
-                                                <td colSpan={5} style={{ padding: 0 }}>
-                                                  <div style={{ padding: '20px 24px', background: 'var(--bg-base)', borderTop: '1px solid var(--border-default)' }}>
-                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                                                      <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                                                        Client Dashboard Features
-                                                      </div>
-                                                      <div style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>
-                                                        Toggle what the client can see and interact with
-                                                      </div>
-                                                    </div>
-                                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '8px' }}>
-                                                      {FEATURE_KEYS.map(f => {
-                                                        const isEnabled = !ag.allowed_features || ag.allowed_features[f.key] !== false;
-                                                        return (
-                                                          <div
-                                                            key={f.key}
-                                                            onClick={() => handleToggleFeature(c.id, ag.agent_id, f.key)}
-                                                            style={{
-                                                              display: 'flex', alignItems: 'center', gap: '10px',
-                                                              padding: '8px 12px', borderRadius: '8px', cursor: 'pointer',
-                                                              border: `1px solid ${isEnabled ? 'var(--border-default)' : 'rgba(239,68,68,0.2)'}`,
-                                                              background: isEnabled ? 'var(--bg-overlay)' : 'rgba(239,68,68,0.04)',
-                                                              transition: 'all 0.15s ease',
-                                                            }}
-                                                            className="hover:border-zinc-500"
-                                                          >
-                                                            {/* Toggle Switch */}
-                                                            <div style={{
-                                                              width: '32px', height: '18px', borderRadius: '10px',
-                                                              background: isEnabled ? 'var(--brand-accent)' : 'var(--border-subtle)',
-                                                              position: 'relative', transition: 'background 0.2s ease',
-                                                              flexShrink: 0,
-                                                            }}>
-                                                              <div style={{
-                                                                width: '14px', height: '14px', borderRadius: '50%',
-                                                                background: '#fff', position: 'absolute', top: '2px',
-                                                                left: isEnabled ? '16px' : '2px',
-                                                                transition: 'left 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                                                                boxShadow: '0 1px 3px rgba(0,0,0,0.3)'
-                                                              }} />
-                                                            </div>
-                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1 }}>
-                                                              <Icon name={f.icon} size={14} style={{ color: isEnabled ? 'var(--text-secondary)' : '#ef4444', opacity: isEnabled ? 1 : 0.6 }} />
-                                                              <span style={{
-                                                                fontSize: '13px', fontWeight: 500,
-                                                                color: isEnabled ? 'var(--text-primary)' : '#ef4444',
-                                                                textDecoration: isEnabled ? 'none' : 'line-through',
-                                                              }}>
-                                                                {f.label}
-                                                              </span>
-                                                            </div>
-                                                          </div>
-                                                        );
-                                                      })}
+                                                    <button 
+                                                      className={cn("relative inline-flex h-5 w-9 items-center rounded-full transition-colors shrink-0",
+                                                        isEnabled ? "bg-foreground" : "bg-muted")}
+                                                    >
+                                                      <span className={cn("inline-block size-4 rounded-full bg-background transition-transform",
+                                                        isEnabled ? "translate-x-4" : "translate-x-0.5")} />
+                                                    </button>
+                                                    <div className={cn("flex items-center gap-2 flex-1 text-sm font-medium", isEnabled ? "text-foreground" : "text-red-400 line-through")}>
+                                                      <span>{f.label}</span>
                                                     </div>
                                                   </div>
-                                                </td>
-                                              </tr>
-                                            )}
-                                          </React.Fragment>
-                                        );
-                                      })}
-                                    </tbody>
-                                  </table>
+                                                );
+                                              })}
+                                            </div>
+                                          </div>
+                                        )}
+                                      </div>
+                                    );
+                                  })}
                                 </div>
                               </div>
-                            )}
+                            </div>
+                          )}
 
-                            {/* ——— Add Agent ——— */}
-                            <div style={{ padding: '16px', background: 'var(--bg-overlay)', borderRadius: '8px', border: '1px solid var(--border-default)' }}>
-                              <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '12px' }}>Assign New Agent</div>
-                              {getAvailable(c.id).length === 0 ? (
-                                <div style={{ fontSize: '13px', color: 'var(--text-tertiary)', fontStyle: 'italic' }}>All available agents have been assigned to this client.</div>
-                              ) : (
-                                <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-end', flexWrap: 'wrap', position: 'relative', zIndex: 50 }}>
-                                  <div style={{ flex: '1 1 200px', position: 'relative', zIndex: 51 }}>
-                                    <label className="form-label" style={{ fontSize: '11px', marginBottom: '4px' }}>Agent</label>
-                                    <CustomSelect value={selectedAgentToAssign} onChange={e => setSelectedAgentToAssign(e.target.value)} options={[{ value: '', label: 'Select an agent...' }, ...getAvailable(c.id).map(a => ({ value: a.agent_id, label: `${a.name} (${a.agent_id.slice(0, 12)}...)` }))]} />
-                                  </div>
-                                  <div style={{ flex: '0 0 160px', position: 'relative', zIndex: 50 }}>
-                                    <label className="form-label" style={{ fontSize: '11px', marginBottom: '4px' }}>Permissions</label>
-                                    <CustomSelect value={assignPerm} onChange={e => setAssignPerm(e.target.value)} options={[{ value: 'edit', label: 'Full Access' }, { value: 'view', label: 'View Only' }]} />
-                                  </div>
-                                  <button className="btn-primary" style={{ flex: '0 0 auto', whiteSpace: 'nowrap', height: '40px', padding: '0 20px' }} onClick={() => handleAssignAgent(c.id)} disabled={!selectedAgentToAssign}>
-                                    <Icon name="plus" size={14} /> Assign Agent
-                                  </button>
+                          <div className="rounded-lg border border-border bg-card p-4">
+                            <h4 className="text-sm font-medium text-foreground mb-3">Assign new agent</h4>
+                            {getAvailable(c.id).length === 0 ? (
+                              <div className="text-sm text-muted-foreground italic">All available agents have been assigned to this client.</div>
+                            ) : (
+                              <div className="flex flex-wrap items-end gap-3">
+                                <div className="flex-1 min-w-[200px]">
+                                  <label className="text-xs text-muted-foreground block mb-1">Agent</label>
+                                  <CustomSelect 
+                                    value={selectedAgentToAssign} 
+                                    onChange={e => setSelectedAgentToAssign(e.target.value)} 
+                                    options={[{ value: '', label: 'Select an agent...' }, ...getAvailable(c.id).map(a => ({ value: a.agent_id, label: `${a.name} (${a.agent_id.slice(0, 12)}...)` }))]} 
+                                  />
                                 </div>
-                              )}
-                            </div>
-
+                                <div className="w-40 shrink-0">
+                                  <label className="text-xs text-muted-foreground block mb-1">Permissions</label>
+                                  <CustomSelect 
+                                    value={assignPerm} 
+                                    onChange={e => setAssignPerm(e.target.value)} 
+                                    options={[{ value: 'edit', label: 'Full Access' }, { value: 'view', label: 'View Only' }]} 
+                                  />
+                                </div>
+                                <button 
+                                  className="bg-foreground text-background hover:bg-foreground/90 rounded-md px-4 py-2 text-sm font-medium flex items-center gap-2 h-10 shrink-0 disabled:opacity-50"
+                                  onClick={() => handleAssignAgent(c.id)}
+                                  disabled={!selectedAgentToAssign}
+                                >
+                                  <Plus className="size-4" /> Assign agent
+                                </button>
+                              </div>
+                            )}
                           </div>
-                        </td></tr>
+                        </div>
                       )}
-                    </React.Fragment>
+                    </div>
                   ))}
-                  </tbody>
-                </table>
-              </div>
-            </>)}
-
-            {tab === 'agents' && (<>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-                <div style={{ fontSize: '16px', fontWeight: 500, color: 'var(--text-primary)' }}>System Agents</div>
-              </div>
-              
-              {allAgents.length === 0 ? <EmptyState icon="bot" title="No Agents" description="Create an agent from the Agents page first." /> : (
-                <div style={{ borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border-default)' }}>
-                  <table className="data-table" style={{ margin: 0, width: '100%', borderCollapse: 'collapse' }}>
-                    <thead style={{ background: 'var(--bg-overlay)' }}>
-                      <tr>
-                        <th style={{ padding: '12px 16px', fontWeight: 500, color: 'var(--text-secondary)' }}>Name</th>
-                        <th style={{ padding: '12px 16px', fontWeight: 500, color: 'var(--text-secondary)' }}>Agent ID</th>
-                        <th style={{ padding: '12px 16px', fontWeight: 500, color: 'var(--text-secondary)' }}>Provider</th>
-                        <th style={{ padding: '12px 16px', fontWeight: 500, color: 'var(--text-secondary)', textAlign: 'right' }}>Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {allAgents.map((a) => (
-                        <tr key={a.agent_id} className="hover:bg-zinc-800/30" style={{ transition: 'background 0.2s' }}>
-                          <td style={{ padding: '16px' }}>
-                            <div style={{ fontWeight: 500, color: 'var(--text-primary)' }}>{a.name}</div>
-                          </td>
-                          <td style={{ padding: '16px', fontSize: '13px', color: 'var(--text-tertiary)', fontFamily: 'var(--font-mono)' }}>
-                            {a.agent_id}
-                          </td>
-                          <td style={{ padding: '16px' }}>
-                            <span className={`provider-badge provider-${a.provider || 'elevenlabs'}`}>{a.provider === 'vapi' ? 'Vapi' : 'ElevenLabs'}</span>
-                          </td>
-                          <td style={{ padding: '16px' }}>
-                            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', justifyContent: 'flex-end' }}>
-                              <button
-                                className="btn-icon"
-                                onClick={() => router.push(`/dashboard/agents/${a.agent_id}`)}
-                                title="Configure Agent"
-                              >
-                                <Icon name="settings" size={14} />
-                              </button>
-                              <button
-                                className="btn-icon danger"
-                                onClick={() => setDeleteAgentTarget(a)}
-                                title="Delete Agent"
-                              >
-                                <Icon name="trash-2" size={14} />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
                 </div>
               )}
-            </>)}
-          </div>
-        </div>
+            </div>
+          </>
+        )}
 
-        {deleteClientTarget && <ConfirmModal title="Delete Client" message={`Delete "${deleteClientTarget.name}" and remove all assignments?`} confirmLabel="Delete Client" onConfirm={() => handleDeleteClient(deleteClientTarget.id)} onCancel={() => setDeleteClientTarget(null)} danger />}
-        {deleteAgentTarget && <ConfirmModal title="Delete Agent" message={`Delete "${deleteAgentTarget.name}"? This will remove it from ${deleteAgentTarget.provider === 'vapi' ? 'Vapi' : 'ElevenLabs'}.`} confirmLabel="Delete Agent" requireType={deleteAgentTarget.name} onConfirm={() => handleDeleteAgent(deleteAgentTarget.agent_id)} onCancel={() => setDeleteAgentTarget(null)} danger />}
+        {tab === 'agents' && (
+          <>
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-medium text-foreground">System agents</h2>
+            </div>
+            
+            {allAgents.length === 0 ? (
+              <EmptyState icon={Bot} title="No agents" description="Create an agent from the Agents page first." />
+            ) : (
+              <div className="rounded-lg border border-border bg-card overflow-hidden">
+                <div className="divide-y divide-border">
+                  <div className="grid grid-cols-[2fr_1fr_1fr_auto] gap-4 p-4 text-sm font-medium text-muted-foreground bg-muted/20">
+                    <div>Name</div>
+                    <div>Agent ID</div>
+                    <div>Provider</div>
+                    <div className="text-right w-20">Actions</div>
+                  </div>
+                  {allAgents.map((a) => (
+                    <div key={a.agent_id} className="grid grid-cols-[2fr_1fr_1fr_auto] gap-4 p-4 items-center text-sm hover:bg-muted/30 transition-colors">
+                      <div className="font-medium text-foreground">{a.name}</div>
+                      <div className="font-mono text-xs text-muted-foreground">{a.agent_id}</div>
+                      <div>
+                        <span className="rounded-full bg-muted text-muted-foreground px-2 py-0.5 text-xs font-medium">
+                          {a.provider === 'vapi' ? 'Vapi' : 'ElevenLabs'}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-end gap-2 w-20">
+                        <button
+                          className="p-1.5 rounded-md text-muted-foreground hover:bg-muted transition-colors"
+                          onClick={() => router.push(`/dashboard/agents/${a.agent_id}`)}
+                          title="Configure Agent"
+                        >
+                          <Settings className="size-4" />
+                        </button>
+                        <button
+                          className="p-1.5 rounded-md text-muted-foreground hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                          onClick={() => setDeleteAgentTarget(a)}
+                          title="Delete Agent"
+                        >
+                          <Trash2 className="size-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
+        )}
       </div>
+
+      {deleteClientTarget && (
+        <ConfirmModal 
+          title="Delete client" 
+          message={`Delete "${deleteClientTarget.name}" and remove all assignments?`} 
+          confirmLabel="Delete client" 
+          onConfirm={() => handleDeleteClient(deleteClientTarget.id)} 
+          onCancel={() => setDeleteClientTarget(null)} 
+          danger 
+        />
+      )}
+      
+      {deleteAgentTarget && (
+        <ConfirmModal 
+          title="Delete agent" 
+          message={`Delete "${deleteAgentTarget.name}"? This will remove it from ${deleteAgentTarget.provider === 'vapi' ? 'Vapi' : 'ElevenLabs'}.`} 
+          confirmLabel="Delete agent" 
+          requireType={deleteAgentTarget.name} 
+          onConfirm={() => handleDeleteAgent(deleteAgentTarget.agent_id)} 
+          onCancel={() => setDeleteAgentTarget(null)} 
+          danger 
+        />
+      )}
     </div>
   );
 }

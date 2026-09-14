@@ -5,9 +5,14 @@ import { useAuth } from '@/lib/auth-context';
 import { useTheme } from 'next-themes';
 import { useToast } from '@/components/dashboard/shared/ToastProvider';
 import { api } from '@/lib/api';
-import { Icon } from '@/components/dashboard/shared/Icon';
 import { SkeletonRows } from '@/components/dashboard/shared/SkeletonRows';
 import { ConfirmModal } from '@/components/dashboard/shared/ConfirmModal';
+import { cn } from '@/lib/utils';
+import { 
+  Shield, Users, Key, Webhook, Activity, Server, User as UserIcon, Sun, Lock, 
+  Info, UserPlus, Trash2, Mail, Copy, Plus, Globe, Radio, Send, AlertTriangle, 
+  CheckCircle, Cpu, Check, ChevronDown, ChevronUp, RefreshCw, X
+} from 'lucide-react';
 
 type SettingsTab = 'account' | 'team' | 'api-keys' | 'webhooks' | 'telemetry';
 
@@ -450,16 +455,6 @@ export default function SettingsPage() {
     addToast(label, 'success');
   };
 
-  const inputStyle: React.CSSProperties = {
-    width: '100%',
-    padding: '8px 12px',
-    background: 'var(--bg-input)',
-    border: '1px solid var(--border-default)',
-    borderRadius: 'var(--radius-md)',
-    color: 'var(--text-primary)',
-    fontSize: '13px',
-  };
-
   const filteredErrors = errorsList.filter(e => {
     if (telemetryFilter === 'all') return true;
     if (telemetryFilter === 'open') return e.status === 'open' || e.status === 'unresolved';
@@ -467,241 +462,254 @@ export default function SettingsPage() {
     return e.status === telemetryFilter;
   });
 
+  const tabs = [
+    { id: 'account' as const, label: 'Account & Security', icon: Shield },
+    { id: 'team' as const, label: 'Team Management', icon: Users },
+    { id: 'api-keys' as const, label: 'API Keys', icon: Key },
+    { id: 'webhooks' as const, label: 'Webhooks', icon: Webhook },
+    { id: 'telemetry' as const, label: 'System Health & Bugs', icon: Activity },
+  ];
+
   return (
-    <div className="dashboard-content" style={{ maxWidth: 960, padding: '24px 32px', display: 'flex', flexDirection: 'column', gap: 20 }}>
-      {/* Page Title */}
-      <div>
-        <h2 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
-          Settings & Infrastructure
-        </h2>
-        <p style={{ fontSize: 13, color: 'var(--text-tertiary)', marginTop: 4 }}>
+    <div className="max-w-7xl mx-auto px-6 py-6">
+      <div className="mb-6">
+        <h1 className="text-2xl font-semibold tracking-tight">Settings & Infrastructure</h1>
+        <p className="text-sm text-muted-foreground mt-1">
           Manage your organization, team members, developer API keys, outbound webhooks, and AI bug diagnostics.
         </p>
       </div>
 
-      {/* Settings Navigation Tabs */}
-      <div className="tab-pill-group config-tabs" role="tablist" style={{ margin: 0 }}>
-        {[
-          { id: 'account' as const, label: 'Account & Security', icon: 'shield' },
-          { id: 'team' as const, label: 'Team Management', icon: 'users' },
-          { id: 'api-keys' as const, label: 'API Keys', icon: 'key' },
-          { id: 'webhooks' as const, label: 'Webhooks', icon: 'webhook' },
-          { id: 'telemetry' as const, label: 'System Health & Bugs', icon: 'activity' },
-        ].map(tab => (
-          <button
-            type="button"
-            role="tab"
-            aria-selected={activeTab === tab.id}
-            key={tab.id}
-            className={`tab-pill config-tab ${activeTab === tab.id ? 'tab-pill-active active' : ''}`}
-            onClick={() => setActiveTab(tab.id)}
-          >
-            <Icon name={tab.icon} size={14} /> {tab.label}
-          </button>
-        ))}
+      <div className="border-b border-border mt-6 mb-6">
+        <nav className="flex gap-6">
+          {tabs.map(tab => {
+            const Icon = tab.icon;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={cn(
+                  "pb-3 text-sm font-medium transition-colors border-b-2 -mb-px flex items-center gap-2",
+                  activeTab === tab.id
+                    ? "border-foreground text-foreground"
+                    : "border-transparent text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <Icon size={16} />
+                {tab.label}
+              </button>
+            )
+          })}
+        </nav>
       </div>
 
-      {/* ── TAB 1: Account & Security ── */}
       {activeTab === 'account' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-          {/* System Status */}
-          <div className="config-section">
-            <div className="config-section-title"><Icon name="server" size={14} /> System Status</div>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 12 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <span className={`status-dot ${apiStatus?.status === 'ok' ? 'active' : 'unavailable'}`} />
-                <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
-                  Backend Cluster: <strong>{apiStatus?.status === 'ok' ? 'Operational & Connected' : apiStatus ? 'Degraded / Error' : 'Checking...'}</strong>
+        <div className="flex flex-col gap-6 max-w-4xl">
+          <div className="rounded-lg border border-border bg-card">
+            <div className="px-6 py-4 border-b border-border flex items-center gap-2">
+              <Server size={16} className="text-muted-foreground" />
+              <h3 className="font-medium text-sm">System Status</h3>
+            </div>
+            <div className="p-6 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <span className={cn(
+                  "block w-2.5 h-2.5 rounded-full",
+                  apiStatus?.status === 'ok' ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" : "bg-red-500"
+                )} />
+                <span className="text-sm text-muted-foreground">
+                  Backend Cluster: <strong className="text-foreground">{apiStatus?.status === 'ok' ? 'Operational & Connected' : apiStatus ? 'Degraded / Error' : 'Checking...'}</strong>
                 </span>
               </div>
-              <span style={{ fontSize: 11, color: 'var(--text-quaternary)' }}>
+              <span className="text-xs text-muted-foreground">
                 {apiStatus?.timestamp ? `Checked ${new Date(apiStatus.timestamp).toLocaleTimeString()}` : ''}
               </span>
             </div>
           </div>
 
-          {/* Account Details */}
-          <div className="config-section">
-            <div className="config-section-title"><Icon name="user" size={14} /> Account Profile</div>
-            <div style={{ marginTop: 14, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
-              <div style={{ padding: '12px 14px', borderRadius: 'var(--radius-md)', background: 'var(--bg-secondary)', border: '1px solid var(--border-default)' }}>
-                <div style={{ fontSize: 11, color: 'var(--text-quaternary)', textTransform: 'uppercase', fontWeight: 600, marginBottom: 4 }}>Full Name</div>
-                <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>{client?.name || 'Administrator'}</div>
+          <div className="rounded-lg border border-border bg-card">
+            <div className="px-6 py-4 border-b border-border flex items-center gap-2">
+              <UserIcon size={16} className="text-muted-foreground" />
+              <h3 className="font-medium text-sm">Account Profile</h3>
+            </div>
+            <div className="p-6 divide-y divide-border">
+              <div className="flex items-center justify-between py-4 first:pt-0 last:pb-0">
+                <div>
+                  <p className="text-sm font-medium">Full Name</p>
+                  <p className="text-sm text-muted-foreground">The name associated with your account</p>
+                </div>
+                <div className="text-sm font-medium">{client?.name || 'Administrator'}</div>
               </div>
-              <div style={{ padding: '12px 14px', borderRadius: 'var(--radius-md)', background: 'var(--bg-secondary)', border: '1px solid var(--border-default)' }}>
-                <div style={{ fontSize: 11, color: 'var(--text-quaternary)', textTransform: 'uppercase', fontWeight: 600, marginBottom: 4 }}>Email Address</div>
-                <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>{client?.email || '—'}</div>
+              <div className="flex items-center justify-between py-4 first:pt-0 last:pb-0">
+                <div>
+                  <p className="text-sm font-medium">Email Address</p>
+                  <p className="text-sm text-muted-foreground">The email used for login and notifications</p>
+                </div>
+                <div className="text-sm font-medium">{client?.email || '—'}</div>
               </div>
-              <div style={{ padding: '12px 14px', borderRadius: 'var(--radius-md)', background: 'var(--bg-secondary)', border: '1px solid var(--border-default)' }}>
-                <div style={{ fontSize: 11, color: 'var(--text-quaternary)', textTransform: 'uppercase', fontWeight: 600, marginBottom: 4 }}>Access Role</div>
-                <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--brand-accent)' }}>{client?.is_admin ? 'Super Admin' : 'Workspace Owner'}</div>
+              <div className="flex items-center justify-between py-4 first:pt-0 last:pb-0">
+                <div>
+                  <p className="text-sm font-medium">Access Role</p>
+                  <p className="text-sm text-muted-foreground">Your permissions level in this workspace</p>
+                </div>
+                <div className="text-sm font-medium text-emerald-500">{client?.is_admin ? 'Super Admin' : 'Workspace Owner'}</div>
               </div>
             </div>
           </div>
 
-          {/* Theme Preference */}
-          <div className="config-section">
-            <div className="config-section-title"><Icon name="sun" size={14} /> Appearance Theme</div>
-            <div style={{ marginTop: 12, display: 'flex', gap: 10 }}>
-              {(['dark', 'light', 'system'] as const).map(t => (
+          <div className="rounded-lg border border-border bg-card">
+            <div className="px-6 py-4 border-b border-border flex items-center gap-2">
+              <Sun size={16} className="text-muted-foreground" />
+              <h3 className="font-medium text-sm">Appearance</h3>
+            </div>
+            <div className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium">Theme Preference</p>
+                  <p className="text-sm text-muted-foreground">Choose how the dashboard looks</p>
+                </div>
+                <div className="flex gap-2">
+                  {(['dark', 'light', 'system'] as const).map(t => (
+                    <button
+                      key={t}
+                      onClick={() => setTheme(t)}
+                      className={cn(
+                        "px-4 py-2 text-sm rounded-md capitalize transition-colors border",
+                        theme === t 
+                          ? "bg-foreground text-background border-foreground" 
+                          : "bg-transparent text-muted-foreground border-border hover:border-foreground"
+                      )}
+                    >
+                      {t}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-lg border border-border bg-card">
+            <div className="px-6 py-4 border-b border-border flex items-center gap-2">
+              <Lock size={16} className="text-muted-foreground" />
+              <h3 className="font-medium text-sm">Security & Password</h3>
+            </div>
+            <div className="p-6">
+              <form onSubmit={handleChangePassword} className="flex flex-col gap-4 max-w-sm">
+                {passwordError && (
+                  <div className="px-3 py-2 text-sm rounded-md bg-red-500/10 text-red-400 border border-red-500/20">
+                    {passwordError}
+                  </div>
+                )}
+                {passwordSuccess && (
+                  <div className="px-3 py-2 text-sm rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                    {passwordSuccess}
+                  </div>
+                )}
+                <div>
+                  <label className="block text-sm font-medium mb-1.5 text-foreground">Current Password</label>
+                  <input
+                    type="password"
+                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                    value={currentPassword}
+                    onChange={e => setCurrentPassword(e.target.value)}
+                    required
+                    autoComplete="current-password"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1.5 text-foreground">New Password</label>
+                  <input
+                    type="password"
+                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                    placeholder="Min 12 chars (A-z, 0-9, symbol)"
+                    value={newPassword}
+                    onChange={e => setNewPassword(e.target.value)}
+                    required
+                    autoComplete="new-password"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1.5 text-foreground">Confirm New Password</label>
+                  <input
+                    type="password"
+                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                    value={confirmNewPassword}
+                    onChange={e => setConfirmNewPassword(e.target.value)}
+                    required
+                    autoComplete="new-password"
+                  />
+                </div>
                 <button
-                  key={t}
-                  type="button"
-                  onClick={() => setTheme(t)}
-                  style={{
-                    padding: '8px 18px',
-                    fontSize: 13,
-                    fontWeight: 500,
-                    borderRadius: 'var(--radius-md)',
-                    border: theme === t ? '1px solid var(--brand-accent)' : '1px solid var(--border-default)',
-                    background: theme === t ? 'var(--brand-accent)' : 'var(--bg-secondary)',
-                    color: theme === t ? '#fff' : 'var(--text-secondary)',
-                    cursor: 'pointer',
-                    textTransform: 'capitalize',
-                  }}
+                  type="submit"
+                  disabled={passwordLoading}
+                  className="bg-foreground text-background hover:bg-foreground/90 rounded-md px-4 py-2 text-sm font-medium self-start mt-2"
                 >
-                  {t}
+                  {passwordLoading ? 'Changing...' : 'Update Password'}
                 </button>
-              ))}
+              </form>
             </div>
           </div>
 
-          {/* Change Password */}
-          <div className="config-section">
-            <div className="config-section-title"><Icon name="lock" size={14} /> Security & Password</div>
-            <form onSubmit={handleChangePassword} style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 380 }}>
-              {passwordError && (
-                <div style={{ padding: '8px 12px', borderRadius: 'var(--radius-md)', background: 'rgba(239,68,68,0.1)', color: 'var(--red)', fontSize: 12, border: '1px solid rgba(239,68,68,0.2)' }}>
-                  {passwordError}
-                </div>
-              )}
-              {passwordSuccess && (
-                <div style={{ padding: '8px 12px', borderRadius: 'var(--radius-md)', background: 'rgba(74,222,128,0.1)', color: '#4ade80', fontSize: 12, border: '1px solid rgba(74,222,128,0.15)' }}>
-                  {passwordSuccess}
-                </div>
-              )}
-              <div>
-                <label style={{ display: 'block', marginBottom: 4, fontSize: 12, color: 'var(--text-tertiary)' }}>Current Password</label>
-                <input
-                  type="password"
-                  value={currentPassword}
-                  onChange={e => setCurrentPassword(e.target.value)}
-                  required
-                  style={inputStyle}
-                  autoComplete="current-password"
-                />
-              </div>
-              <div>
-                <label style={{ display: 'block', marginBottom: 4, fontSize: 12, color: 'var(--text-tertiary)' }}>New Password</label>
-                <input
-                  type="password"
-                  value={newPassword}
-                  onChange={e => setNewPassword(e.target.value)}
-                  required
-                  placeholder="Min 12 chars (A-z, 0-9, symbol)"
-                  style={inputStyle}
-                  autoComplete="new-password"
-                />
-              </div>
-              <div>
-                <label style={{ display: 'block', marginBottom: 4, fontSize: 12, color: 'var(--text-tertiary)' }}>Confirm New Password</label>
-                <input
-                  type="password"
-                  value={confirmNewPassword}
-                  onChange={e => setConfirmNewPassword(e.target.value)}
-                  required
-                  style={inputStyle}
-                  autoComplete="new-password"
-                />
-              </div>
-              <button
-                type="submit"
-                disabled={passwordLoading}
-                className="btn-primary"
-                style={{ alignSelf: 'flex-start', padding: '8px 18px', fontSize: 13, fontWeight: 500, margin: '6px 0 0 0' }}
-              >
-                {passwordLoading ? 'Changing...' : 'Update Password'}
-              </button>
-            </form>
-          </div>
-
-          {/* About Box */}
-          <div className="config-section">
-            <div className="config-section-title"><Icon name="info" size={14} /> Platform Specifications</div>
-            <div style={{ marginTop: 10, fontSize: 13, color: 'var(--text-tertiary)', lineHeight: 1.6 }}>
-              <strong>Dialix Voice Cloud v3.0</strong> — Multi-provider AI dialing engine supporting ElevenLabs Conversational AI, Vapi Voice WebSockets, and Google Gemini Live.
+          <div className="rounded-lg border border-border bg-card">
+            <div className="px-6 py-4 border-b border-border flex items-center gap-2">
+              <Info size={16} className="text-muted-foreground" />
+              <h3 className="font-medium text-sm">Platform Specifications</h3>
+            </div>
+            <div className="p-6">
+              <p className="text-sm text-muted-foreground">
+                <strong className="text-foreground font-medium">Dialix Voice Cloud v3.0</strong> — Multi-provider AI dialing engine supporting ElevenLabs Conversational AI, Vapi Voice WebSockets, and Google Gemini Live.
+              </p>
             </div>
           </div>
         </div>
       )}
 
-      {/* ── TAB 2: Team Management ── */}
       {activeTab === 'team' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-          {/* Header Action */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div className="flex flex-col gap-6">
+          <div className="flex items-center justify-between">
             <div>
-              <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-primary)' }}>Organization Members</div>
-              <div style={{ fontSize: 12, color: 'var(--text-quaternary)' }}>Invite collaborators, assign roles, and manage permissions.</div>
+              <h2 className="text-lg font-semibold tracking-tight">Organization Members</h2>
+              <p className="text-sm text-muted-foreground">Invite collaborators, assign roles, and manage permissions.</p>
             </div>
             <button
               type="button"
-              className="btn-primary"
+              className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md px-4 py-2 text-sm font-medium inline-flex items-center gap-2"
               onClick={() => { setShowInviteModal(true); setLastInviteLink(''); }}
-              style={{ padding: '8px 16px', fontSize: 12, margin: 0 }}
             >
-              <Icon name="user-plus" size={13} /> Invite Colleague
+              <UserPlus size={16} /> Invite Colleague
             </button>
           </div>
 
-          {/* Members List */}
-          <div className="config-section">
-            <div className="config-section-title"><Icon name="users" size={14} /> Active Members ({members.length})</div>
-
+          <div className="rounded-lg border border-border bg-card">
+            <div className="px-6 py-4 border-b border-border flex items-center gap-2">
+              <Users size={16} className="text-muted-foreground" />
+              <h3 className="font-medium text-sm">Active Members ({members.length})</h3>
+            </div>
+            
             {loadingTeam ? (
-              <SkeletonRows count={3} />
+              <div className="p-6"><SkeletonRows count={3} /></div>
             ) : members.length === 0 ? (
-              <div style={{ padding: 24, textAlign: 'center', color: 'var(--text-tertiary)' }}>No team members found.</div>
+              <div className="p-8 text-center text-sm text-muted-foreground">No team members found.</div>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 12 }}>
+              <div className="divide-y divide-border">
                 {members.map(member => (
-                  <div
-                    key={member.id}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      padding: '12px 16px',
-                      borderRadius: 'var(--radius-md)',
-                      background: 'var(--bg-secondary)',
-                      border: '1px solid var(--border-default)',
-                    }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                      <div style={{ width: 34, height: 34, borderRadius: '50%', background: 'rgba(99,102,241,0.15)', color: 'var(--brand-accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 600, fontSize: 13 }}>
+                  <div key={member.id} className="flex items-center justify-between p-6">
+                    <div className="flex items-center gap-4">
+                      <div className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center font-semibold">
                         {(member.name || member.email || 'U')[0].toUpperCase()}
                       </div>
                       <div>
-                        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>
-                          {member.name || member.email.split('@')[0]}
-                        </div>
-                        <div style={{ fontSize: 11, color: 'var(--text-quaternary)' }}>
-                          {member.email} • Joined {new Date(member.created_at).toLocaleDateString()}
-                        </div>
+                        <p className="text-sm font-semibold">{member.name || member.email.split('@')[0]}</p>
+                        <p className="text-xs text-muted-foreground">{member.email} • Joined {new Date(member.created_at).toLocaleDateString()}</p>
                       </div>
                     </div>
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <div className="flex items-center gap-4">
                       {member.role === 'owner' ? (
-                        <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 12, background: 'rgba(99,102,241,0.15)', color: 'var(--brand-accent)' }}>
-                          Owner
-                        </span>
+                        <span className="bg-primary/10 text-primary rounded-full px-3 py-1 text-xs font-medium">Owner</span>
                       ) : (
                         <select
-                          className="form-input"
+                          className="rounded-md border border-border bg-background px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring w-32"
                           value={member.role}
                           onChange={e => handleChangeRole(member.id, e.target.value as 'admin' | 'manager' | 'viewer')}
-                          style={{ padding: '4px 8px', fontSize: 12, width: 110 }}
                         >
                           <option value="admin">Admin</option>
                           <option value="manager">Manager</option>
@@ -712,12 +720,11 @@ export default function SettingsPage() {
                       {member.role !== 'owner' && (
                         <button
                           type="button"
-                          className="btn-ghost"
+                          className="text-muted-foreground hover:text-red-500 rounded-md p-2 transition-colors"
                           onClick={() => handleRemoveMember(member.id, member.name || member.email)}
-                          style={{ color: 'var(--red)', padding: '4px 8px' }}
                           title="Remove member"
                         >
-                          <Icon name="trash-2" size={14} />
+                          <Trash2 size={16} />
                         </button>
                       )}
                     </div>
@@ -727,45 +734,35 @@ export default function SettingsPage() {
             )}
           </div>
 
-          {/* Pending Invitations */}
           {invitations.length > 0 && (
-            <div className="config-section">
-              <div className="config-section-title"><Icon name="mail" size={14} /> Pending Invitations ({invitations.length})</div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 12 }}>
+            <div className="rounded-lg border border-border bg-card mt-2">
+              <div className="px-6 py-4 border-b border-border flex items-center gap-2">
+                <Mail size={16} className="text-muted-foreground" />
+                <h3 className="font-medium text-sm">Pending Invitations ({invitations.length})</h3>
+              </div>
+              
+              <div className="divide-y divide-border">
                 {invitations.map(inv => (
-                  <div
-                    key={inv.id}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      padding: '10px 14px',
-                      borderRadius: 'var(--radius-md)',
-                      background: 'var(--bg-secondary)',
-                      border: '1px solid var(--border-default)',
-                    }}
-                  >
+                  <div key={inv.id} className="flex items-center justify-between p-6">
                     <div>
-                      <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-primary)' }}>{inv.email}</div>
-                      <div style={{ fontSize: 11, color: 'var(--text-quaternary)' }}>
-                        Role: <strong style={{ textTransform: 'capitalize' }}>{inv.role}</strong> • Expires {new Date(inv.expires_at).toLocaleDateString()}
-                      </div>
+                      <p className="text-sm font-medium">{inv.email}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Role: <strong className="capitalize text-foreground font-medium">{inv.role}</strong> • Expires {new Date(inv.expires_at).toLocaleDateString()}
+                      </p>
                     </div>
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div className="flex items-center gap-3">
                       <button
                         type="button"
-                        className="btn-ghost"
+                        className="text-muted-foreground hover:text-foreground hover:bg-accent rounded-md px-3 py-1.5 text-xs font-medium inline-flex items-center gap-1.5 border border-border"
                         onClick={() => copyToClipboard(`${window.location.origin}/invite/${inv.token}`, 'Invitation URL copied!')}
-                        style={{ fontSize: 11, padding: '4px 8px', border: '1px solid var(--border-default)' }}
                       >
-                        <Icon name="copy" size={11} /> Copy Link
+                        <Copy size={12} /> Copy Link
                       </button>
                       <button
                         type="button"
-                        className="btn-ghost"
+                        className="text-red-500 hover:text-red-600 hover:bg-red-500/10 rounded-md px-3 py-1.5 text-xs font-medium"
                         onClick={() => handleRevokeInvitation(inv.id)}
-                        style={{ color: 'var(--red)', fontSize: 11, padding: '4px 8px' }}
                       >
                         Revoke
                       </button>
@@ -776,139 +773,127 @@ export default function SettingsPage() {
             </div>
           )}
 
-          {/* Invite Modal */}
           {showInviteModal && (
-            <div className="modal-overlay" onClick={() => setShowInviteModal(false)}>
-              <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 460 }}>
-                <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 16 }}>
-                  <div style={{ fontSize: 17, fontWeight: 700, color: 'var(--text-primary)' }}>Invite Team Member</div>
-                  <form onSubmit={handleSendInvite} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                    <div>
-                      <label style={{ display: 'block', fontSize: 12, color: 'var(--text-secondary)', marginBottom: 4 }}>Email Address</label>
-                      <input
-                        type="email"
-                        required
-                        placeholder="colleague@company.com"
-                        value={inviteEmail}
-                        onChange={e => setInviteEmail(e.target.value)}
-                        style={inputStyle}
-                        autoFocus
-                      />
-                    </div>
-                    <div>
-                      <label style={{ display: 'block', fontSize: 12, color: 'var(--text-secondary)', marginBottom: 4 }}>Role & Privileges</label>
-                      <select
-                        value={inviteRole}
-                        onChange={e => setInviteRole(e.target.value as 'admin' | 'manager' | 'viewer')}
-                        style={inputStyle}
-                      >
-                        <option value="viewer">Viewer — Read-only access to analytics & logs</option>
-                        <option value="manager">Manager — Manage agents and launch campaigns</option>
-                        <option value="admin">Admin — Full management including API keys & billing</option>
-                      </select>
-                    </div>
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+              <div className="w-full max-w-md rounded-lg border border-border bg-card p-6" onClick={e => e.stopPropagation()}>
+                <h2 className="text-lg font-semibold mb-6">Invite Team Member</h2>
+                
+                <form onSubmit={handleSendInvite} className="flex flex-col gap-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-1.5 text-foreground">Email Address</label>
+                    <input
+                      type="email"
+                      required
+                      placeholder="colleague@company.com"
+                      value={inviteEmail}
+                      onChange={e => setInviteEmail(e.target.value)}
+                      className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                      autoFocus
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium mb-1.5 text-foreground">Role & Privileges</label>
+                    <select
+                      value={inviteRole}
+                      onChange={e => setInviteRole(e.target.value as 'admin' | 'manager' | 'viewer')}
+                      className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                    >
+                      <option value="viewer">Viewer — Read-only access to analytics & logs</option>
+                      <option value="manager">Manager — Manage agents and launch campaigns</option>
+                      <option value="admin">Admin — Full management including API keys & billing</option>
+                    </select>
+                  </div>
 
-                    {lastInviteLink && (
-                      <div style={{ marginTop: 8, padding: 12, background: 'rgba(52,211,153,0.1)', borderRadius: 'var(--radius-md)', border: '1px solid rgba(52,211,153,0.2)' }}>
-                        <div style={{ fontSize: 11, color: 'var(--green)', fontWeight: 600, marginBottom: 4 }}>Invitation Generated!</div>
-                        <div style={{ display: 'flex', gap: 8 }}>
-                          <input readOnly value={lastInviteLink} style={{ ...inputStyle, fontSize: 11, background: 'var(--bg-secondary)' }} />
-                          <button
-                            type="button"
-                            className="btn-primary"
-                            onClick={() => copyToClipboard(lastInviteLink)}
-                            style={{ padding: '4px 10px', fontSize: 11, margin: 0 }}
-                          >
-                            Copy
-                          </button>
-                        </div>
+                  {lastInviteLink && (
+                    <div className="mt-2 p-3 bg-emerald-500/10 rounded-md border border-emerald-500/20">
+                      <p className="text-xs font-semibold text-emerald-500 mb-2">Invitation Generated!</p>
+                      <div className="flex gap-2">
+                        <input 
+                          readOnly 
+                          value={lastInviteLink} 
+                          className="flex-1 rounded-md border border-emerald-500/30 bg-background/50 px-2 py-1 text-xs text-emerald-500 focus:outline-none" 
+                        />
+                        <button
+                          type="button"
+                          className="bg-emerald-500 text-white hover:bg-emerald-600 rounded-md px-3 py-1 text-xs font-medium"
+                          onClick={() => copyToClipboard(lastInviteLink)}
+                        >
+                          Copy
+                        </button>
                       </div>
-                    )}
-
-                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 12 }}>
-                      <button
-                        type="button"
-                        className="btn-ghost"
-                        onClick={() => setShowInviteModal(false)}
-                        style={{ padding: '8px 14px', fontSize: 12 }}
-                      >
-                        Close
-                      </button>
-                      <button
-                        type="submit"
-                        disabled={inviting || !inviteEmail.trim()}
-                        className="btn-primary"
-                        style={{ padding: '8px 16px', fontSize: 12, margin: 0 }}
-                      >
-                        {inviting ? 'Sending...' : 'Send Invitation'}
-                      </button>
                     </div>
-                  </form>
-                </div>
+                  )}
+
+                  <div className="flex justify-end gap-3 mt-4 pt-4 border-t border-border">
+                    <button
+                      type="button"
+                      className="text-muted-foreground hover:text-foreground hover:bg-accent rounded-md px-4 py-2 text-sm font-medium"
+                      onClick={() => setShowInviteModal(false)}
+                    >
+                      Close
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={inviting || !inviteEmail.trim()}
+                      className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md px-4 py-2 text-sm font-medium disabled:opacity-50"
+                    >
+                      {inviting ? 'Sending...' : 'Send Invitation'}
+                    </button>
+                  </div>
+                </form>
               </div>
             </div>
           )}
         </div>
       )}
 
-      {/* ── TAB 3: API Keys ── */}
       {activeTab === 'api-keys' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-          {/* Header Action */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div className="flex flex-col gap-6">
+          <div className="flex items-center justify-between">
             <div>
-              <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-primary)' }}>Developer API Keys</div>
-              <div style={{ fontSize: 12, color: 'var(--text-quaternary)' }}>Authenticate external scripts, CRMs, Zapier, and backend pipelines.</div>
+              <h2 className="text-lg font-semibold tracking-tight">Developer API Keys</h2>
+              <p className="text-sm text-muted-foreground">Authenticate external scripts, CRMs, Zapier, and backend pipelines.</p>
             </div>
             <button
               type="button"
-              className="btn-primary"
+              className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md px-4 py-2 text-sm font-medium inline-flex items-center gap-2"
               onClick={() => { setShowCreateKeyModal(true); setCreatedFullKey(null); }}
-              style={{ padding: '8px 16px', fontSize: 12, margin: 0 }}
             >
-              <Icon name="plus" size={13} /> Create API Key
+              <Plus size={16} /> Create API Key
             </button>
           </div>
 
-          {/* API Keys List */}
-          <div className="config-section">
-            <div className="config-section-title"><Icon name="key" size={14} /> Active Credentials ({apiKeys.length})</div>
-
+          <div className="rounded-lg border border-border bg-card">
+            <div className="px-6 py-4 border-b border-border flex items-center gap-2">
+              <Key size={16} className="text-muted-foreground" />
+              <h3 className="font-medium text-sm">Active Credentials ({apiKeys.length})</h3>
+            </div>
+            
             {loadingKeys ? (
-              <SkeletonRows count={3} />
+              <div className="p-6"><SkeletonRows count={3} /></div>
             ) : apiKeys.length === 0 ? (
-              <div style={{ padding: 32, textAlign: 'center', color: 'var(--text-tertiary)' }}>
+              <div className="p-8 text-center text-sm text-muted-foreground">
                 No API keys generated yet. Create one to authenticate programmatic API requests.
               </div>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 12 }}>
+              <div className="divide-y divide-border">
                 {apiKeys.map(k => (
-                  <div
-                    key={k.id}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      padding: '14px 18px',
-                      borderRadius: 'var(--radius-md)',
-                      background: 'var(--bg-secondary)',
-                      border: '1px solid var(--border-default)',
-                    }}
-                  >
+                  <div key={k.id} className="flex items-center justify-between p-6 hover:bg-accent/30 transition-colors">
                     <div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
-                        <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>{k.name}</span>
-                        <code style={{ fontSize: 12, padding: '2px 8px', borderRadius: 4, background: 'var(--bg-tertiary)', color: 'var(--text-secondary)' }}>
+                      <div className="flex items-center gap-3 mb-2">
+                        <span className="text-sm font-semibold">{k.name}</span>
+                        <code className="text-xs px-2 py-0.5 rounded-md bg-muted text-muted-foreground font-mono">
                           {k.prefix}••••••••
                         </code>
                       </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                      <div className="flex items-center gap-2 flex-wrap mt-2">
                         {(Array.isArray(k.scopes) ? k.scopes : []).map(sc => (
-                          <span key={sc} style={{ fontSize: 10, padding: '2px 6px', borderRadius: 4, background: 'rgba(99,102,241,0.1)', color: 'var(--brand-accent)', fontWeight: 500 }}>
+                          <span key={sc} className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium uppercase tracking-wide">
                             {sc}
                           </span>
                         ))}
-                        <span style={{ fontSize: 11, color: 'var(--text-quaternary)', marginLeft: 6 }}>
+                        <span className="text-xs text-muted-foreground ml-2">
                           Created {new Date(k.created_at).toLocaleDateString()}
                         </span>
                       </div>
@@ -916,9 +901,8 @@ export default function SettingsPage() {
 
                     <button
                       type="button"
-                      className="btn-ghost"
+                      className="text-red-500 hover:text-red-600 hover:bg-red-500/10 border border-red-500/20 rounded-md px-4 py-2 text-sm font-medium transition-colors"
                       onClick={() => handleRevokeApiKey(k.id, k.name)}
-                      style={{ color: 'var(--red)', padding: '6px 12px', fontSize: 12, border: '1px solid rgba(239,68,68,0.2)' }}
                     >
                       Revoke Key
                     </button>
@@ -928,232 +912,189 @@ export default function SettingsPage() {
             )}
           </div>
 
-          {/* Create Key Modal */}
           {showCreateKeyModal && (
-            <div className="modal-overlay" onClick={() => setShowCreateKeyModal(false)}>
-              <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 500 }}>
-                <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 16 }}>
-                  <div style={{ fontSize: 17, fontWeight: 700, color: 'var(--text-primary)' }}>Generate New API Key</div>
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+              <div className="w-full max-w-md rounded-lg border border-border bg-card p-6" onClick={e => e.stopPropagation()}>
+                <h2 className="text-lg font-semibold mb-6">Generate New API Key</h2>
 
-                  {createdFullKey ? (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                      <div style={{ padding: 12, borderRadius: 'var(--radius-md)', background: 'rgba(251,191,36,0.1)', border: '1px solid rgba(251,191,36,0.25)', color: '#fbbf24', fontSize: 12 }}>
-                        <strong>Important:</strong> Copy this secret key now. For your security, it will not be displayed again.
-                      </div>
-                      <div style={{ display: 'flex', gap: 8 }}>
-                        <input
-                          readOnly
-                          value={createdFullKey}
-                          style={{ ...inputStyle, fontFamily: 'var(--font-mono)', fontSize: 13, background: 'var(--bg-secondary)' }}
-                        />
-                        <button
-                          type="button"
-                          className="btn-primary"
-                          onClick={() => copyToClipboard(createdFullKey, 'Secret API key copied!')}
-                          style={{ padding: '8px 16px', fontSize: 12, margin: 0 }}
-                        >
-                          <Icon name="copy" size={13} /> Copy
-                        </button>
-                      </div>
+                {createdFullKey ? (
+                  <div className="flex flex-col gap-4">
+                    <div className="p-4 rounded-md bg-yellow-500/10 border border-yellow-500/20 text-yellow-500 text-sm">
+                      <strong className="font-semibold">Important:</strong> Copy this secret key now. For your security, it will not be displayed again.
+                    </div>
+                    <div className="flex gap-2">
+                      <input
+                        readOnly
+                        value={createdFullKey}
+                        className="flex-1 rounded-md border border-border bg-background px-3 py-2 text-sm font-mono text-foreground focus:outline-none"
+                      />
                       <button
                         type="button"
-                        className="btn-ghost"
+                        className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md px-4 py-2 text-sm font-medium inline-flex items-center gap-2"
+                        onClick={() => copyToClipboard(createdFullKey, 'Secret API key copied!')}
+                      >
+                        <Copy size={14} /> Copy
+                      </button>
+                    </div>
+                    <div className="flex justify-end mt-4 pt-4 border-t border-border">
+                      <button
+                        type="button"
+                        className="text-muted-foreground hover:text-foreground hover:bg-accent rounded-md px-4 py-2 text-sm font-medium"
                         onClick={() => { setShowCreateKeyModal(false); setCreatedFullKey(null); }}
-                        style={{ alignSelf: 'flex-end', padding: '6px 16px', fontSize: 12 }}
                       >
                         Done
                       </button>
                     </div>
-                  ) : (
-                    <form onSubmit={handleCreateApiKey} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                      <div>
-                        <label style={{ display: 'block', fontSize: 12, color: 'var(--text-secondary)', marginBottom: 4 }}>Key Label / Identifier</label>
-                        <input
-                          placeholder="e.g. Zapier Lead Trigger, Production Worker"
-                          value={newKeyName}
-                          onChange={e => setNewKeyName(e.target.value)}
-                          required
-                          style={inputStyle}
-                          autoFocus
-                        />
-                      </div>
+                  </div>
+                ) : (
+                  <form onSubmit={handleCreateApiKey} className="flex flex-col gap-5">
+                    <div>
+                      <label className="block text-sm font-medium mb-1.5 text-foreground">Key Label / Identifier</label>
+                      <input
+                        placeholder="e.g. Zapier Lead Trigger, Production Worker"
+                        value={newKeyName}
+                        onChange={e => setNewKeyName(e.target.value)}
+                        required
+                        className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                        autoFocus
+                      />
+                    </div>
 
-                      <div>
-                        <label style={{ display: 'block', fontSize: 12, color: 'var(--text-secondary)', marginBottom: 8 }}>Granted Permissions (Scopes)</label>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                          {[
-                            { id: 'calls:read', label: 'calls:read (View call logs)' },
-                            { id: 'calls:write', label: 'calls:write (Initiate calls)' },
-                            { id: 'agents:read', label: 'agents:read (List agents)' },
-                            { id: 'agents:write', label: 'agents:write (Modify agents)' },
-                            { id: 'campaigns:read', label: 'campaigns:read (View campaigns)' },
-                            { id: 'campaigns:write', label: 'campaigns:write (Launch campaigns)' },
-                          ].map(sc => (
-                            <label
-                              key={sc.id}
-                              style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: 8,
-                                fontSize: 12,
-                                color: 'var(--text-secondary)',
-                                padding: '6px 10px',
-                                borderRadius: 6,
-                                background: 'var(--bg-secondary)',
-                                border: '1px solid var(--border-default)',
-                                cursor: 'pointer',
+                    <div>
+                      <label className="block text-sm font-medium mb-2 text-foreground">Granted Permissions (Scopes)</label>
+                      <div className="grid grid-cols-1 gap-2">
+                        {[
+                          { id: 'calls:read', label: 'calls:read (View call logs)' },
+                          { id: 'calls:write', label: 'calls:write (Initiate calls)' },
+                          { id: 'agents:read', label: 'agents:read (List agents)' },
+                          { id: 'agents:write', label: 'agents:write (Modify agents)' },
+                          { id: 'campaigns:read', label: 'campaigns:read (View campaigns)' },
+                          { id: 'campaigns:write', label: 'campaigns:write (Launch campaigns)' },
+                        ].map(sc => (
+                          <label
+                            key={sc.id}
+                            className="flex items-center gap-3 p-2 rounded-md border border-border bg-background hover:bg-accent/50 cursor-pointer transition-colors"
+                          >
+                            <input
+                              type="checkbox"
+                              className="rounded border-border bg-background text-primary focus:ring-primary"
+                              checked={selectedScopes.includes(sc.id)}
+                              onChange={e => {
+                                if (e.target.checked) setSelectedScopes(p => [...p, sc.id]);
+                                else setSelectedScopes(p => p.filter(x => x !== sc.id));
                               }}
-                            >
-                              <input
-                                type="checkbox"
-                                checked={selectedScopes.includes(sc.id)}
-                                onChange={e => {
-                                  if (e.target.checked) setSelectedScopes(p => [...p, sc.id]);
-                                  else setSelectedScopes(p => p.filter(x => x !== sc.id));
-                                }}
-                              />
-                              <span>{sc.label}</span>
-                            </label>
-                          ))}
-                        </div>
+                            />
+                            <span className="text-sm">{sc.label}</span>
+                          </label>
+                        ))}
                       </div>
+                    </div>
 
-                      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 10 }}>
-                        <button
-                          type="button"
-                          className="btn-ghost"
-                          onClick={() => setShowCreateKeyModal(false)}
-                          style={{ padding: '8px 14px', fontSize: 12 }}
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          type="submit"
-                          disabled={creatingKey || !newKeyName.trim()}
-                          className="btn-primary"
-                          style={{ padding: '8px 16px', fontSize: 12, margin: 0 }}
-                        >
-                          {creatingKey ? 'Generating...' : 'Generate Secret Key'}
-                        </button>
-                      </div>
-                    </form>
-                  )}
-                </div>
+                    <div className="flex justify-end gap-3 mt-4 pt-4 border-t border-border">
+                      <button
+                        type="button"
+                        className="text-muted-foreground hover:text-foreground hover:bg-accent rounded-md px-4 py-2 text-sm font-medium"
+                        onClick={() => setShowCreateKeyModal(false)}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={creatingKey || !newKeyName.trim()}
+                        className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md px-4 py-2 text-sm font-medium disabled:opacity-50"
+                      >
+                        {creatingKey ? 'Generating...' : 'Generate Secret Key'}
+                      </button>
+                    </div>
+                  </form>
+                )}
               </div>
             </div>
           )}
         </div>
       )}
 
-      {/* ── TAB 4: Webhooks ── */}
       {activeTab === 'webhooks' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-          {/* Header Action */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div className="flex flex-col gap-6">
+          <div className="flex items-center justify-between">
             <div>
-              <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-primary)' }}>Outbound Webhooks</div>
-              <div style={{ fontSize: 12, color: 'var(--text-quaternary)' }}>Deliver live event notifications to your server or webhook receivers.</div>
+              <h2 className="text-lg font-semibold tracking-tight">Outbound Webhooks</h2>
+              <p className="text-sm text-muted-foreground">Deliver live event notifications to your server or webhook receivers.</p>
             </div>
             <button
               type="button"
-              className="btn-primary"
+              className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md px-4 py-2 text-sm font-medium inline-flex items-center gap-2"
               onClick={() => setShowCreateWebhookModal(true)}
-              style={{ padding: '8px 16px', fontSize: 12, margin: 0 }}
             >
-              <Icon name="plus" size={13} /> Add Webhook Endpoint
+              <Plus size={16} /> Add Webhook Endpoint
             </button>
           </div>
 
-          {/* Webhooks List */}
-          <div className="config-section">
-            <div className="config-section-title"><Icon name="globe" size={14} /> Registered Endpoints ({webhooks.length})</div>
-
+          <div className="rounded-lg border border-border bg-card">
+            <div className="px-6 py-4 border-b border-border flex items-center gap-2">
+              <Globe size={16} className="text-muted-foreground" />
+              <h3 className="font-medium text-sm">Registered Endpoints ({webhooks.length})</h3>
+            </div>
+            
             {loadingWebhooks ? (
-              <SkeletonRows count={3} />
+              <div className="p-6"><SkeletonRows count={3} /></div>
             ) : webhooks.length === 0 ? (
-              <div style={{ padding: 32, textAlign: 'center', color: 'var(--text-tertiary)' }}>
+              <div className="p-8 text-center text-sm text-muted-foreground">
                 No webhook endpoints registered. Add your webhook URL to receive real-time call and campaign updates.
               </div>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 12 }}>
+              <div className="divide-y divide-border">
                 {webhooks.map(wh => {
                   const testRes = webhookTestResults[wh.id];
                   return (
-                    <div
-                      key={wh.id}
-                      style={{
-                        padding: '16px 20px',
-                        borderRadius: 'var(--radius-md)',
-                        background: 'var(--bg-secondary)',
-                        border: '1px solid var(--border-default)',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: 12,
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                          <Icon name="radio" size={16} style={{ color: 'var(--brand-accent)' }} />
-                          <code style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>{wh.url}</code>
+                    <div key={wh.id} className="p-6 flex flex-col gap-4">
+                      <div className="flex items-center justify-between gap-4">
+                        <div className="flex items-center gap-3 overflow-hidden">
+                          <Radio size={18} className="text-primary flex-shrink-0" />
+                          <code className="text-sm font-semibold truncate bg-muted px-2 py-1 rounded-md">{wh.url}</code>
                         </div>
 
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <div className="flex items-center gap-3 flex-shrink-0">
                           {testRes && (
-                            <span
-                              style={{
-                                fontSize: 11,
-                                padding: '3px 8px',
-                                borderRadius: 12,
-                                background: testRes.success ? 'rgba(52,211,153,0.1)' : 'rgba(239,68,68,0.1)',
-                                color: testRes.success ? 'var(--green)' : 'var(--red)',
-                                fontWeight: 600,
-                              }}
-                            >
+                            <span className={cn(
+                              "text-xs px-2.5 py-1 rounded-full font-medium tracking-wide",
+                              testRes.success ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"
+                            )}>
                               {testRes.success ? `HTTP ${testRes.status} • ${testRes.latency_ms}ms` : `HTTP ${testRes.status || 'ERR'}`}
                             </span>
                           )}
 
                           <button
                             type="button"
-                            className="btn-ghost"
+                            className="text-muted-foreground hover:text-foreground hover:bg-accent rounded-md px-3 py-1.5 text-xs font-medium inline-flex items-center gap-1.5 border border-border"
                             onClick={() => handleTestWebhook(wh.id)}
                             disabled={testingWebhookId === wh.id}
-                            style={{ fontSize: 11, padding: '4px 10px', border: '1px solid var(--border-default)' }}
                           >
-                            <Icon name="send" size={11} style={{ animation: testingWebhookId === wh.id ? 'spin 1s linear infinite' : 'none' }} />
+                            <Send size={12} className={testingWebhookId === wh.id ? 'animate-pulse' : ''} />
                             {testingWebhookId === wh.id ? 'Pinging...' : 'Send Test Ping'}
                           </button>
 
                           <button
                             type="button"
-                            className="btn-ghost"
+                            className="text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded-md p-2 transition-colors"
                             onClick={() => handleDeleteWebhook(wh.id)}
-                            style={{ color: 'var(--red)', padding: '4px 8px' }}
                             title="Delete webhook"
                           >
-                            <Icon name="trash-2" size={14} />
+                            <Trash2 size={16} />
                           </button>
                         </div>
                       </div>
 
                       {wh.description && (
-                        <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{wh.description}</div>
+                        <div className="text-sm text-muted-foreground">{wh.description}</div>
                       )}
 
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                        <span style={{ fontSize: 11, color: 'var(--text-quaternary)' }}>Events:</span>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-xs text-muted-foreground font-medium mr-1">Events:</span>
                         {(Array.isArray(wh.events) ? wh.events : []).map(ev => (
                           <span
                             key={ev}
-                            style={{
-                              fontSize: 10,
-                              padding: '2px 6px',
-                              borderRadius: 4,
-                              background: 'var(--bg-tertiary)',
-                              color: 'var(--text-secondary)',
-                              fontWeight: 500,
-                              fontFamily: 'var(--font-mono)',
-                            }}
+                            className="text-[10px] px-2 py-0.5 rounded-md bg-accent text-foreground font-mono"
                           >
                             {ev}
                           </span>
@@ -1166,163 +1107,140 @@ export default function SettingsPage() {
             )}
           </div>
 
-          {/* Add Webhook Modal */}
           {showCreateWebhookModal && (
-            <div className="modal-overlay" onClick={() => setShowCreateWebhookModal(false)}>
-              <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 540 }}>
-                <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 16 }}>
-                  <div style={{ fontSize: 17, fontWeight: 700, color: 'var(--text-primary)' }}>Register Webhook Endpoint</div>
-                  <form onSubmit={handleCreateWebhook} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                    <div>
-                      <label style={{ display: 'block', fontSize: 12, color: 'var(--text-secondary)', marginBottom: 4 }}>Destination URL</label>
-                      <input
-                        type="url"
-                        placeholder="https://api.yourdomain.com/webhooks/dialix"
-                        value={webhookUrl}
-                        onChange={e => setWebhookUrl(e.target.value)}
-                        required
-                        style={inputStyle}
-                        autoFocus
-                      />
-                    </div>
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+              <div className="w-full max-w-lg rounded-lg border border-border bg-card p-6" onClick={e => e.stopPropagation()}>
+                <h2 className="text-lg font-semibold mb-6">Register Webhook Endpoint</h2>
+                
+                <form onSubmit={handleCreateWebhook} className="flex flex-col gap-5">
+                  <div>
+                    <label className="block text-sm font-medium mb-1.5 text-foreground">Destination URL</label>
+                    <input
+                      type="url"
+                      placeholder="https://api.yourdomain.com/webhooks/dialix"
+                      value={webhookUrl}
+                      onChange={e => setWebhookUrl(e.target.value)}
+                      required
+                      className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                      autoFocus
+                    />
+                  </div>
 
-                    <div>
-                      <label style={{ display: 'block', fontSize: 12, color: 'var(--text-secondary)', marginBottom: 4 }}>Description (optional)</label>
-                      <input
-                        placeholder="e.g. CRM Call Logger"
-                        value={webhookDesc}
-                        onChange={e => setWebhookDesc(e.target.value)}
-                        style={inputStyle}
-                      />
-                    </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1.5 text-foreground">Description (optional)</label>
+                    <input
+                      placeholder="e.g. CRM Call Logger"
+                      value={webhookDesc}
+                      onChange={e => setWebhookDesc(e.target.value)}
+                      className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                    />
+                  </div>
 
-                    <div>
-                      <label style={{ display: 'block', fontSize: 12, color: 'var(--text-secondary)', marginBottom: 4 }}>Signing Secret (optional)</label>
-                      <input
-                        placeholder="whsec_..."
-                        value={webhookSecret}
-                        onChange={e => setWebhookSecret(e.target.value)}
-                        style={inputStyle}
-                      />
-                    </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1.5 text-foreground">Signing Secret (optional)</label>
+                    <input
+                      placeholder="whsec_..."
+                      value={webhookSecret}
+                      onChange={e => setWebhookSecret(e.target.value)}
+                      className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                    />
+                  </div>
 
-                    <div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                        <label style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Event Subscriptions</label>
-                        <div style={{ display: 'flex', gap: 8 }}>
-                          <button
-                            type="button"
-                            className="btn-ghost"
-                            onClick={() => setWebhookEvents(availableEvents)}
-                            style={{ fontSize: 11, padding: '2px 6px' }}
-                          >
-                            Select All
-                          </button>
-                          <button
-                            type="button"
-                            className="btn-ghost"
-                            onClick={() => setWebhookEvents([])}
-                            style={{ fontSize: 11, padding: '2px 6px' }}
-                          >
-                            Clear
-                          </button>
-                        </div>
+                  <div>
+                    <div className="flex justify-between items-center mb-2">
+                      <label className="block text-sm font-medium text-foreground">Event Subscriptions</label>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          className="text-xs text-primary hover:underline font-medium"
+                          onClick={() => setWebhookEvents(availableEvents)}
+                        >
+                          Select All
+                        </button>
+                        <span className="text-muted-foreground text-xs">|</span>
+                        <button
+                          type="button"
+                          className="text-xs text-muted-foreground hover:text-foreground hover:underline font-medium"
+                          onClick={() => setWebhookEvents([])}
+                        >
+                          Clear
+                        </button>
                       </div>
+                    </div>
 
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
-                        {availableEvents.map(ev => (
-                          <label
-                            key={ev}
-                            style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: 8,
-                              fontSize: 12,
-                              color: 'var(--text-secondary)',
-                              padding: '6px 8px',
-                              borderRadius: 4,
-                              background: 'var(--bg-secondary)',
-                              border: '1px solid var(--border-default)',
-                              cursor: 'pointer',
+                    <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto p-1">
+                      {availableEvents.map(ev => (
+                        <label
+                          key={ev}
+                          className="flex items-center gap-2.5 p-2 rounded-md border border-border bg-background hover:bg-accent/50 cursor-pointer transition-colors"
+                        >
+                          <input
+                            type="checkbox"
+                            className="rounded border-border bg-background text-primary focus:ring-primary"
+                            checked={webhookEvents.includes(ev)}
+                            onChange={e => {
+                              if (e.target.checked) setWebhookEvents(p => [...p, ev]);
+                              else setWebhookEvents(p => p.filter(x => x !== ev));
                             }}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={webhookEvents.includes(ev)}
-                              onChange={e => {
-                                if (e.target.checked) setWebhookEvents(p => [...p, ev]);
-                                else setWebhookEvents(p => p.filter(x => x !== ev));
-                              }}
-                            />
-                            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11 }}>{ev}</span>
-                          </label>
-                        ))}
-                      </div>
+                          />
+                          <span className="text-xs font-mono">{ev}</span>
+                        </label>
+                      ))}
                     </div>
+                  </div>
 
-                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 10 }}>
-                      <button
-                        type="button"
-                        className="btn-ghost"
-                        onClick={() => setShowCreateWebhookModal(false)}
-                        style={{ padding: '8px 14px', fontSize: 12 }}
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        type="submit"
-                        disabled={creatingWebhook || !webhookUrl.trim() || webhookEvents.length === 0}
-                        className="btn-primary"
-                        style={{ padding: '8px 16px', fontSize: 12, margin: 0 }}
-                      >
-                        {creatingWebhook ? 'Registering...' : 'Register Endpoint'}
-                      </button>
-                    </div>
-                  </form>
-                </div>
+                  <div className="flex justify-end gap-3 mt-4 pt-4 border-t border-border">
+                    <button
+                      type="button"
+                      className="text-muted-foreground hover:text-foreground hover:bg-accent rounded-md px-4 py-2 text-sm font-medium"
+                      onClick={() => setShowCreateWebhookModal(false)}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={creatingWebhook || !webhookUrl.trim() || webhookEvents.length === 0}
+                      className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md px-4 py-2 text-sm font-medium disabled:opacity-50"
+                    >
+                      {creatingWebhook ? 'Registering...' : 'Register Endpoint'}
+                    </button>
+                  </div>
+                </form>
               </div>
             </div>
           )}
         </div>
       )}
 
-      {/* ── TAB 5: System Health & Bug Monitor ── */}
       {activeTab === 'telemetry' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-          {/* Summary KPIs */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
-            <div style={{ padding: '16px 18px', borderRadius: 'var(--radius-md)', background: 'var(--bg-secondary)', border: '1px solid var(--border-default)' }}>
-              <div style={{ fontSize: 11, color: 'var(--text-quaternary)', textTransform: 'uppercase', fontWeight: 600, marginBottom: 6 }}>Total Captured</div>
-              <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--text-primary)' }}>{telemetrySummary.total}</div>
+        <div className="flex flex-col gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="rounded-lg border border-border bg-card p-6">
+              <div className="text-xs text-muted-foreground uppercase tracking-wider font-medium mb-2">Total Captured</div>
+              <div className="text-3xl font-semibold font-mono tabular-nums">{telemetrySummary.total}</div>
             </div>
-            <div style={{ padding: '16px 18px', borderRadius: 'var(--radius-md)', background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.2)' }}>
-              <div style={{ fontSize: 11, color: 'var(--red)', textTransform: 'uppercase', fontWeight: 600, marginBottom: 6 }}>Unresolved Errors</div>
-              <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--red)' }}>{telemetrySummary.open}</div>
+            <div className="rounded-lg border border-red-500/20 bg-red-500/5 p-6">
+              <div className="text-xs text-red-500 uppercase tracking-wider font-medium mb-2">Unresolved Errors</div>
+              <div className="text-3xl font-semibold font-mono tabular-nums text-red-500">{telemetrySummary.open}</div>
             </div>
-            <div style={{ padding: '16px 18px', borderRadius: 'var(--radius-md)', background: 'rgba(52,211,153,0.06)', border: '1px solid rgba(52,211,153,0.2)' }}>
-              <div style={{ fontSize: 11, color: 'var(--green)', textTransform: 'uppercase', fontWeight: 600, marginBottom: 6 }}>Resolved / Mitigated</div>
-              <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--green)' }}>{telemetrySummary.resolved}</div>
+            <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-6">
+              <div className="text-xs text-emerald-500 uppercase tracking-wider font-medium mb-2">Resolved / Mitigated</div>
+              <div className="text-3xl font-semibold font-mono tabular-nums text-emerald-500">{telemetrySummary.resolved}</div>
             </div>
           </div>
 
-          {/* Filter & Refresh Controls */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div style={{ display: 'flex', gap: 8 }}>
+          <div className="flex items-center justify-between">
+            <div className="flex gap-2 bg-muted/50 p-1 rounded-lg border border-border">
               {(['all', 'open', 'assigned_to_agent', 'resolved'] as const).map(f => (
                 <button
                   key={f}
-                  type="button"
                   onClick={() => setTelemetryFilter(f)}
-                  style={{
-                    padding: '6px 12px',
-                    fontSize: 12,
-                    borderRadius: 'var(--radius-md)',
-                    border: telemetryFilter === f ? '1px solid var(--brand-accent)' : '1px solid var(--border-default)',
-                    background: telemetryFilter === f ? 'var(--brand-accent)' : 'var(--bg-secondary)',
-                    color: telemetryFilter === f ? '#fff' : 'var(--text-secondary)',
-                    cursor: 'pointer',
-                    textTransform: 'capitalize',
-                  }}
+                  className={cn(
+                    "px-3 py-1.5 text-xs font-medium rounded-md capitalize transition-colors",
+                    telemetryFilter === f
+                      ? "bg-background text-foreground shadow-sm border border-border"
+                      : "text-muted-foreground hover:text-foreground hover:bg-accent/50 border border-transparent"
+                  )}
                 >
                   {f.replace(/_/g, ' ')}
                 </button>
@@ -1331,137 +1249,128 @@ export default function SettingsPage() {
 
             <button
               type="button"
-              className="btn-ghost"
+              className="text-muted-foreground hover:text-foreground hover:bg-accent rounded-md px-3 py-1.5 text-xs font-medium inline-flex items-center gap-2 border border-border transition-colors"
               onClick={loadTelemetry}
               disabled={loadingTelemetry}
-              style={{ fontSize: 11, padding: '6px 12px', display: 'flex', alignItems: 'center', gap: 6, border: '1px solid var(--border-default)' }}
             >
-              <Icon name="refresh-cw" size={12} style={{ animation: loadingTelemetry ? 'spin 1s linear infinite' : 'none' }} />
+              <RefreshCw size={14} className={loadingTelemetry ? 'animate-spin' : ''} />
               Refresh Feed
             </button>
           </div>
 
-          {/* Error Log Entries */}
-          <div className="config-section">
-            <div className="config-section-title"><Icon name="alert-triangle" size={14} /> Telemetry Incident Feed ({filteredErrors.length})</div>
-
+          <div className="rounded-lg border border-border bg-card">
+            <div className="px-6 py-4 border-b border-border flex items-center gap-2">
+              <AlertTriangle size={16} className="text-muted-foreground" />
+              <h3 className="font-medium text-sm">Telemetry Incident Feed ({filteredErrors.length})</h3>
+            </div>
+            
             {loadingTelemetry ? (
-              <SkeletonRows count={4} />
+              <div className="p-6"><SkeletonRows count={4} /></div>
             ) : filteredErrors.length === 0 ? (
-              <div style={{ padding: 36, textAlign: 'center', color: 'var(--text-tertiary)' }}>
-                <Icon name="check-circle" size={28} style={{ color: 'var(--green)', display: 'inline-block', marginBottom: 8 }} />
-                <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>System Healthy</div>
-                <div style={{ fontSize: 12, color: 'var(--text-quaternary)', marginTop: 2 }}>No errors matching the active filter.</div>
+              <div className="p-12 flex flex-col items-center justify-center text-center">
+                <CheckCircle size={32} className="text-emerald-500 mb-4" />
+                <h4 className="text-base font-semibold text-foreground mb-1">System Healthy</h4>
+                <p className="text-sm text-muted-foreground">No errors matching the active filter.</p>
               </div>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 12 }}>
+              <div className="divide-y divide-border">
                 {filteredErrors.map(err => {
                   const isExpanded = expandedErrorId === err.id;
-                  const severityColor = err.error_severity === 'critical' ? 'var(--red)' : err.error_severity === 'high' ? 'var(--orange)' : '#818cf8';
+                  const severityClass = 
+                    err.error_severity === 'critical' ? 'bg-red-500/10 text-red-500 border-red-500/20' : 
+                    err.error_severity === 'high' ? 'bg-orange-500/10 text-orange-400 border-orange-500/20' : 
+                    'bg-blue-500/10 text-blue-400 border-blue-500/20';
+
+                  const statusClass = 
+                    err.status === 'resolved' ? 'bg-emerald-500/10 text-emerald-400' : 
+                    err.status === 'assigned_to_agent' ? 'bg-primary/10 text-primary' : 
+                    'bg-red-500/10 text-red-400';
 
                   return (
-                    <div
-                      key={err.id}
-                      style={{
-                        padding: '14px 18px',
-                        borderRadius: 'var(--radius-md)',
-                        background: 'var(--bg-secondary)',
-                        border: '1px solid var(--border-default)',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: 10,
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
-                        <div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                            <span style={{ fontSize: 10, textTransform: 'uppercase', fontWeight: 700, padding: '2px 6px', borderRadius: 4, background: `${severityColor}22`, color: severityColor }}>
+                    <div key={err.id} className="p-6 flex flex-col gap-4">
+                      <div className="flex items-start justify-between gap-6">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3 mb-2 flex-wrap">
+                            <span className={cn("text-[10px] uppercase font-bold px-2 py-0.5 rounded border tracking-wide", severityClass)}>
                               {err.error_severity || 'HIGH'}
                             </span>
-                            <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--text-tertiary)' }}>
-                              source: {err.component_name || err.error_source || 'runtime'}
+                            <span className="text-xs text-muted-foreground font-mono bg-muted px-2 py-0.5 rounded">
+                              src: {err.component_name || err.error_source || 'runtime'}
                             </span>
-                            <span style={{ fontSize: 11, color: 'var(--text-quaternary)' }}>
-                              • {new Date(err.created_at).toLocaleString()}
+                            <span className="text-xs text-muted-foreground">
+                              {new Date(err.created_at).toLocaleString()}
                             </span>
                           </div>
-                          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', wordBreak: 'break-word' }}>
+                          <h4 className="text-sm font-semibold text-foreground break-words leading-relaxed">
                             {err.error_message}
-                          </div>
+                          </h4>
                           {(err.url || err.route_path) && (
-                            <div style={{ fontSize: 11, color: 'var(--text-quaternary)', fontFamily: 'var(--font-mono)', marginTop: 2 }}>
+                            <p className="text-xs text-muted-foreground font-mono mt-2">
                               Path: {err.url || err.route_path}
-                            </div>
+                            </p>
                           )}
                         </div>
 
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-                          <span
-                            style={{
-                              fontSize: 11,
-                              padding: '2px 8px',
-                              borderRadius: 12,
-                              background: err.status === 'resolved' ? 'rgba(52,211,153,0.1)' : err.status === 'assigned_to_agent' ? 'rgba(99,102,241,0.1)' : 'rgba(239,68,68,0.1)',
-                              color: err.status === 'resolved' ? 'var(--green)' : err.status === 'assigned_to_agent' ? 'var(--brand-accent)' : 'var(--red)',
-                              fontWeight: 600,
-                            }}
-                          >
+                        <div className="flex flex-col items-end gap-3 flex-shrink-0">
+                          <span className={cn("text-xs px-2.5 py-1 rounded-full font-medium capitalize whitespace-nowrap", statusClass)}>
                             {err.status.replace(/_/g, ' ')}
                           </span>
 
                           {err.status !== 'resolved' && (
-                            <>
+                            <div className="flex items-center gap-2">
                               <button
                                 type="button"
-                                className="btn-ghost"
+                                className="text-muted-foreground hover:text-foreground hover:bg-accent rounded-md px-3 py-1.5 text-xs font-medium inline-flex items-center gap-1.5 border border-border transition-colors disabled:opacity-50"
                                 onClick={() => handleDispatchAgentFix(err.id)}
                                 disabled={dispatchingId === err.id || err.status === 'assigned_to_agent'}
-                                style={{ fontSize: 11, padding: '4px 10px', border: '1px solid var(--border-default)', display: 'flex', alignItems: 'center', gap: 4 }}
                                 title="Write error into agent_bug_inbox.json for autonomous coding fixes"
                               >
-                                <Icon name="cpu" size={11} />
+                                <Cpu size={14} />
                                 {err.status === 'assigned_to_agent' ? 'In Bug Inbox' : 'Dispatch AI Fix'}
                               </button>
 
                               <button
                                 type="button"
-                                className="btn-primary"
+                                className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md px-3 py-1.5 text-xs font-medium inline-flex items-center gap-1.5 transition-colors disabled:opacity-50"
                                 onClick={() => handleResolveError(err.id)}
                                 disabled={resolvingId === err.id}
-                                style={{ fontSize: 11, padding: '4px 10px', margin: 0 }}
                               >
-                                <Icon name="check" size={11} />
+                                <Check size={14} />
                                 Resolve
                               </button>
-                            </>
+                            </div>
                           )}
                         </div>
                       </div>
 
-                      {/* Stack Trace / Context Accordion Toggle */}
                       {(err.stack_trace || err.error_context) && (
-                        <div>
+                        <div className="mt-2">
                           <button
                             type="button"
-                            className="btn-ghost"
+                            className="text-muted-foreground hover:text-foreground text-xs font-medium inline-flex items-center gap-1.5 transition-colors"
                             onClick={() => setExpandedErrorId(isExpanded ? null : err.id)}
-                            style={{ fontSize: 11, padding: '2px 6px', display: 'flex', alignItems: 'center', gap: 4 }}
                           >
-                            <Icon name={isExpanded ? 'chevron-up' : 'chevron-down'} size={12} />
+                            {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                             {isExpanded ? 'Hide Trace & Context' : 'View Stack Trace & Diagnostics'}
                           </button>
 
                           {isExpanded && (
-                            <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                            <div className="mt-3 flex flex-col gap-3">
                               {err.stack_trace && (
-                                <pre style={{ margin: 0, padding: 12, borderRadius: 6, background: 'var(--bg-primary)', color: 'var(--red)', fontSize: 11, fontFamily: 'var(--font-mono)', overflowX: 'auto', maxHeight: 200 }}>
-                                  {err.stack_trace}
-                                </pre>
+                                <div className="rounded-md bg-zinc-950 border border-border/50 overflow-hidden">
+                                  <div className="bg-zinc-900/50 px-3 py-1.5 border-b border-border/50 text-xs font-medium text-muted-foreground">Stack Trace</div>
+                                  <pre className="p-3 text-[11px] text-red-400 font-mono overflow-x-auto max-h-64 whitespace-pre-wrap break-words">
+                                    {err.stack_trace}
+                                  </pre>
+                                </div>
                               )}
                               {err.error_context && (
-                                <pre style={{ margin: 0, padding: 10, borderRadius: 6, background: 'var(--bg-primary)', color: 'var(--text-secondary)', fontSize: 11, fontFamily: 'var(--font-mono)', overflowX: 'auto' }}>
-                                  {JSON.stringify(err.error_context, null, 2)}
-                                </pre>
+                                <div className="rounded-md bg-zinc-950 border border-border/50 overflow-hidden">
+                                  <div className="bg-zinc-900/50 px-3 py-1.5 border-b border-border/50 text-xs font-medium text-muted-foreground">Error Context</div>
+                                  <pre className="p-3 text-[11px] text-muted-foreground font-mono overflow-x-auto whitespace-pre-wrap break-words">
+                                    {JSON.stringify(err.error_context, null, 2)}
+                                  </pre>
+                                </div>
                               )}
                             </div>
                           )}

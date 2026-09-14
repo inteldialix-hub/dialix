@@ -1,12 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Icon } from './Icon';
-
-/**
- * ConfirmModal — reusable confirmation dialog with optional type-to-confirm.
- * Extracted from frontend/app.js lines 3195-3238.
- */
+import { AlertTriangle, Info } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface ConfirmModalProps {
   title: string;
@@ -29,50 +25,56 @@ export function ConfirmModal({
 }: ConfirmModalProps) {
   const [typed, setTyped] = useState('');
   const canConfirm = requireType ? typed === requireType : true;
+  const Icon = danger ? AlertTriangle : Info;
 
   return (
-    <div className="modal-overlay" onClick={onCancel}>
-      <div
-        className="modal-container"
-        onClick={(e) => e.stopPropagation()}
-        style={{ maxWidth: '420px' }}
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onCancel}>
+      <div 
+        className="w-full max-w-md rounded-lg border border-border bg-card p-6 shadow-lg"
+        onClick={e => e.stopPropagation()}
       >
-        <div className="modal-header">
-          <Icon name={danger ? 'alert-triangle' : 'info'} size={16} />
+        <div className="mb-4 flex items-center gap-3 text-lg font-semibold tracking-tight text-foreground">
+          <Icon className={cn("size-5", danger ? "text-red-500" : "text-blue-500")} />
           <span>{title}</span>
         </div>
-        <div className="modal-body">
-          <p style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-            {message}
-          </p>
-          {requireType && (
-            <div style={{ marginTop: '12px' }}>
-              <div style={{ fontSize: '12px', color: 'var(--text-tertiary)', marginBottom: '6px' }}>
-                Type <strong style={{ color: 'var(--danger)' }}>{requireType}</strong> to confirm:
-              </div>
-              <input
-                className="form-input"
-                value={typed}
-                onChange={(e) => setTyped(e.target.value)}
-                placeholder={requireType}
-                autoFocus
-                style={{ borderColor: typed === requireType ? 'var(--success)' : undefined }}
-              />
-            </div>
-          )}
-        </div>
-        <div
-          className="modal-footer"
-          style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}
-        >
-          <button className="btn-ghost" onClick={onCancel}>
+        
+        <p className="mb-6 text-sm text-muted-foreground">{message}</p>
+        
+        {requireType && (
+          <div className="mb-6">
+            <p className="mb-2 text-sm text-muted-foreground">
+              Type <strong className="text-foreground">{requireType}</strong> to confirm:
+            </p>
+            <input
+              type="text"
+              value={typed}
+              onChange={(e) => setTyped(e.target.value)}
+              placeholder={requireType}
+              className={cn(
+                "w-full rounded-md border bg-background px-3 py-2 text-sm text-foreground focus:outline-none",
+                typed === requireType ? "border-emerald-500/50" : "border-border"
+              )}
+              autoFocus
+            />
+          </div>
+        )}
+        
+        <div className="flex justify-end gap-3">
+          <button 
+            onClick={onCancel}
+            className="rounded-md px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+          >
             Cancel
           </button>
           <button
-            className={danger ? 'btn-danger' : 'btn-primary'}
             onClick={onConfirm}
             disabled={!canConfirm}
-            style={{ marginLeft: 0 }}
+            className={cn(
+              "rounded-md px-4 py-2 text-sm font-medium disabled:opacity-50",
+              danger 
+                ? "bg-red-500/10 text-red-500 hover:bg-red-500/20" 
+                : "bg-foreground text-background hover:bg-foreground/90"
+            )}
           >
             {confirmLabel}
           </button>

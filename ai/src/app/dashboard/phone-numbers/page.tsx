@@ -3,12 +3,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@/lib/auth-context';
 import { useToast } from '@/components/dashboard/shared/ToastProvider';
-import { Icon } from '@/components/dashboard/shared/Icon';
-import { CustomSelect } from '@/components/dashboard/shared/CustomSelect';
-import { EmptyState } from '@/components/EmptyState';
-import { ConfirmModal } from '@/components/dashboard/shared/ConfirmModal';
-import { SkeletonRows } from '@/components/dashboard/shared/SkeletonRows';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Plus, Phone, Trash2 } from 'lucide-react';
 import { api } from '@/lib/api';
 
 interface PhoneNumber { id: string; label: string; phone_number: string; provider: string; assigned_agent_id?: string; }
@@ -93,172 +88,193 @@ export default function PhoneNumbersPage() {
     }
   };
 
-  if (loading) return <SkeletonRows count={4} />;
-
-  return (
-    <div className="dashboard-content">
-      <div className="page-title-section mb-6">
-        <div>
-          <h1 className="page-title">Phone Numbers</h1>
-          <p className="page-subtitle">Connect and configure inbound and outbound telephony lines</p>
-        </div>
-        <div>
-          <button className="btn-primary flex items-center gap-2" onClick={() => setShowAdd(true)}>
-            <Icon name="plus" size={14} /> Connect Number
+  if (loading) {
+    return (
+      <div className="max-w-7xl mx-auto px-6 py-6">
+        <div className="flex justify-between items-start mb-6">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight">Phone numbers</h1>
+            <p className="text-sm text-muted-foreground mt-1">Connect and configure inbound and outbound telephony lines</p>
+          </div>
+          <button disabled className="bg-foreground text-background rounded-md px-4 py-2 text-sm font-medium opacity-50 flex items-center gap-2">
+            <Plus size={16} /> Connect number
           </button>
         </div>
+        <div className="space-y-4">
+          {[1, 2, 3].map(i => (
+            <div key={i} className="h-12 w-full rounded-md bg-muted animate-pulse" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="max-w-7xl mx-auto px-6 py-6 space-y-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Phone numbers</h1>
+          <p className="text-sm text-muted-foreground mt-1">Connect and configure inbound and outbound telephony lines</p>
+        </div>
+        <button 
+          onClick={() => setShowAdd(true)}
+          className="bg-foreground text-background hover:bg-foreground/90 rounded-md px-4 py-2 text-sm font-medium flex items-center gap-2"
+        >
+          <Plus size={16} /> Connect number
+        </button>
       </div>
 
       {phoneNumbers.length === 0 ? (
-        <div className="border border-white/[0.08] rounded-lg overflow-hidden  p-8">
-          <EmptyState 
-            icon="phone" 
-            title="No phone numbers connected" 
-            description="Connect a Twilio number or SIP trunk to make and receive calls with your AI agents." 
-            action="Connect Number" 
-            onAction={() => setShowAdd(true)} 
-          />
+        <div className="rounded-lg border border-border bg-card p-12 flex flex-col items-center justify-center text-center">
+          <Phone className="h-8 w-8 text-muted-foreground mb-3" />
+          <h3 className="text-lg font-medium">No phone numbers connected</h3>
+          <p className="text-sm text-muted-foreground mt-1 mb-4">Connect a Twilio number or SIP trunk to make and receive calls with your AI agents.</p>
+          <button 
+            onClick={() => setShowAdd(true)}
+            className="bg-foreground text-background hover:bg-foreground/90 rounded-md px-4 py-2 text-sm font-medium flex items-center gap-2"
+          >
+            <Plus size={16} /> Connect number
+          </button>
         </div>
       ) : (
-        <div className="border border-white/[0.08] rounded-lg overflow-hidden ">
-          <div className="table-responsive">
-            <table className="w-full text-left border-collapse">
-              <thead className="bg-white/[0.02] border-b border-white/[0.08]">
-                <tr className="h-11">
-                  <th className="py-3.5 px-4 text-xs font-semibold tracking-wider uppercase text-secondary">Label</th>
-                  <th className="py-3.5 px-4 text-xs font-semibold tracking-wider uppercase text-secondary">Phone Number</th>
-                  <th className="py-3.5 px-4 text-xs font-semibold tracking-wider uppercase text-secondary">Provider</th>
-                  <th className="py-3.5 px-4 text-xs font-semibold tracking-wider uppercase text-secondary">Assigned Agent</th>
-                  <th className="py-3.5 px-4 text-xs font-semibold tracking-wider uppercase text-secondary text-right">Actions</th>
+        <div className="rounded-lg border border-border bg-card overflow-x-auto">
+          <table className="w-full text-left divide-y divide-border">
+            <thead>
+              <tr>
+                <th className="text-left font-medium text-muted-foreground px-4 py-3 text-sm">Label</th>
+                <th className="text-left font-medium text-muted-foreground px-4 py-3 text-sm">Phone number</th>
+                <th className="text-left font-medium text-muted-foreground px-4 py-3 text-sm">Provider</th>
+                <th className="text-left font-medium text-muted-foreground px-4 py-3 text-sm">Assigned agent</th>
+                <th className="text-right font-medium text-muted-foreground px-4 py-3 text-sm">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {phoneNumbers.map(p => (
+                <tr key={p.id} className="hover:bg-accent/50 transition-colors">
+                  <td className="px-4 py-3 text-sm font-medium">{p.label}</td>
+                  <td className="px-4 py-3 text-sm font-mono text-muted-foreground">{p.phone_number}</td>
+                  <td className="px-4 py-3 text-sm">
+                    <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-muted text-muted-foreground">
+                      {p.provider === 'twilio' ? 'Twilio' : 'SIP Trunk'}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-sm" style={{ minWidth: '180px' }}>
+                    <select 
+                      className="w-full rounded-md border border-border bg-background px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                      value={p.assigned_agent_id || ''}
+                      onChange={e => handleAssign(p.id, e.target.value)}
+                    >
+                      <option value="">Unassigned</option>
+                      {agents.map(a => (
+                        <option key={a.agent_id} value={a.agent_id}>{a.name}</option>
+                      ))}
+                    </select>
+                  </td>
+                  <td className="px-4 py-3 text-sm text-right">
+                    <button 
+                      className="text-muted-foreground hover:text-red-400 rounded-md p-1.5 transition-colors" 
+                      onClick={() => setDeleteTarget(p)}
+                      title="Disconnect line"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </td>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-white/[0.04]">
-                {phoneNumbers.map(p => (
-                  <tr key={p.id} className="border-b border-white/[0.04] hover:bg-white/[0.02] transition-colors duration-150">
-                    <td className="py-3.5 px-4 font-medium text-white">{p.label}</td>
-                    <td className="py-3.5 px-4 phone-cell font-mono text-xs text-gray-200">{p.phone_number}</td>
-                    <td className="py-3.5 px-4">
-                      <span className={`badge ${p.provider}`}>
-                        {p.provider === 'twilio' ? 'Twilio' : 'SIP Trunk'}
-                      </span>
-                    </td>
-                    <td className="py-3.5 px-4" style={{ minWidth: '180px' }}>
-                      <CustomSelect 
-                        small 
-                        value={p.assigned_agent_id || ''} 
-                        onChange={e => handleAssign(p.id, e.target.value)} 
-                        options={[
-                          { value: '', label: 'Unassigned' }, 
-                          ...agents.map(a => ({ value: a.agent_id, label: a.name }))
-                        ]} 
-                      />
-                    </td>
-                    <td className="py-3.5 px-4 text-right">
-                      <button 
-                        className="btn-icon danger cursor-pointer inline-flex items-center justify-center p-1.5 rounded-md hover:bg-red-500/20 text-red-400 transition-colors" 
-                        onClick={() => setDeleteTarget(p)}
-                        title="Disconnect Line"
-                      >
-                        <Icon name="trash-2" size={14} />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
 
       {/* Add Modal */}
       {showAdd && (
-        <div className="modal-overlay" onClick={() => !addLoading && setShowAdd(false)}>
-          <div className="modal-container" onClick={e => e.stopPropagation()} style={{ maxWidth: '460px' }}>
-            <div className="modal-header">
-              <Icon name="phone" size={16} />
-              <span>Connect Phone Number</span>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-md rounded-lg border border-border bg-card p-6" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-2 mb-6">
+              <Phone size={18} />
+              <h3 className="text-lg font-medium">Connect phone number</h3>
             </div>
             
-            <div className="provider-toggle my-4">
-              <div 
-                className={`provider-tab ${provider === 'twilio' ? 'active' : ''}`} 
+            <div className="flex border-b border-border mb-6">
+              <button 
+                type="button"
+                className={`flex-1 py-2 text-sm font-medium border-b-2 transition-colors ${provider === 'twilio' ? 'border-foreground text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
                 onClick={() => setProvider('twilio')}
               >
                 Twilio
-              </div>
-              <div 
-                className={`provider-tab ${provider === 'sip' ? 'active' : ''}`} 
+              </button>
+              <button 
+                type="button"
+                className={`flex-1 py-2 text-sm font-medium border-b-2 transition-colors ${provider === 'sip' ? 'border-foreground text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
                 onClick={() => setProvider('sip')}
               >
                 SIP Trunk
-              </div>
+              </button>
             </div>
 
-            <form onSubmit={handleAdd}>
-              <div className="modal-body space-y-4">
-                <div className="form-group">
-                  <label className="form-label text-xs text-gray-400 mb-1 block">Label *</label>
-                  <input 
-                    className="form-input w-full" 
-                    placeholder="e.g. US Support Line"
-                    value={label} 
-                    onChange={e => setLabel(e.target.value)} 
-                    required 
-                  />
-                </div>
-                <div className="form-group">
-                  <label className="form-label text-xs text-gray-400 mb-1 block">Phone Number (E.164) *</label>
-                  <input 
-                    className="form-input w-full font-mono text-sm" 
-                    placeholder="+1234567890" 
-                    value={pn} 
-                    onChange={e => setPn(e.target.value)} 
-                    required 
-                  />
-                </div>
+            <form onSubmit={handleAdd} className="space-y-4">
+              <div>
+                <label className="text-sm text-muted-foreground mb-1 block">Label *</label>
+                <input 
+                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring" 
+                  placeholder="e.g. US Support Line"
+                  value={label} 
+                  onChange={e => setLabel(e.target.value)} 
+                  required 
+                />
+              </div>
+              <div>
+                <label className="text-sm text-muted-foreground mb-1 block">Phone number (E.164) *</label>
+                <input 
+                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground font-mono placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring" 
+                  placeholder="+1234567890" 
+                  value={pn} 
+                  onChange={e => setPn(e.target.value)} 
+                  required 
+                />
+              </div>
 
-                {provider === 'twilio' ? (
-                  <>
-                    <div className="form-group">
-                      <label className="form-label text-xs text-gray-400 mb-1 block">Account SID *</label>
-                      <input 
-                        className="form-input w-full font-mono text-xs" 
-                        placeholder="ACxxxxxxxxxxxxxxxxxxxxxxxx"
-                        value={sid} 
-                        onChange={e => setSid(e.target.value)} 
-                        required 
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label className="form-label text-xs text-gray-400 mb-1 block">Auth Token *</label>
-                      <input 
-                        className="form-input w-full font-mono text-xs" 
-                        type="password" 
-                        placeholder="••••••••••••••••••••••••••••••••"
-                        value={at} 
-                        onChange={e => setAt(e.target.value)} 
-                        required 
-                      />
-                    </div>
-                  </>
-                ) : (
-                  <div className="form-group">
-                    <label className="form-label text-xs text-gray-400 mb-1 block">Termination URI *</label>
+              {provider === 'twilio' ? (
+                <>
+                  <div>
+                    <label className="text-sm text-muted-foreground mb-1 block">Account SID *</label>
                     <input 
-                      className="form-input w-full font-mono text-xs" 
-                      placeholder="sip:carrier.example.com"
-                      value={uri} 
-                      onChange={e => setUri(e.target.value)} 
+                      className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground font-mono placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring" 
+                      placeholder="ACxxxxxxxxxxxxxxxxxxxxxxxx"
+                      value={sid} 
+                      onChange={e => setSid(e.target.value)} 
                       required 
                     />
                   </div>
-                )}
-              </div>
+                  <div>
+                    <label className="text-sm text-muted-foreground mb-1 block">Auth token *</label>
+                    <input 
+                      className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground font-mono placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring" 
+                      type="password" 
+                      placeholder="••••••••••••••••••••••••••••••••"
+                      value={at} 
+                      onChange={e => setAt(e.target.value)} 
+                      required 
+                    />
+                  </div>
+                </>
+              ) : (
+                <div>
+                  <label className="text-sm text-muted-foreground mb-1 block">Termination URI *</label>
+                  <input 
+                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground font-mono placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring" 
+                    placeholder="sip:carrier.example.com"
+                    value={uri} 
+                    onChange={e => setUri(e.target.value)} 
+                    required 
+                  />
+                </div>
+              )}
 
-              <div className="modal-footer flex justify-end gap-3 mt-6">
+              <div className="flex justify-end gap-3 mt-6 pt-2">
                 <button 
                   type="button" 
-                  className="btn-ghost" 
+                  className="text-muted-foreground hover:text-foreground hover:bg-accent rounded-md px-3 py-2 text-sm" 
                   onClick={() => setShowAdd(false)}
                   disabled={addLoading}
                 >
@@ -266,12 +282,11 @@ export default function PhoneNumbersPage() {
                 </button>
                 <button 
                   type="submit" 
-                  className="btn-primary flex items-center gap-2" 
-                  disabled={addLoading} 
-                  style={{ marginLeft: 0 }}
+                  className="bg-foreground text-background hover:bg-foreground/90 rounded-md px-4 py-2 text-sm font-medium flex items-center gap-2" 
+                  disabled={addLoading}
                 >
-                  {addLoading && <Loader2 size={14} className="animate-spin" />}
-                  {addLoading ? 'Connecting...' : 'Connect Number'}
+                  {addLoading && <Loader2 size={16} className="animate-spin" />}
+                  {addLoading ? 'Connecting...' : 'Connect number'}
                 </button>
               </div>
             </form>
@@ -281,14 +296,28 @@ export default function PhoneNumbersPage() {
 
       {/* Delete Confirmation Modal */}
       {deleteTarget && (
-        <ConfirmModal
-          title="Disconnect Phone Line"
-          message={`Are you sure you want to disconnect "${deleteTarget.phone_number}" (${deleteTarget.label})? Any inbound calls routed to this line will stop connecting.`}
-          confirmLabel="Disconnect Line"
-          onConfirm={confirmDelete}
-          onCancel={() => setDeleteTarget(null)}
-          danger={true}
-        />
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-md rounded-lg border border-border bg-card p-6">
+            <h3 className="text-lg font-medium mb-2">Disconnect phone line</h3>
+            <p className="text-sm text-muted-foreground mb-6">
+              Are you sure you want to disconnect "{deleteTarget.phone_number}" ({deleteTarget.label})? Any inbound calls routed to this line will stop connecting.
+            </p>
+            <div className="flex justify-end gap-3">
+              <button 
+                onClick={() => setDeleteTarget(null)}
+                className="text-muted-foreground hover:text-foreground hover:bg-accent rounded-md px-4 py-2 text-sm font-medium"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={confirmDelete}
+                className="bg-red-600 text-white hover:bg-red-700 rounded-md px-4 py-2 text-sm font-medium flex items-center gap-2"
+              >
+                Disconnect line
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -6,8 +6,6 @@ import { useAuth } from '@/lib/auth-context';
 import { Sidebar } from '@/components/dashboard/Sidebar';
 import { ToastProvider } from '@/components/dashboard/shared/ToastProvider';
 import { DashboardErrorBoundary } from '@/components/dashboard/ErrorBoundary';
-import '@/styles/dashboard.css';
-import '@/styles/dashboard-home.css';
 
 /**
  * Dashboard layout — wraps all /dashboard/* pages.
@@ -33,26 +31,13 @@ export default function DashboardLayout({
   if (isLoading || !isAuthenticated) {
     return (
       <>
-        {/* Meta refresh as fallback redirect if JS redirect is blocked */}
         {!isLoading && !isAuthenticated && (
           <head><meta httpEquiv="refresh" content="1;url=/login" /></head>
         )}
-        <div
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            height: '100vh',
-            gap: '16px',
-            background: 'var(--bg-base, #0F0F12)',
-            color: 'var(--text-secondary, #9898A3)',
-            fontFamily: 'Inter, sans-serif',
-          }}
-        >
-          <div className="spinner" />
+        <div className="flex flex-col items-center justify-center min-h-screen gap-4 bg-background text-muted-foreground">
+          <div className="size-8 rounded-full border-2 border-muted-foreground border-t-transparent animate-spin" />
           {!isLoading && !isAuthenticated && (
-            <a href="/login" style={{ color: '#5E6AD2', fontSize: '13px', textDecoration: 'none' }}>
+            <a href="/login" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
               Redirecting to login... Click here if not redirected
             </a>
           )}
@@ -63,9 +48,9 @@ export default function DashboardLayout({
 
   return (
     <ToastProvider>
-      <div className="app-shell">
+      <div className="flex min-h-screen bg-background">
         <Sidebar />
-        <main id="main-content" className="main-content" role="main">
+        <main id="main-content" className="flex-1 overflow-y-auto" role="main">
           <DashboardErrorBoundary>
             {children}
           </DashboardErrorBoundary>

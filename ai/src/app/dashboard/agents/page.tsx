@@ -2,13 +2,14 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useAuth } from '@/lib/auth-context';
 import { useToast } from '@/components/dashboard/shared/ToastProvider';
-import { Icon } from '@/components/dashboard/shared/Icon';
-import { EmptyState } from '@/components/dashboard/shared/EmptyState';
 import { SkeletonRows } from '@/components/dashboard/shared/SkeletonRows';
 import { CustomSelect } from '@/components/dashboard/shared/CustomSelect';
 import { api } from '@/lib/api';
+import { cn } from '@/lib/utils';
+import { Bot, Plus, CheckCircle, Cpu, Radio, Search, TrendingUp, TrendingDown, Minus, ChevronRight, X, Sparkles, ArrowLeft, PlusCircle } from 'lucide-react';
 import {
   FALLBACK_LLM_OPTIONS,
   FALLBACK_TTS_MODEL_OPTIONS,
@@ -22,11 +23,6 @@ import {
   GEMINI_MODELS,
   GEMINI_THINKING_LEVELS,
 } from '@/lib/constants';
-
-/**
- * Agents list page + Create Agent modal.
- * Supports both ElevenLabs and Vapi providers.
- */
 
 interface Agent {
   agent_id: string;
@@ -112,8 +108,6 @@ export default function AgentsPage() {
     setShowCreate(true);
   };
 
-  const iconColors = ['purple', 'blue', 'orange', 'green', 'pink', 'cyan', 'red', 'indigo'];
-
   const totalAgents = agents.length;
   const activeAgents = agents.filter(a => a.status !== 'unavailable' && a.status !== 'inactive').length;
   const elevenLabsAgents = agents.filter(a => (a.provider || 'elevenlabs').toLowerCase() === 'elevenlabs').length;
@@ -121,37 +115,37 @@ export default function AgentsPage() {
 
   const statCards = [
     {
-      label: 'Total Agents',
+      label: 'Total agents',
       value: totalAgents,
-      icon: 'bot',
+      icon: Bot,
       trend: totalAgents > 0 ? 'up' : 'neutral',
       trendLabel: totalAgents > 0 ? 'Active' : 'Ready',
     },
     {
-      label: 'Active Agents',
+      label: 'Active agents',
       value: activeAgents,
-      icon: 'check-circle',
+      icon: CheckCircle,
       trend: activeAgents > 0 ? 'up' : 'neutral',
       trendLabel: activeAgents > 0 ? 'Operational' : 'Idle',
     },
     {
       label: 'ElevenLabs',
       value: elevenLabsAgents,
-      icon: 'cpu',
+      icon: Cpu,
       trend: 'neutral',
       trendLabel: 'Provider',
     },
     {
       label: 'Vapi',
       value: vapiAgents,
-      icon: 'radio',
+      icon: Radio,
       trend: 'neutral',
       trendLabel: 'Provider',
     },
   ];
 
   const providerOptions = [
-    { value: '', label: 'All Providers' },
+    { value: '', label: 'All providers' },
     { value: 'elevenlabs', label: 'ElevenLabs' },
     { value: 'vapi', label: 'Vapi' },
   ];
@@ -166,60 +160,68 @@ export default function AgentsPage() {
     return matchesSearch && matchesProvider;
   });
 
-  if (loading) return <SkeletonRows count={5} />;
+  if (loading) {
+    return (
+      <div className="max-w-7xl mx-auto px-6 py-6">
+        <SkeletonRows count={5} />
+      </div>
+    );
+  }
 
   return (
-    <>
-      <div className="page-title-section">
+    <div className="max-w-7xl mx-auto px-6 py-6">
+      <div className="flex items-center justify-between">
         <div>
-          <h2>Agents</h2>
-          <p>Create and manage your AI calling agents</p>
+          <h2 className="text-2xl font-semibold tracking-tight">Agents</h2>
+          <p className="text-sm text-muted-foreground mt-1">Create and manage your AI calling agents</p>
         </div>
-        <div className="page-actions">
-          <button className="btn-primary" onClick={handleOpenCreate}>
-            <Icon name="plus" size={14} /> New Agent
-          </button>
-        </div>
+        <button 
+          onClick={handleOpenCreate}
+          className="inline-flex items-center justify-center rounded-md bg-primary text-primary-foreground px-4 py-2 text-sm font-medium hover:bg-primary/90 transition-colors"
+        >
+          <Plus className="mr-2 h-4 w-4" />
+          Create agent
+        </button>
       </div>
 
-      {/* Frosted Stat Cards Summary */}
-      <div className="stat-card-grid" style={{ padding: '0 32px 24px' }}>
-        {statCards.map((card, i) => (
-          <div key={i} className="stat-card" style={{ animationDelay: `${i * 60}ms` }}>
-            <div className="stat-card-header">
-              <span className="stat-card-label">{card.label}</span>
-              <div className="stat-card-icon"><Icon name={card.icon} size={16} /></div>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-6">
+        {statCards.map((card, i) => {
+          const Icon = card.icon;
+          return (
+            <div key={i} className="rounded-lg border border-border bg-card p-6 flex flex-col justify-between">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">{card.label}</span>
+                <Icon className="h-4 w-4 text-muted-foreground" />
+              </div>
+              <div className="mt-4 flex items-baseline gap-2">
+                <span className="text-2xl font-semibold font-mono tabular-nums">{card.value}</span>
+                {card.trend && (
+                  <span className="text-xs text-muted-foreground flex items-center gap-1">
+                    {card.trend === 'up' ? <TrendingUp className="h-3 w-3 text-emerald-400" /> : card.trend === 'down' ? <TrendingDown className="h-3 w-3 text-red-400" /> : <Minus className="h-3 w-3" />}
+                    {card.trendLabel}
+                  </span>
+                )}
+              </div>
             </div>
-            <div className="stat-card-value">{card.value}</div>
-            {card.trend && (
-              <span className={`stat-card-trend ${card.trend}`}>
-                <Icon name={card.trend === 'up' ? 'trending-up' : card.trend === 'down' ? 'trending-down' : 'minus'} size={11} />
-                {card.trendLabel}
-              </span>
-            )}
-          </div>
-        ))}
+          );
+        })}
       </div>
 
-      {/* Standardized Search and Filter Bar */}
-      <div
-        className="border border-white/[0.06] rounded-lg overflow-hidden p-4 mb-6"
-        style={{ margin: '0 32px 24px' }}
-      >
-        <div className="flex flex-col md:flex-row gap-4 justify-between items-center">
-          <div className="relative flex-1 w-full md:max-w-md">
-            <Icon name="search" className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={16} />
-            <input
-              type="text"
-              placeholder="Search by name or ID..."
-              className="form-input w-full bg-input"
-              style={{ paddingLeft: '38px' }}
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
-          <div className="flex gap-3 w-full md:w-auto items-center justify-between md:justify-end">
-            <div className="w-44">
+      <div className="rounded-lg border border-border bg-card mt-6 overflow-hidden">
+        <div className="p-4 border-b border-border flex flex-col md:flex-row items-center justify-between gap-4">
+          <h3 className="text-sm font-medium">All agents</h3>
+          <div className="flex flex-col md:flex-row items-center gap-3 w-full md:w-auto">
+            <div className="relative w-full md:w-64">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+              <input
+                type="text"
+                placeholder="Search agents..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full rounded-md border border-border bg-background px-9 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+              />
+            </div>
+            <div className="w-full md:w-44">
               <CustomSelect
                 value={providerFilter}
                 onChange={(e) => setProviderFilter(e.target.value)}
@@ -229,54 +231,89 @@ export default function AgentsPage() {
             </div>
           </div>
         </div>
+
+        {agents.length === 0 ? (
+          <div className="flex flex-col items-center justify-center p-12 text-center">
+            <Bot className="h-12 w-12 text-muted-foreground mb-4" />
+            <h3 className="text-lg font-medium text-foreground mb-1">No agents yet</h3>
+            <p className="text-sm text-muted-foreground mb-4">Create your first agent to start making calls.</p>
+            <button
+              onClick={handleOpenCreate}
+              className="inline-flex items-center justify-center rounded-md bg-primary text-primary-foreground px-4 py-2 text-sm font-medium hover:bg-primary/90 transition-colors"
+            >
+              Create agent
+            </button>
+          </div>
+        ) : filteredAgents.length === 0 ? (
+          <div className="flex flex-col items-center justify-center p-12 text-center">
+            <Bot className="h-12 w-12 text-muted-foreground mb-4" />
+            <h3 className="text-lg font-medium text-foreground mb-1">No matching agents</h3>
+            <p className="text-sm text-muted-foreground">No agents match your current search query or provider filter.</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border bg-muted/50">
+                  <th className="text-left text-muted-foreground font-medium px-4 py-3">Name</th>
+                  <th className="text-left text-muted-foreground font-medium px-4 py-3">Provider</th>
+                  <th className="text-left text-muted-foreground font-medium px-4 py-3">Language</th>
+                  <th className="text-left text-muted-foreground font-medium px-4 py-3">Model</th>
+                  <th className="text-right text-muted-foreground font-medium px-4 py-3"></th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {filteredAgents.map((agent) => {
+                  const p = (agent.provider || 'elevenlabs').toLowerCase();
+                  const isActive = agent.status !== 'unavailable' && agent.status !== 'inactive';
+                  return (
+                    <tr key={agent.agent_id} className="hover:bg-accent/50 transition-colors group">
+                      <td className="px-4 py-3">
+                        <Link href={`/dashboard/agents/${agent.agent_id}`} className="flex items-center gap-3">
+                          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-muted text-muted-foreground">
+                            <Bot className="h-4 w-4" />
+                          </div>
+                          <div>
+                            <div className="font-medium flex items-center gap-2">
+                              {agent.name}
+                              {isActive && <div className="h-2 w-2 rounded-full bg-emerald-400" />}
+                            </div>
+                            <div className="text-xs text-muted-foreground font-mono mt-0.5">{agent.agent_id.slice(0, 16)}...</div>
+                          </div>
+                        </Link>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={cn(
+                          "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
+                          p === 'vapi' ? "bg-blue-500/10 text-blue-400" :
+                          p === 'gemini' ? "bg-amber-500/10 text-amber-400" :
+                          "bg-emerald-500/10 text-emerald-400"
+                        )}>
+                          {p === 'vapi' ? 'Vapi' : p === 'gemini' ? 'Gemini' : 'ElevenLabs'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-muted text-muted-foreground">
+                          {(agent.language || 'en').toUpperCase()}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-muted-foreground">
+                        {agent.llm || 'GPT-4o Mini'}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <Link href={`/dashboard/agents/${agent.agent_id}`} className="inline-flex items-center justify-center h-8 w-8 rounded-md hover:bg-muted text-muted-foreground">
+                          <ChevronRight className="h-4 w-4" />
+                        </Link>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
-      {agents.length === 0 ? (
-        <EmptyState icon="bot" title="No agents yet" description="Create your first AI agent to start making calls." action="Create Agent" onAction={handleOpenCreate} />
-      ) : filteredAgents.length === 0 ? (
-        <div style={{ padding: '0 32px' }}>
-          <EmptyState
-            icon="bot"
-            title="No matching agents"
-            description="No agents match your current search query or provider filter."
-          />
-        </div>
-      ) : (
-        <div>
-          <div className="agent-list-header">
-            <span style={{ flex: 1 }}>Agent</span>
-            <span style={{ width: 90 }}>Provider</span>
-            <span style={{ width: 100 }}>Language</span>
-            <span style={{ width: 140 }}>Model</span>
-            <span style={{ width: 40 }} />
-          </div>
-          {filteredAgents.map((agent, i) => (
-            <div key={agent.agent_id} className="agent-row" onClick={() => router.push(`/dashboard/agents/${agent.agent_id}`)}>
-              <div className={`agent-icon ${iconColors[i % iconColors.length]}`}>
-                <Icon name="bot" size={16} />
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <span className="agent-name">{agent.name}</span>
-                <span className="agent-id">{agent.agent_id.slice(0, 16)}...</span>
-              </div>
-              <div style={{ width: 90 }}>
-                <span className={`provider-badge ${(agent.provider || 'elevenlabs') === 'vapi' ? 'provider-vapi' : (agent.provider || 'elevenlabs') === 'gemini' ? 'provider-gemini' : 'provider-elevenlabs'}`}>
-                  {(agent.provider || 'elevenlabs') === 'vapi' ? 'Vapi' : (agent.provider || 'elevenlabs') === 'gemini' ? 'Gemini' : 'ElevenLabs'}
-                </span>
-              </div>
-              <div style={{ width: 100 }}>
-                <span className="agent-lang-badge">{(agent.language || 'en').toUpperCase()}</span>
-              </div>
-              <div style={{ width: 140 }}>
-                <span className="agent-llm-badge">{agent.llm || 'GPT-4o Mini'}</span>
-              </div>
-              <div className="expand-arrow"><Icon name="chevron-right" size={14} /></div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Create Agent Modal */}
       {showCreate && (
         <CreateAgentModal
           token={token!}
@@ -289,11 +326,10 @@ export default function AgentsPage() {
           }}
         />
       )}
-    </>
+    </div>
   );
 }
 
-// ── Create Agent Modal ───────────────────────────────────────
 function CreateAgentModal({ token, voices, templates, onClose, onCreated }: {
   token: string;
   voices: Voice[];
@@ -303,14 +339,10 @@ function CreateAgentModal({ token, voices, templates, onClose, onCreated }: {
 }) {
   const { addToast } = useToast();
 
-  // Step: 'template' (pick template) or 'configure' (fill form)
   const [step, setStep] = useState<'template' | 'configure'>('template');
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
-
-  // Provider selection
   const [provider, setProvider] = useState<'elevenlabs' | 'vapi' | 'gemini'>('elevenlabs');
 
-  // Shared fields
   const [name, setName] = useState('');
   const [firstMessage, setFirstMessage] = useState('');
   const [language, setLanguage] = useState('en');
@@ -319,24 +351,20 @@ function CreateAgentModal({ token, voices, templates, onClose, onCreated }: {
   const [maxDuration, setMaxDuration] = useState(300);
   const [creating, setCreating] = useState(false);
 
-  // ElevenLabs-specific
   const [llm, setLlm] = useState('gpt-4o-mini');
   const [ttsModel, setTtsModel] = useState('eleven_v3_conversational');
   const [voiceId, setVoiceId] = useState('');
 
-  // Vapi-specific
   const [modelProvider, setModelProvider] = useState('openai');
   const [vapiLlm, setVapiLlm] = useState('gpt-4o-mini');
   const [voiceProvider, setVoiceProvider] = useState('11labs');
   const [vapiVoiceId, setVapiVoiceId] = useState('');
   const [transcriberProvider, setTranscriberProvider] = useState('deepgram');
 
-  // Gemini-specific
   const [geminiVoice, setGeminiVoice] = useState('Kore');
   const [geminiModel, setGeminiModel] = useState('models/gemini-3.1-flash-live-preview');
   const [geminiThinkingLevel, setGeminiThinkingLevel] = useState('none');
 
-  // When model provider changes, reset LLM to first available
   useEffect(() => {
     const options = VAPI_LLM_OPTIONS[modelProvider];
     if (options && options.length > 0) {
@@ -374,7 +402,6 @@ function CreateAgentModal({ token, voices, templates, onClose, onCreated }: {
           thinking_level: geminiThinkingLevel,
         });
       } else {
-        // Vapi
         Object.assign(baseBody, {
           model_provider: modelProvider,
           llm: vapiLlm,
@@ -399,9 +426,7 @@ function CreateAgentModal({ token, voices, templates, onClose, onCreated }: {
 
   const handlePickTemplate = (tplId: string) => {
     setSelectedTemplate(tplId);
-    if (tplId === 'custom') {
-      // Blank slate — keep defaults
-    } else {
+    if (tplId !== 'custom') {
       const tpl = templates.find(t => t.id === tplId);
       if (tpl) {
         const d = tpl.defaults;
@@ -414,55 +439,46 @@ function CreateAgentModal({ token, voices, templates, onClose, onCreated }: {
           setLlm(d.llm);
           setVapiLlm(d.llm);
         }
-        // Suggest a name based on template if name is empty
         if (!name.trim()) setName(tpl.name);
       }
     }
     setStep('configure');
   };
 
-  // ── Step 1: Template Picker ──
+  // Step 1: Template Picker
   if (step === 'template') {
     return (
-      <div className="modal-overlay" onClick={onClose}>
-        <div className="modal-container" onClick={e => e.stopPropagation()} style={{ maxWidth: '720px', maxHeight: '85vh', overflow: 'auto' }}>
-          <div className="modal-header">
-            <Icon name="sparkles" size={16} /><span>Choose a Template</span>
-            <div style={{ flex: 1 }} />
-            <div className="btn-icon" onClick={onClose}><Icon name="x" size={14} /></div>
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80" onClick={onClose}>
+        <div 
+          className="w-full max-w-3xl max-h-[85vh] overflow-auto rounded-lg border border-border bg-card p-0 shadow-lg flex flex-col"
+          onClick={e => e.stopPropagation()}
+        >
+          <div className="flex items-center justify-between border-b border-border p-4">
+            <div className="flex items-center gap-2 font-medium">
+              <Sparkles className="h-4 w-4" />
+              Choose a template
+            </div>
+            <button onClick={onClose} className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground">
+              <X className="h-4 w-4" />
+            </button>
           </div>
-          <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: 0 }}>
+          
+          <div className="p-6 flex-1 overflow-auto flex flex-col gap-4">
+            <p className="text-sm text-muted-foreground">
               Start from a ready-made template or build your own from scratch.
             </p>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '12px' }}>
-              {/* Custom / blank option */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
               <button
                 type="button"
                 onClick={() => handlePickTemplate('custom')}
-                className="template-card"
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'flex-start',
-                  gap: '8px',
-                  padding: '16px',
-                  border: '1px dashed var(--border-default)',
-                  borderRadius: '10px',
-                  background: 'transparent',
-                  color: 'var(--text-primary)',
-                  textAlign: 'left',
-                  cursor: 'pointer',
-                  transition: 'all 0.15s ease',
-                  minHeight: '130px',
-                }}
+                className="flex flex-col items-start gap-2 rounded-lg border border-dashed border-border bg-transparent p-4 text-left transition-colors hover:bg-accent hover:text-accent-foreground min-h-[130px]"
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <Icon name="plus-circle" size={18} />
-                  <span style={{ fontWeight: 600, fontSize: '14px' }}>Custom / Blank</span>
+                <div className="flex items-center gap-2">
+                  <PlusCircle className="h-5 w-5" />
+                  <span className="font-medium text-sm">Custom / Blank</span>
                 </div>
-                <span style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+                <span className="text-xs text-muted-foreground">
                   Configure everything yourself from scratch.
                 </span>
               </button>
@@ -472,100 +488,83 @@ function CreateAgentModal({ token, voices, templates, onClose, onCreated }: {
                   key={t.id}
                   type="button"
                   onClick={() => handlePickTemplate(t.id)}
-                  className="template-card"
-                  style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'flex-start',
-                    gap: '8px',
-                    padding: '16px',
-                    border: '1px solid var(--border-default)',
-                    borderRadius: '10px',
-                    background: 'var(--bg-secondary, transparent)',
-                    color: 'var(--text-primary)',
-                    textAlign: 'left',
-                    cursor: 'pointer',
-                    transition: 'all 0.15s ease',
-                    minHeight: '130px',
-                  }}
+                  className="flex flex-col items-start gap-2 rounded-lg border border-border bg-card p-4 text-left transition-colors hover:bg-accent hover:text-accent-foreground min-h-[130px]"
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <Icon name={t.icon} size={18} />
-                    <span style={{ fontWeight: 600, fontSize: '14px' }}>{t.name}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium text-sm">{t.name}</span>
                   </div>
-                  <span style={{
-                    fontSize: '10px',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.5px',
-                    color: 'var(--brand-accent)',
-                    fontWeight: 600,
-                  }}>
+                  <span className="text-[10px] uppercase tracking-wider text-primary font-medium">
                     {t.category}
                   </span>
-                  <span style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+                  <span className="text-xs text-muted-foreground line-clamp-3">
                     {t.description}
                   </span>
                 </button>
               ))}
             </div>
           </div>
-          <div className="modal-footer" style={{ display: 'flex', justifyContent: 'flex-end' }}>
-            <button type="button" className="btn-ghost" onClick={onClose}>Cancel</button>
+          <div className="border-t border-border p-4 flex justify-end">
+            <button
+              onClick={onClose}
+              className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground"
+            >
+              Cancel
+            </button>
           </div>
         </div>
       </div>
     );
   }
 
-  // ── Step 2: Configure Form ──
+  // Step 2: Configure Form
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-container" onClick={e => e.stopPropagation()} style={{ maxWidth: '600px', maxHeight: '85vh', overflow: 'auto' }}>
-        <div className="modal-header">
-          <div className="btn-icon" onClick={() => setStep('template')} title="Back to templates" style={{ cursor: 'pointer' }}>
-            <Icon name="arrow-left" size={14} />
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80" onClick={onClose}>
+      <div 
+        className="w-full max-w-2xl max-h-[85vh] overflow-auto rounded-lg border border-border bg-card p-0 shadow-lg flex flex-col"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between border-b border-border p-4">
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={() => setStep('template')} 
+              className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+              title="Back to templates"
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </button>
+            <div className="flex items-center gap-2 font-medium">
+              <Bot className="h-4 w-4" />
+              Create new agent
+              {selectedTemplate && selectedTemplate !== 'custom' && (
+                <span className="ml-2 inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
+                  {templates.find(t => t.id === selectedTemplate)?.name || 'Template'}
+                </span>
+              )}
+            </div>
           </div>
-          <Icon name="bot" size={16} /><span>Create New Agent</span>
-          {selectedTemplate && selectedTemplate !== 'custom' && (
-            <span style={{
-              marginLeft: '8px',
-              fontSize: '11px',
-              padding: '2px 8px',
-              borderRadius: '10px',
-              background: 'rgba(124, 58, 237, 0.15)',
-              color: 'var(--brand-accent)',
-              fontWeight: 500,
-            }}>
-              {templates.find(t => t.id === selectedTemplate)?.name || 'Template'}
-            </span>
-          )}
-          <div style={{ flex: 1 }} />
-          <div className="btn-icon" onClick={onClose}><Icon name="x" size={14} /></div>
+          <button onClick={onClose} className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground">
+            <X className="h-4 w-4" />
+          </button>
         </div>
-        <form onSubmit={handleCreate}>
-          <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
 
-            {/* Provider Selection */}
-            <div className="admin-section-title" style={{ fontSize: '11px', marginBottom: '0' }}>Provider</div>
-            <div className="form-group">
-              <label className="form-label">Agent Provider</label>
-              <div style={{ display: 'flex', gap: '8px' }}>
+        <form onSubmit={handleCreate} className="flex flex-col flex-1 overflow-hidden">
+          <div className="p-6 flex-1 overflow-auto flex flex-col gap-6">
+            
+            {/* Provider */}
+            <div className="space-y-3">
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Provider</h4>
+              <div className="flex items-center gap-2 rounded-md border border-border p-1 bg-muted/50">
                 {AGENT_PROVIDERS.map(p => (
                   <button
                     key={p.value}
                     type="button"
-                    className={`btn-ghost ${provider === p.value ? 'provider-tab-active' : ''}`}
                     onClick={() => setProvider(p.value as 'elevenlabs' | 'vapi' | 'gemini')}
-                    style={{
-                      flex: 1,
-                      padding: '10px 16px',
-                      border: provider === p.value ? '1px solid var(--brand-accent)' : '1px solid var(--border-default)',
-                      borderRadius: '8px',
-                      background: provider === p.value ? 'rgba(124, 58, 237, 0.1)' : 'transparent',
-                      color: provider === p.value ? 'var(--brand-accent)' : 'var(--text-secondary)',
-                      fontWeight: provider === p.value ? 600 : 400,
-                      transition: 'all 0.15s ease',
-                    }}
+                    className={cn(
+                      "flex-1 rounded px-3 py-1.5 text-sm font-medium transition-colors",
+                      provider === p.value 
+                        ? "bg-background text-foreground shadow-sm" 
+                        : "text-muted-foreground hover:text-foreground"
+                    )}
                   >
                     {p.label}
                   </button>
@@ -574,151 +573,184 @@ function CreateAgentModal({ token, voices, templates, onClose, onCreated }: {
             </div>
 
             {/* Identity */}
-            <div className="admin-section-title" style={{ fontSize: '11px', marginBottom: '0' }}>Identity</div>
-            <div className="form-group">
-              <label className="form-label">Agent Name *</label>
-              <input className="form-input" value={name} onChange={e => setName(e.target.value)} placeholder="e.g., Sales Agent" required autoFocus />
-            </div>
-            <div className="form-group">
-              <label className="form-label">First Message</label>
-              <textarea className="form-input" value={firstMessage} onChange={e => setFirstMessage(e.target.value)} placeholder={`Hello! I'm ${name || 'Agent'}. How can I help?`} rows={2} style={{ resize: 'vertical' }} />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Language</label>
-              <CustomSelect value={language} onChange={e => setLanguage(e.target.value)} options={FALLBACK_LANGUAGE_OPTIONS} placeholder="Select language" />
+            <div className="space-y-4">
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Identity</h4>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Agent name *</label>
+                  <input 
+                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring" 
+                    value={name} 
+                    onChange={e => setName(e.target.value)} 
+                    placeholder="e.g., Sales agent" 
+                    required 
+                    autoFocus 
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">First message</label>
+                  <textarea 
+                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring min-h-[80px]" 
+                    value={firstMessage} 
+                    onChange={e => setFirstMessage(e.target.value)} 
+                    placeholder={`Hello! I'm ${name || 'Agent'}. How can I help?`}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Language</label>
+                  <CustomSelect value={language} onChange={e => setLanguage(e.target.value)} options={FALLBACK_LANGUAGE_OPTIONS} placeholder="Select language" />
+                </div>
+              </div>
             </div>
 
             {/* AI Model */}
-            <div className="admin-section-title" style={{ fontSize: '11px', marginBottom: '0' }}>AI Model</div>
-
-            {provider === 'gemini' ? (
-              /* ── Gemini Model Config ── */
-              <>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                  <div className="form-group">
-                    <label className="form-label">Model</label>
-                    <CustomSelect value={geminiModel} onChange={e => setGeminiModel(e.target.value)} options={GEMINI_MODELS} placeholder="Select model" />
+            <div className="space-y-4">
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">AI model</h4>
+              
+              {provider === 'gemini' ? (
+                <>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Model</label>
+                      <CustomSelect value={geminiModel} onChange={e => setGeminiModel(e.target.value)} options={GEMINI_MODELS} placeholder="Select model" />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Thinking level</label>
+                      <CustomSelect value={geminiThinkingLevel} onChange={e => setGeminiThinkingLevel(e.target.value)} options={GEMINI_THINKING_LEVELS} placeholder="Select thinking level" />
+                    </div>
                   </div>
-                  <div className="form-group">
-                    <label className="form-label">Thinking Level</label>
-                    <CustomSelect value={geminiThinkingLevel} onChange={e => setGeminiThinkingLevel(e.target.value)} options={GEMINI_THINKING_LEVELS} placeholder="Select thinking level" />
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Temperature: {temperature.toFixed(2)}</label>
+                    <input type="range" className="w-full accent-primary" min="0" max="2" step="0.05" value={temperature} onChange={e => setTemperature(parseFloat(e.target.value))} />
+                    <div className="text-[10px] text-muted-foreground">Recommended: 1.0 for Gemini 3</div>
                   </div>
-                </div>
-                <div className="form-group" style={{ marginTop: 8 }}>
-                  <label className="form-label">Temperature: {temperature.toFixed(2)}</label>
-                  <input type="range" className="config-slider" min="0" max="2" step="0.05" value={temperature} onChange={e => setTemperature(parseFloat(e.target.value))} />
-                  <div style={{ fontSize: 10, color: 'var(--text-quaternary)', marginTop: 2 }}>Recommended: 1.0 for Gemini 3</div>
-                </div>
-              </>
-            ) : provider === 'elevenlabs' ? (
-              /* ── ElevenLabs Model Config ── */
-              <>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                  <div className="form-group">
-                    <label className="form-label">LLM</label>
+                </>
+              ) : provider === 'elevenlabs' ? (
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">LLM</label>
                     <CustomSelect value={llm} onChange={e => setLlm(e.target.value)} options={FALLBACK_LLM_OPTIONS} placeholder="Select LLM" />
                   </div>
-                  <div className="form-group">
-                    <label className="form-label">Temperature: {temperature.toFixed(2)}</label>
-                    <input type="range" className="config-slider" min="0" max="1" step="0.05" value={temperature} onChange={e => setTemperature(parseFloat(e.target.value))} />
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Temperature: {temperature.toFixed(2)}</label>
+                    <input type="range" className="w-full accent-primary" min="0" max="1" step="0.05" value={temperature} onChange={e => setTemperature(parseFloat(e.target.value))} />
                   </div>
                 </div>
-              </>
-            ) : (
-              /* ── Vapi Model Config ── */
-              <>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                  <div className="form-group">
-                    <label className="form-label">Model Provider</label>
-                    <CustomSelect value={modelProvider} onChange={e => setModelProvider(e.target.value)} options={VAPI_MODEL_PROVIDERS} placeholder="Select provider" />
+              ) : (
+                <>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Model provider</label>
+                      <CustomSelect value={modelProvider} onChange={e => setModelProvider(e.target.value)} options={VAPI_MODEL_PROVIDERS} placeholder="Select provider" />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">LLM</label>
+                      <CustomSelect
+                        value={vapiLlm}
+                        onChange={e => setVapiLlm(e.target.value)}
+                        options={VAPI_LLM_OPTIONS[modelProvider] || []}
+                        placeholder="Select model"
+                      />
+                    </div>
                   </div>
-                  <div className="form-group">
-                    <label className="form-label">LLM</label>
-                    <CustomSelect
-                      value={vapiLlm}
-                      onChange={e => setVapiLlm(e.target.value)}
-                      options={VAPI_LLM_OPTIONS[modelProvider] || []}
-                      placeholder="Select model"
-                    />
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Temperature: {temperature.toFixed(2)}</label>
+                    <input type="range" className="w-full accent-primary" min="0" max="1" step="0.05" value={temperature} onChange={e => setTemperature(parseFloat(e.target.value))} />
                   </div>
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Temperature: {temperature.toFixed(2)}</label>
-                  <input type="range" className="config-slider" min="0" max="1" step="0.05" value={temperature} onChange={e => setTemperature(parseFloat(e.target.value))} />
-                </div>
-              </>
-            )}
+                </>
+              )}
 
-            <div className="form-group">
-              <label className="form-label">System Prompt</label>
-              <textarea className="form-input" value={prompt} onChange={e => setPrompt(e.target.value)} placeholder={`You are ${name || 'Agent'}, a helpful AI assistant.`} rows={4} style={{ resize: 'vertical' }} />
+              <div className="space-y-2">
+                <label className="text-sm font-medium">System prompt</label>
+                <textarea 
+                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring min-h-[120px]" 
+                  value={prompt} 
+                  onChange={e => setPrompt(e.target.value)} 
+                  placeholder={`You are ${name || 'Agent'}, a helpful AI assistant.`}
+                />
+              </div>
             </div>
 
             {/* Voice */}
-            <div className="admin-section-title" style={{ fontSize: '11px', marginBottom: '0' }}>Voice</div>
-
-            {provider === 'gemini' ? (
-              /* ── Gemini Voice Config ── */
-              <>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                  <div className="form-group">
-                    <label className="form-label">Voice</label>
+            <div className="space-y-4">
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Voice</h4>
+              
+              {provider === 'gemini' ? (
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Voice</label>
                     <CustomSelect value={geminiVoice} onChange={e => setGeminiVoice(e.target.value)} options={GEMINI_VOICES} placeholder="Select voice" />
                   </div>
-                  <div className="form-group">
-                    <label className="form-label">Max Duration (sec)</label>
-                    <input className="form-input" type="number" value={maxDuration} onChange={e => setMaxDuration(parseInt(e.target.value))} min="30" max="3600" />
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Max duration (sec)</label>
+                    <input className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring" type="number" value={maxDuration} onChange={e => setMaxDuration(parseInt(e.target.value))} min="30" max="3600" />
                   </div>
                 </div>
-              </>
-            ) : provider === 'elevenlabs' ? (
-              /* ── ElevenLabs Voice Config ── */
-              <>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                  <div className="form-group">
-                    <label className="form-label">TTS Model</label>
-                    <CustomSelect value={ttsModel} onChange={e => setTtsModel(e.target.value)} options={FALLBACK_TTS_MODEL_OPTIONS} placeholder="Select TTS model" />
+              ) : provider === 'elevenlabs' ? (
+                <>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">TTS model</label>
+                      <CustomSelect value={ttsModel} onChange={e => setTtsModel(e.target.value)} options={FALLBACK_TTS_MODEL_OPTIONS} placeholder="Select TTS model" />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Max duration (sec)</label>
+                      <input className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring" type="number" value={maxDuration} onChange={e => setMaxDuration(parseInt(e.target.value))} min="30" max="3600" />
+                    </div>
                   </div>
-                  <div className="form-group">
-                    <label className="form-label">Max Duration (sec)</label>
-                    <input className="form-input" type="number" value={maxDuration} onChange={e => setMaxDuration(parseInt(e.target.value))} min="30" max="3600" />
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Voice</label>
+                    <CustomSelect value={voiceId} onChange={e => setVoiceId(e.target.value)} options={[{ value: '', label: '(Default voice)' }, ...voices.map(v => ({ value: v.voice_id, label: v.name }))]} placeholder="Select voice" />
                   </div>
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Voice</label>
-                  <CustomSelect value={voiceId} onChange={e => setVoiceId(e.target.value)} options={[{ value: '', label: '(Default voice)' }, ...voices.map(v => ({ value: v.voice_id, label: v.name }))]} placeholder="Select voice" />
-                </div>
-              </>
-            ) : (
-              /* ── Vapi Voice Config ── */
-              <>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                  <div className="form-group">
-                    <label className="form-label">Voice Provider</label>
-                    <CustomSelect value={voiceProvider} onChange={e => setVoiceProvider(e.target.value)} options={VAPI_VOICE_PROVIDERS} placeholder="Select voice provider" />
+                </>
+              ) : (
+                <>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Voice provider</label>
+                      <CustomSelect value={voiceProvider} onChange={e => setVoiceProvider(e.target.value)} options={VAPI_VOICE_PROVIDERS} placeholder="Select voice provider" />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Voice ID</label>
+                      <input className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring" value={vapiVoiceId} onChange={e => setVapiVoiceId(e.target.value)} placeholder="e.g., rachel or voice ID" />
+                    </div>
                   </div>
-                  <div className="form-group">
-                    <label className="form-label">Voice ID</label>
-                    <input className="form-input" value={vapiVoiceId} onChange={e => setVapiVoiceId(e.target.value)} placeholder="e.g., rachel or voice ID" />
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Transcriber</label>
+                      <CustomSelect value={transcriberProvider} onChange={e => setTranscriberProvider(e.target.value)} options={VAPI_TRANSCRIBER_PROVIDERS} placeholder="Select transcriber" />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Max duration (sec)</label>
+                      <input className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring" type="number" value={maxDuration} onChange={e => setMaxDuration(parseInt(e.target.value))} min="30" max="3600" />
+                    </div>
                   </div>
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                  <div className="form-group">
-                    <label className="form-label">Transcriber</label>
-                    <CustomSelect value={transcriberProvider} onChange={e => setTranscriberProvider(e.target.value)} options={VAPI_TRANSCRIBER_PROVIDERS} placeholder="Select transcriber" />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Max Duration (sec)</label>
-                    <input className="form-input" type="number" value={maxDuration} onChange={e => setMaxDuration(parseInt(e.target.value))} min="30" max="3600" />
-                  </div>
-                </div>
-              </>
-            )}
+                </>
+              )}
+            </div>
           </div>
-          <div className="modal-footer" style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
-            <button type="button" className="btn-ghost" onClick={onClose}>Cancel</button>
-            <button type="submit" className="btn-primary" disabled={creating || !name.trim()} style={{ marginLeft: 0 }}>
-              {creating ? <><div className="spinner" /> Creating...</> : <><Icon name="plus" size={13} /> Create Agent</>}
+          
+          <div className="border-t border-border p-4 flex justify-end gap-3 bg-muted/20">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={creating || !name.trim()}
+              className="inline-flex items-center justify-center rounded-md bg-primary text-primary-foreground px-4 py-2 text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:pointer-events-none"
+            >
+              {creating ? (
+                "Creating..."
+              ) : (
+                <>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Create agent
+                </>
+              )}
             </button>
           </div>
         </form>

@@ -3,19 +3,18 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useAuth } from '@/lib/auth-context';
 import { useToast } from '@/components/dashboard/shared/ToastProvider';
-import { Icon } from '@/components/dashboard/shared/Icon';
-import { SkeletonRows } from '@/components/dashboard/shared/SkeletonRows';
-import { CustomSelect } from '@/components/dashboard/shared/CustomSelect';
+import { cn } from '@/lib/utils';
 import { api } from '@/lib/api';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
 import { Doughnut } from 'react-chartjs-2';
+import {
+  Phone, Users, Bot, Download, FileText, TrendingUp, TrendingDown, Minus,
+  PieChart, Activity, CheckCircle, Timer, Star, MicOff, Webhook, Plus, Trash,
+  Filter, RefreshCw, Radio, Server, MessageSquare, GitBranch, User, PhoneCall,
+  Loader2
+} from 'lucide-react';
 
 ChartJS.register(ArcElement, Tooltip, Legend);
-
-/**
- * Dashboard home — converted from frontend/app.js DashboardView (lines ~4022-4276).
- * Shows stats cards, calls-by-agent chart, recent activity, and call flow diagram.
- */
 
 interface Stats {
   totalAgents: number;
@@ -93,7 +92,6 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!token) return;
 
-    // Load dashboard data with resilience against partial endpoint failures
     Promise.allSettled([
       api<Stats>('/stats', { token }),
       api<AnalyticsData>('/calls/analytics', { token }),
@@ -120,7 +118,6 @@ export default function DashboardPage() {
         setLoading(false);
       });
 
-    // Poll active calls every 5 seconds
     const interval = setInterval(() => {
       api<{ activeCalls: ActiveCall[] }>('/calls/active', { token })
         .then(data => setActiveCalls(data.activeCalls || []))
@@ -169,7 +166,8 @@ export default function DashboardPage() {
     setExportLoading(null);
   };
 
-  const handleCreateWebhook = async (event: string, url: string, secret: string) => {
+  const handleCreateWebhook = async (e: React.FormEvent, event: string, url: string, secret: string) => {
+    e.preventDefault();
     if (!token) return;
 
     setWebhookLoading(true);
@@ -210,25 +208,30 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div className="loading-overlay">
-        <div className="skeleton skeleton-title" />
-        <div className="skeleton skeleton-text" style={{ width: 280, marginBottom: 16 }} />
-        <div className="loading-skeleton-grid">
-          {[...Array(4)].map((_, i) => <div key={i} className="skeleton skeleton-card" />)}
+      <div className="max-w-7xl mx-auto px-6 py-6">
+        <div className="h-8 w-48 rounded bg-muted animate-pulse mb-2" />
+        <div className="h-4 w-64 rounded bg-muted animate-pulse mb-6" />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-6">
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="rounded-lg border border-border bg-card p-6 h-28 animate-pulse">
+              <div className="h-4 w-24 rounded bg-muted mb-2" />
+              <div className="h-8 w-16 rounded bg-muted" />
+            </div>
+          ))}
         </div>
       </div>
     );
   }
 
   const chartColors = [
-    'rgba(16, 185, 129, 0.9)', /* Emerald 500 */
-    'rgba(20, 184, 166, 0.9)', /* Teal 500 */
-    'rgba(5, 150, 105, 0.9)',  /* Emerald 600 */
-    'rgba(13, 148, 136, 0.9)', /* Teal 600 */
-    'rgba(161, 161, 170, 0.9)',/* Zinc 400 */
-    'rgba(113, 113, 122, 0.9)',/* Zinc 500 */
-    'rgba(52, 211, 153, 0.9)', /* Emerald 400 */
-    'rgba(45, 212, 191, 0.9)', /* Teal 400 */
+    'rgba(16, 185, 129, 0.9)', // Emerald 500
+    'rgba(20, 184, 166, 0.9)', // Teal 500
+    'rgba(5, 150, 105, 0.9)',  // Emerald 600
+    'rgba(13, 148, 136, 0.9)', // Teal 600
+    'rgba(161, 161, 170, 0.9)',// Zinc 400
+    'rgba(113, 113, 122, 0.9)',// Zinc 500
+    'rgba(52, 211, 153, 0.9)', // Emerald 400
+    'rgba(45, 212, 191, 0.9)', // Teal 400
   ];
 
   const chartData = {
@@ -246,9 +249,7 @@ export default function DashboardPage() {
     maintainAspectRatio: false,
     cutout: '72%',
     plugins: {
-      legend: {
-        display: false,
-      },
+      legend: { display: false },
       tooltip: {
         backgroundColor: '#18181b',
         titleColor: '#ffffff',
@@ -263,391 +264,414 @@ export default function DashboardPage() {
   };
 
   const statCards = [
-    { label: 'Total Agents', value: stats?.totalAgents || 0, icon: 'bot', trend: (stats?.totalAgents || 0) > 0 ? 'up' : 'neutral', trendLabel: (stats?.totalAgents || 0) > 0 ? 'Active' : 'Ready' },
-    { label: 'Total Calls', value: analytics?.stats?.total_calls || stats?.totalCalls || 0, icon: 'phone-call', trend: (analytics?.stats?.total_calls || 0) > 0 ? 'up' : 'neutral', trendLabel: (analytics?.stats?.total_calls || 0) > 0 ? 'Good' : 'Stable' },
-    { label: 'Success Rate', value: analytics?.stats?.successful_calls && analytics?.stats?.total_calls ? `${Math.round(((analytics.stats?.successful_calls ?? 0) / (analytics.stats?.total_calls ?? 1)) * 100) || 0}%` : `${stats?.successRate || 0}%`, icon: 'check-circle', trend: (analytics?.stats?.successful_calls || 0) / (analytics?.stats?.total_calls || 1) * 100 >= 70 ? 'up' : (analytics?.stats?.successful_calls || 0) / (analytics?.stats?.total_calls || 1) * 100 >= 40 ? 'neutral' : 'down', trendLabel: (analytics?.stats?.successful_calls || 0) / (analytics?.stats?.total_calls || 1) * 100 >= 70 ? 'Optimal' : (analytics?.stats?.successful_calls || 0) / (analytics?.stats?.total_calls || 1) * 100 >= 40 ? 'Moderate' : 'Low' },
-    { label: 'Avg Duration', value: formatDuration(analytics?.stats?.avg_duration || stats?.avgDuration || 0), icon: 'timer', trend: 'neutral', trendLabel: 'Stable' },
-    { label: 'Avg Quality', value: analytics?.stats?.avg_quality ? ((analytics.stats?.avg_quality ?? 0) as number).toFixed(1) : 'N/A', icon: 'star', trend: (analytics?.stats?.avg_quality || 0) >= 4.0 ? 'up' : (analytics?.stats?.avg_quality || 0) >= 3.0 ? 'neutral' : 'down', trendLabel: (analytics?.stats?.avg_quality || 0) >= 4.0 ? 'High' : (analytics?.stats?.avg_quality || 0) >= 3.0 ? 'Normal' : 'Review' },
+    { label: 'Total agents', value: stats?.totalAgents || 0 },
+    { label: 'Total calls', value: analytics?.stats?.total_calls || stats?.totalCalls || 0 },
+    { 
+      label: 'Success rate', 
+      value: analytics?.stats?.successful_calls && analytics?.stats?.total_calls 
+        ? `${Math.round(((analytics.stats.successful_calls) / (analytics.stats.total_calls)) * 100) || 0}%` 
+        : `${stats?.successRate || 0}%` 
+    },
+    { label: 'Avg duration', value: formatDuration(analytics?.stats?.avg_duration || stats?.avgDuration || 0) },
+    { 
+      label: 'Avg quality', 
+      value: analytics?.stats?.avg_quality ? (analytics.stats.avg_quality).toFixed(1) : 'N/A' 
+    },
   ];
 
+  const filteredCalls = analytics?.recentCalls?.filter(call => {
+    if (filterAgent && call.agent_name !== filterAgent && call.agent_id !== filterAgent) return false;
+    if (filterStatus && call.status !== filterStatus) return false;
+    if (filterDateFrom && new Date(call.created_at) < new Date(filterDateFrom)) return false;
+    if (filterDateTo && new Date(call.created_at) > new Date(filterDateTo + 'T23:59:59Z')) return false;
+    return true;
+  }) || [];
+
   return (
-    <div className="page-body">
-      <div className="page-content">
-        <div className="page-title-section">
-          <div>
-            <h2>Dashboard</h2>
-            <p>Overview of your AI calling operations</p>
-          </div>
-          <div className="page-actions">
-            <button
-              className="btn-secondary"
-              onClick={() => handleExport('csv')}
-              disabled={exportLoading === 'csv'}
-            >
-              <Icon name={exportLoading === 'csv' ? 'loader' : 'download'} size={14} />
-              {exportLoading === 'csv' ? 'Exporting...' : 'Export CSV'}
-            </button>
-            <button
-              className="btn-secondary"
-              onClick={() => handleExport('pdf')}
-              disabled={exportLoading === 'pdf'}
-            >
-              <Icon name={exportLoading === 'pdf' ? 'loader' : 'file-text'} size={14} />
-              {exportLoading === 'pdf' ? 'Exporting...' : 'Export PDF'}
-            </button>
-          </div>
+    <div className="max-w-7xl mx-auto px-6 py-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
+          <p className="text-sm text-muted-foreground mt-1">Overview of your AI calling operations</p>
         </div>
+        <div className="flex items-center gap-3">
+          <button
+            className="text-muted-foreground hover:text-foreground hover:bg-accent rounded-md px-3 py-2 text-sm transition-colors flex items-center gap-2 border border-border"
+            onClick={() => handleExport('csv')}
+            disabled={exportLoading === 'csv'}
+          >
+            {exportLoading === 'csv' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+            Export CSV
+          </button>
+          <button
+            className="text-muted-foreground hover:text-foreground hover:bg-accent rounded-md px-3 py-2 text-sm transition-colors flex items-center gap-2 border border-border"
+            onClick={() => handleExport('pdf')}
+            disabled={exportLoading === 'pdf'}
+          >
+            {exportLoading === 'pdf' ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
+            Export PDF
+          </button>
+        </div>
+      </div>
 
-        {/* Stat Cards */}
-        <div className="dashboard-grid">
-          {statCards.map((card, i) => (
-            <div key={i} className="stat-card" style={{ animationDelay: `${i * 60}ms` }}>
-              <div className="stat-card-header">
-                <span className="stat-card-label">{card.label}</span>
-                <div className="stat-card-icon"><Icon name={card.icon} size={16} /></div>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mt-6">
+        {statCards.map((card, i) => (
+          <div key={i} className="rounded-lg border border-border bg-card p-6">
+            <p className="text-sm text-muted-foreground">{card.label}</p>
+            <p className="text-2xl font-semibold mt-1 font-mono tabular-nums">{card.value}</p>
+          </div>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+        {/* Calls by Agent */}
+        <div className="rounded-lg border border-border bg-card p-6">
+          <h3 className="text-sm font-medium text-muted-foreground mb-4 flex items-center gap-2">
+            <PieChart className="w-4 h-4" /> Calls by agent
+          </h3>
+          {(stats?.callsByAgent?.length ?? 0) > 0 ? (
+            <div>
+              <div className="relative h-[200px]">
+                <Doughnut data={chartData} options={chartOptions} />
               </div>
-              <div className="stat-card-value">{card.value}</div>
-              {card.trend && (
-                <span className={`stat-card-trend ${card.trend}`}>
-                  <Icon name={card.trend === 'up' ? 'trending-up' : card.trend === 'down' ? 'trending-down' : 'minus'} size={11} />
-                  {card.trendLabel || (card.trend === 'up' ? 'Good' : card.trend === 'down' ? 'Low' : 'Stable')}
-                </span>
-              )}
-            </div>
-          ))}
-        </div>
-
-      {/* Panels Row */}
-      <div className="dashboard-row">
-        <div className="dashboard-panel">
-          <div className="dashboard-panel-header">
-            <span className="dashboard-panel-title"><Icon name="pie-chart" size={14} /> Calls by Agent</span>
-          </div>
-          <div className="dashboard-panel-body">
-            {(stats?.callsByAgent?.length ?? 0) > 0 ? (
-              <div>
-                <div className="chart-container" style={{ height: '200px', position: 'relative' }}>
-                  <Doughnut data={chartData} options={chartOptions} />
-                </div>
-                {/* Clean, structured 2-column legend */}
-                {(() => {
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-4 pt-4 border-t border-border">
+                {stats?.callsByAgent?.map((agent, i) => {
+                  const color = chartColors[i % chartColors.length];
                   const totalAgentCalls = stats?.callsByAgent?.reduce((acc, a) => acc + (a.count || 0), 0) || 0;
+                  const pct = totalAgentCalls > 0 ? Math.round((agent.count / totalAgentCalls) * 100) : 0;
                   return (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-4 pt-4 border-t border-white/[0.06]">
-                      {stats?.callsByAgent?.map((agent, i) => {
-                        const color = chartColors[i % chartColors.length];
-                        const pct = totalAgentCalls > 0 ? Math.round((agent.count / totalAgentCalls) * 100) : 0;
-                        return (
-                          <div
-                            key={agent.name || i}
-                            className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-white/[0.02] border border-white/[0.04] hover:border-white/[0.08] transition-colors"
-                          >
-                            <div className="flex items-center gap-2 min-w-0">
-                              <span
-                                className="w-2.5 h-2.5 rounded-full flex-shrink-0"
-                                style={{ backgroundColor: color, boxShadow: `0 0 6px ${color}` }}
-                              />
-                              <span className="text-xs font-medium text-white/90 truncate" title={agent.name}>
-                                {agent.name}
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-1.5 flex-shrink-0 text-xs font-mono">
-                              <span className="text-white font-semibold">{agent.count}</span>
-                              <span className="text-[11px] text-gray-400">({pct}%)</span>
-                            </div>
-                          </div>
-                        );
-                      })}
+                    <div key={agent.name || i} className="flex items-center justify-between gap-2 px-3 py-2 rounded-md bg-muted/30 border border-border">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
+                        <span className="text-xs font-medium truncate" title={agent.name}>{agent.name}</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 flex-shrink-0 text-xs font-mono tabular-nums">
+                        <span className="font-semibold">{agent.count}</span>
+                        <span className="text-muted-foreground">({pct}%)</span>
+                      </div>
                     </div>
                   );
-                })()}
+                })}
               </div>
-            ) : (
-              <div className="empty-state">No call data yet</div>
-            )}
-          </div>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center h-[200px] text-muted-foreground text-sm">
+              <PieChart className="w-8 h-8 mb-2 opacity-20" />
+              <p>No call data yet</p>
+            </div>
+          )}
         </div>
 
-        <div className="dashboard-panel">
-          <div className="dashboard-panel-header">
-            <span className="dashboard-panel-title"><Icon name="activity" size={14} /> Recent Calls</span>
-          </div>
-          <div className="dashboard-panel-body">
-            {(() => {
-              const filteredCalls = analytics?.recentCalls?.filter(call => {
-                if (filterAgent && call.agent_name !== filterAgent && call.agent_id !== filterAgent) return false;
-                if (filterStatus && call.status !== filterStatus) return false;
-                if (filterDateFrom && new Date(call.created_at) < new Date(filterDateFrom)) return false;
-                if (filterDateTo && new Date(call.created_at) > new Date(filterDateTo + 'T23:59:59Z')) return false;
-                return true;
-              }) || [];
-
-              return filteredCalls.length > 0 ? (
-              <div className="activity-feed">
-                {filteredCalls.map((call, i) => (
-                  <div key={call.id} className="activity-item" style={{ animationDelay: `${i * 40}ms` }}>
-                    <div className="activity-dot-col">
-                      <span className={`activity-dot ${call.status === 'completed' ? 'success' : call.status === 'failed' ? 'failed' : 'info'}`} />
-                      {i < (analytics?.recentCalls?.length ?? 0) - 1 && <div className="activity-line" />}
+        {/* Live Monitoring */}
+        <div className="rounded-lg border border-border bg-card p-6 flex flex-col">
+          <h3 className="text-sm font-medium text-muted-foreground mb-4 flex items-center gap-2">
+            <Radio className="w-4 h-4 text-red-500" /> Active calls
+            {activeCalls.length > 0 && (
+              <span className="ml-auto inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-red-500/10 text-red-500">
+                {activeCalls.length} active
+              </span>
+            )}
+          </h3>
+          <div className="flex-1 overflow-auto">
+            {activeCalls.length > 0 ? (
+              <div className="space-y-4">
+                {activeCalls.map((call) => (
+                  <div key={call.id} className="flex gap-4 items-start">
+                    <div className="mt-1 relative flex h-3 w-3">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
                     </div>
-                    <div className="activity-content">
-                      <div className="activity-title">
-                        Call to {call.to_number}
-                        {call.lead_name && <span className="lead-name"> ({call.lead_name})</span>}
-                      </div>
-                      <div className="activity-meta">
-                        <span>{call.status}</span>
-                        {call.duration > 0 && <span>• {formatDuration(call.duration)}</span>}
-                        {call.quality_score && <span>• Quality: {call.quality_score.toFixed(1)}</span>}
-                        {call.error_message && <span style={{ color: 'var(--red)', fontSize: '11px', background: 'rgba(239,68,68,0.1)', padding: '2px 6px', borderRadius: '4px', marginLeft: '6px' }}>{call.error_message}</span>}
-                      </div>
+                    <div className="flex-1">
+                      <p className="text-sm font-medium">Agent {call.agentId.substring(0, 8)} on call with {call.toNumber}</p>
+                      <p className="text-xs text-muted-foreground mt-1 capitalize">{call.status} • Started {new Date(call.startedAt).toLocaleTimeString()}</p>
                     </div>
-                    <div className="activity-time">{new Date(call.created_at).toLocaleDateString()}</div>
                   </div>
                 ))}
               </div>
             ) : (
-              <div className="empty-state">No recent calls matching filters</div>
-            );
-            })()}
+              <div className="flex flex-col items-center justify-center h-full min-h-[200px] text-muted-foreground text-sm">
+                <MicOff className="w-8 h-8 mb-2 opacity-20" />
+                <p>No active calls</p>
+              </div>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Agent Performance & Call Flow */}
-      <div className="dashboard-row dashboard-row-wide">
-        <div className="dashboard-panel">
-          <div className="dashboard-panel-header">
-            <span className="dashboard-panel-title"><Icon name="bot" size={14} /> Agent Performance Overview</span>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+        {/* Agent Performance Table */}
+        <div className="rounded-lg border border-border bg-card">
+          <div className="p-4 border-b border-border">
+            <h3 className="text-sm font-medium flex items-center gap-2">
+              <Bot className="w-4 h-4 text-muted-foreground" /> Agent performance
+            </h3>
           </div>
-          <div className="dashboard-panel-body" style={{ padding: 0 }}>
-            {stats?.callsByAgent && stats.callsByAgent.length > 0 ? (
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th>Agent Name</th>
-                    <th>Total Calls</th>
-                    <th>Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {stats.callsByAgent.map((agent, i) => (
-                    <tr key={i}>
-                      <td>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                          <span className="agent-icon indigo" style={{ width: 32, height: 32 }}><Icon name="bot" size={16} /></span>
-                          <span style={{ fontSize: '14px', fontWeight: 500, color: 'var(--text-primary)' }}>{agent.name}</span>
-                        </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border bg-muted/20">
+                  <th className="text-left text-muted-foreground font-medium px-4 py-3">Agent</th>
+                  <th className="text-left text-muted-foreground font-medium px-4 py-3">Total calls</th>
+                  <th className="text-left text-muted-foreground font-medium px-4 py-3">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {stats?.callsByAgent && stats.callsByAgent.length > 0 ? (
+                  stats.callsByAgent.map((agent, i) => (
+                    <tr key={i} className="hover:bg-accent/50 transition-colors">
+                      <td className="px-4 py-3 flex items-center gap-2">
+                        <Bot className="w-4 h-4 text-muted-foreground" />
+                        <span className="font-medium">{agent.name}</span>
                       </td>
-                      <td className="phone-cell">
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <Icon name="phone-call" size={14} style={{ color: 'var(--text-tertiary)' }} />
-                          {agent.count} handled
-                        </div>
+                      <td className="px-4 py-3 font-mono tabular-nums">
+                        {agent.count}
                       </td>
-                      <td>
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: 'var(--green)' }}>
-                          <span className="status-dot active" style={{ width: 8, height: 8 }} /> Active
+                      <td className="px-4 py-3">
+                        <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-emerald-500/10 text-emerald-400">
+                          active
                         </span>
                       </td>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            ) : (
-              <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text-quaternary)', fontSize: '13px' }}>No agent data available</div>
-            )}
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={3} className="px-4 py-8 text-center text-muted-foreground text-sm">
+                      No agent data available
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
           </div>
         </div>
 
-        <div className="dashboard-panel">
-          <div className="dashboard-panel-header">
-            <span className="dashboard-panel-title"><Icon name="git-branch" size={14} /> Workflow Architecture</span>
+        {/* Workflow Architecture */}
+        <div className="rounded-lg border border-border bg-card">
+          <div className="p-4 border-b border-border">
+            <h3 className="text-sm font-medium flex items-center gap-2">
+              <GitBranch className="w-4 h-4 text-muted-foreground" /> Workflow architecture
+            </h3>
           </div>
-          <div className="dashboard-panel-body">
-            <div className="call-flow">
-              {[
-                { icon: 'user', label: 'Caller', bg: 'var(--brand-accent-muted)', color: 'var(--brand-accent)' },
-                { icon: 'phone', label: 'Twilio/SIP', bg: 'rgba(251,146,60,0.15)', color: 'var(--orange)' },
-                { icon: 'server', label: 'Dialix API', bg: 'rgba(74,222,128,0.15)', color: 'var(--green)' },
-                { icon: 'brain', label: 'AI Engine', bg: 'rgba(139,92,246,0.15)', color: '#A78BFA' },
-                { icon: 'message-square', label: 'Response', bg: 'rgba(34,211,238,0.15)', color: '#22D3EE' },
-              ].map((node, i, arr) => (
-                <React.Fragment key={node.label}>
-                  <div className="call-flow-node">
-                    <div className="call-flow-node-icon" style={{ background: node.bg, color: node.color }}>
-                      <Icon name={node.icon} size={16} />
-                    </div>
-                    <span className="call-flow-node-label">{node.label}</span>
-                  </div>
-                  {i < arr.length - 1 && (
-                    <div className="call-flow-arrow">
-                      <div className="flow-line"><div className="flow-dot" style={{ animationDelay: `${i * 0.4}s` }} /></div>
-                    </div>
-                  )}
-                </React.Fragment>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Live Monitoring Panel */}
-        <div className="dashboard-panel">
-          <div className="dashboard-panel-header">
-            <span className="dashboard-panel-title">
-              <Icon name="radio" size={14} style={{ color: 'var(--red)' }} /> 
-              Live Monitoring
-              {activeCalls.length > 0 && (
-                <span className="live-badge" style={{ background: 'var(--red)', color: 'white', padding: '2px 6px', borderRadius: '4px', fontSize: '10px', marginLeft: '6px', fontWeight: 'bold', animation: 'pulse 2s infinite' }}>{activeCalls.length} ACTIVE</span>
-              )}
-            </span>
-          </div>
-          <div className="dashboard-panel-body">
-            {activeCalls.length > 0 ? (
-              <div className="activity-feed">
-                {activeCalls.map((call, i) => (
-                  <div key={call.id} className="activity-item">
-                    <div className="activity-dot-col">
-                      <span className="activity-dot" style={{ background: 'var(--red)', boxShadow: '0 0 8px rgba(239,68,68,0.6)' }} />
-                      {i < activeCalls.length - 1 && <div className="activity-line" />}
-                    </div>
-                    <div className="activity-content">
-                      <div className="activity-title">
-                        <span style={{color: 'var(--brand-accent)'}}>{call.agentId.substring(0, 8)}...</span> on call with {call.toNumber}
-                      </div>
-                      <div className="activity-meta">
-                        <span style={{ color: 'var(--text-primary)', fontWeight: 500 }}>{call.status}</span>
-                        <span>• Started {new Date(call.startedAt).toLocaleTimeString()}</span>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="empty-state" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px', height: '100%' }}>
-                <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'var(--bg-hover)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-tertiary)' }}>
-                  <Icon name="mic-off" size={20} />
+          <div className="p-6 flex flex-col gap-4">
+            {[
+              { icon: User, label: 'Caller', desc: 'Initiates or receives the call' },
+              { icon: PhoneCall, label: 'Twilio / SIP', desc: 'Telephony provider' },
+              { icon: Server, label: 'Dialix API', desc: 'Core routing and logic' },
+              { icon: Bot, label: 'AI Engine', desc: 'Speech-to-text & LLM' },
+              { icon: MessageSquare, label: 'Response', desc: 'Text-to-speech generation' },
+            ].map((node, i) => (
+              <div key={node.label} className="flex items-center gap-4">
+                <div className="w-10 h-10 rounded-lg bg-muted border border-border flex items-center justify-center flex-shrink-0">
+                  <node.icon className="w-5 h-5 text-muted-foreground" />
                 </div>
-                <div>No calls currently active</div>
+                <div>
+                  <p className="text-sm font-medium">{node.label}</p>
+                  <p className="text-xs text-muted-foreground">{node.desc}</p>
+                </div>
               </div>
-            )}
+            ))}
           </div>
         </div>
       </div>
 
-      {/* Webhooks Management */}
-      <div className="dashboard-row">
-        <div className="dashboard-panel">
-          <div className="dashboard-panel-header">
-            <div className="dashboard-panel-title">
-              <Icon name="webhook" size={14} /> Webhook Subscriptions
-            </div>
-            <button
-              className="btn btn-sm btn-primary"
-              onClick={() => setShowWebhookForm(!showWebhookForm)}
-            >
-              <Icon name="plus" size={12} />
-              Add Webhook
-            </button>
-          </div>
-          <div className="dashboard-panel-body">
-            {showWebhookForm && (
-              <WebhookForm
-                onSubmit={handleCreateWebhook}
-                onCancel={() => setShowWebhookForm(false)}
-                loading={webhookLoading}
-              />
-            )}
-
-            {webhooks.length > 0 ? (
-              <div className="webhooks-list">
-                {webhooks.map((webhook) => (
-                  <div key={webhook.id} className="webhook-item">
-                    <div className="webhook-info">
-                      <div className="webhook-event">{webhook.event}</div>
-                      <div className="webhook-url">{webhook.url}</div>
-                      <div className="webhook-meta">
-                        Created {new Date(webhook.created_at).toLocaleDateString()}
-                      </div>
-                    </div>
-                    <button
-                      className="btn btn-sm btn-danger"
-                      onClick={() => handleDeleteWebhook(webhook.id)}
-                    >
-                      <Icon name="trash" size={12} />
-                    </button>
-                  </div>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
+        {/* Advanced Filters */}
+        <div className="lg:col-span-1 rounded-lg border border-border bg-card p-6">
+          <h3 className="text-sm font-medium flex items-center gap-2 mb-4">
+            <Filter className="w-4 h-4 text-muted-foreground" /> Filters
+          </h3>
+          <div className="space-y-4">
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Agent</label>
+              <select 
+                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                value={filterAgent}
+                onChange={(e) => setFilterAgent(e.target.value)}
+              >
+                <option value="">All agents</option>
+                {stats?.callsByAgent?.map(agent => (
+                  <option key={agent.name} value={agent.name}>{agent.name}</option>
                 ))}
-              </div>
-            ) : (
-              <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text-quaternary)', fontSize: '13px' }}>
-                No webhook subscriptions yet
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div className="dashboard-panel">
-          <div className="dashboard-panel-header">
-            <span className="dashboard-panel-title"><Icon name="filter" size={14} /> Advanced Filters</span>
-          </div>
-          <div className="dashboard-panel-body">
-            <div className="filters-section">
-              <div className="filter-group">
-                <label>Agent</label>
-                <CustomSelect
-                  value={filterAgent}
-                  onChange={(e) => setFilterAgent(e.target.value)}
-                  options={[
-                    { value: '', label: 'All Agents' },
-                    ...(stats?.callsByAgent?.map(agent => ({ value: agent.name, label: agent.name })) || [])
-                  ]}
+              </select>
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Status</label>
+              <select 
+                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+              >
+                <option value="">All statuses</option>
+                <option value="completed">Completed</option>
+                <option value="failed">Failed</option>
+                <option value="initiated">Initiated</option>
+                <option value="in-progress">In progress</option>
+              </select>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1.5 block">From date</label>
+                <input 
+                  type="date" 
+                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring" 
+                  value={filterDateFrom} 
+                  onChange={e => setFilterDateFrom(e.target.value)} 
                 />
               </div>
-
-              <div className="filter-group">
-                <label>Status</label>
-                <CustomSelect
-                  value={filterStatus}
-                  onChange={(e) => setFilterStatus(e.target.value)}
-                  options={[
-                    { value: '', label: 'All Statuses' },
-                    { value: 'completed', label: 'Completed' },
-                    { value: 'failed', label: 'Failed' },
-                    { value: 'initiated', label: 'Initiated' },
-                    { value: 'in-progress', label: 'In Progress' }
-                  ]}
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1.5 block">To date</label>
+                <input 
+                  type="date" 
+                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring" 
+                  value={filterDateTo} 
+                  onChange={e => setFilterDateTo(e.target.value)} 
                 />
               </div>
-
-              <div className="filter-group">
-                <label>Date Range</label>
-                <div className="date-range">
-                  <input type="date" className="form-input" placeholder="From" value={filterDateFrom} onChange={e => setFilterDateFrom(e.target.value)} />
-                  <input type="date" className="form-input" placeholder="To" value={filterDateTo} onChange={e => setFilterDateTo(e.target.value)} />
-                </div>
-              </div>
-
-              <button className="btn btn-secondary" style={{ width: '100%', marginTop: '12px' }} onClick={() => {
+            </div>
+            <button 
+              className="w-full text-muted-foreground hover:text-foreground hover:bg-accent rounded-md px-3 py-2 text-sm transition-colors flex items-center justify-center gap-2 border border-border mt-2"
+              onClick={() => {
                 setFilterAgent('');
                 setFilterStatus('');
                 setFilterDateFrom('');
                 setFilterDateTo('');
-              }}>
-                <Icon name="refresh-cw" size={14} />
-                Reset Filters
-              </button>
-            </div>
+              }}
+            >
+              <RefreshCw className="w-4 h-4" /> Reset filters
+            </button>
+          </div>
+        </div>
+
+        {/* Recent Calls */}
+        <div className="lg:col-span-2 rounded-lg border border-border bg-card">
+          <div className="p-4 border-b border-border">
+            <h3 className="text-sm font-medium flex items-center gap-2">
+              <Activity className="w-4 h-4 text-muted-foreground" /> Recent calls
+            </h3>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border bg-muted/20">
+                  <th className="text-left text-muted-foreground font-medium px-4 py-3">Destination</th>
+                  <th className="text-left text-muted-foreground font-medium px-4 py-3">Status</th>
+                  <th className="text-left text-muted-foreground font-medium px-4 py-3">Duration</th>
+                  <th className="text-left text-muted-foreground font-medium px-4 py-3">Date</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {filteredCalls.length > 0 ? (
+                  filteredCalls.map((call) => (
+                    <tr key={call.id} className="hover:bg-accent/50 transition-colors">
+                      <td className="px-4 py-3">
+                        <div className="font-mono">{call.to_number}</div>
+                        {call.lead_name && <div className="text-xs text-muted-foreground">{call.lead_name}</div>}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={cn(
+                          "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
+                          call.status === 'completed' ? "bg-emerald-500/10 text-emerald-400" :
+                          call.status === 'failed' ? "bg-red-500/10 text-red-400" :
+                          "bg-blue-500/10 text-blue-400"
+                        )}>
+                          {call.status}
+                        </span>
+                        {call.error_message && (
+                          <div className="text-xs text-red-400 mt-1">{call.error_message}</div>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 font-mono tabular-nums">
+                        {call.duration > 0 ? formatDuration(call.duration) : '-'}
+                      </td>
+                      <td className="px-4 py-3 text-muted-foreground">
+                        {new Date(call.created_at).toLocaleDateString()}
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={4} className="px-4 py-8 text-center text-muted-foreground text-sm">
+                      No recent calls matching filters
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
           </div>
         </div>
       </div>
-    </div>
+
+      {/* Webhooks Section */}
+      <div className="rounded-lg border border-border bg-card mt-6">
+        <div className="p-4 border-b border-border flex justify-between items-center">
+          <h3 className="text-sm font-medium flex items-center gap-2">
+            <Webhook className="w-4 h-4 text-muted-foreground" /> Webhook subscriptions
+          </h3>
+          <button
+            className="bg-foreground text-background hover:bg-foreground/90 rounded-md px-3 py-1.5 text-xs font-medium transition-colors flex items-center gap-1"
+            onClick={() => setShowWebhookForm(true)}
+          >
+            <Plus className="w-3.5 h-3.5" /> Add webhook
+          </button>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-border bg-muted/20">
+                <th className="text-left text-muted-foreground font-medium px-4 py-3">Event</th>
+                <th className="text-left text-muted-foreground font-medium px-4 py-3">URL</th>
+                <th className="text-left text-muted-foreground font-medium px-4 py-3">Created</th>
+                <th className="text-right text-muted-foreground font-medium px-4 py-3">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {webhooks.length > 0 ? (
+                webhooks.map((webhook) => (
+                  <tr key={webhook.id} className="hover:bg-accent/50 transition-colors">
+                    <td className="px-4 py-3 font-medium">{webhook.event}</td>
+                    <td className="px-4 py-3 text-muted-foreground font-mono text-xs">{webhook.url}</td>
+                    <td className="px-4 py-3 text-muted-foreground">{new Date(webhook.created_at).toLocaleDateString()}</td>
+                    <td className="px-4 py-3 text-right">
+                      <button
+                        className="text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-md p-1.5 transition-colors inline-flex"
+                        onClick={() => handleDeleteWebhook(webhook.id)}
+                      >
+                        <Trash className="w-4 h-4" />
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={4} className="px-4 py-8 text-center text-muted-foreground text-sm">
+                    No webhook subscriptions yet
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Webhook Modal */}
+      {showWebhookForm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-md rounded-lg border border-border bg-card p-6">
+            <h3 className="text-lg font-semibold tracking-tight mb-4">Add webhook</h3>
+            <WebhookForm
+              onSubmit={handleCreateWebhook}
+              onCancel={() => setShowWebhookForm(false)}
+              loading={webhookLoading}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
 interface WebhookFormProps {
-  onSubmit: (event: string, url: string, secret: string) => void;
+  onSubmit: (e: React.FormEvent, event: string, url: string, secret: string) => void;
   onCancel: () => void;
   loading: boolean;
 }
@@ -657,56 +681,55 @@ function WebhookForm({ onSubmit, onCancel, loading }: WebhookFormProps) {
   const [url, setUrl] = useState('');
   const [secret, setSecret] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (event && url) {
-      onSubmit(event, url, secret);
-    }
-  };
-
   return (
-    <form onSubmit={handleSubmit} className="webhook-form">
-      <div className="form-row">
-        <div className="form-group">
-          <label>Event</label>
-          <CustomSelect
-            value={event}
-            onChange={(e) => setEvent(e.target.value)}
-            options={[
-              { value: 'call.completed', label: 'Call Completed' },
-              { value: 'call.failed', label: 'Call Failed' }
-            ]}
-          />
-        </div>
-        <div className="form-group">
-          <label>Webhook URL</label>
-          <input
-            type="url"
-            className="form-input"
-            value={url}
-            onChange={(e) => setUrl(e.target.value)}
-            placeholder="https://your-app.com/webhook"
-            required
-          />
-        </div>
+    <form onSubmit={(e) => onSubmit(e, event, url, secret)} className="space-y-4">
+      <div>
+        <label className="text-sm font-medium mb-1.5 block">Event</label>
+        <select
+          className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+          value={event}
+          onChange={(e) => setEvent(e.target.value)}
+        >
+          <option value="call.completed">Call completed</option>
+          <option value="call.failed">Call failed</option>
+        </select>
       </div>
-      <div className="form-group">
-        <label>Secret (Optional)</label>
+      <div>
+        <label className="text-sm font-medium mb-1.5 block">Webhook URL</label>
         <input
-          type="password"
-          className="form-input"
-          value={secret}
-          onChange={(e) => setSecret(e.target.value)}
-          placeholder="HMAC secret for signature verification"
+          type="url"
+          className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+          placeholder="https://your-app.com/webhook"
+          required
         />
       </div>
-      <div className="form-actions">
-        <button type="button" className="btn btn-secondary" onClick={onCancel}>
+      <div>
+        <label className="text-sm font-medium mb-1.5 block">Secret (Optional)</label>
+        <input
+          type="password"
+          className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+          value={secret}
+          onChange={(e) => setSecret(e.target.value)}
+          placeholder="HMAC secret"
+        />
+      </div>
+      <div className="flex justify-end gap-3 mt-6">
+        <button
+          type="button"
+          className="text-muted-foreground hover:text-foreground hover:bg-accent rounded-md px-4 py-2 text-sm transition-colors"
+          onClick={onCancel}
+        >
           Cancel
         </button>
-        <button type="submit" className="btn btn-primary" disabled={loading}>
-          {loading ? <Icon name="loader" size={12} /> : <Icon name="plus" size={12} />}
-          {loading ? 'Creating...' : 'Create Webhook'}
+        <button
+          type="submit"
+          className="bg-foreground text-background hover:bg-foreground/90 rounded-md px-4 py-2 text-sm font-medium transition-colors flex items-center gap-2"
+          disabled={loading}
+        >
+          {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+          {loading ? 'Creating...' : 'Create webhook'}
         </button>
       </div>
     </form>

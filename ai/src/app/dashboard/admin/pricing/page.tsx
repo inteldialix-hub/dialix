@@ -4,9 +4,10 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
 import { useToast } from '@/components/dashboard/shared/ToastProvider';
-import { Icon } from '@/components/dashboard/shared/Icon';
 import { ConfirmModal } from '@/components/dashboard/shared/ConfirmModal';
 import { api } from '@/lib/api';
+import { cn } from '@/lib/utils';
+import { Plus, Pencil, Trash2, Check } from 'lucide-react';
 
 interface PricingPlan {
   id: number;
@@ -79,7 +80,6 @@ export default function AdminPricingPage() {
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState<'plans' | 'clients'>('plans');
 
-  // Redirect non-admins
   useEffect(() => {
     if (me && !me.is_admin) router.replace('/dashboard');
   }, [me, router]);
@@ -199,212 +199,180 @@ export default function AdminPricingPage() {
   if (!me?.is_admin) return null;
 
   return (
-    <div className="page-body" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
-      <div className="layout-container" style={{ padding: '40px', maxWidth: '1200px', margin: '0 auto', width: '100%', paddingBottom: '100px' }}>
+    <div className="max-w-7xl mx-auto px-6 py-6">
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Pricing plans</h1>
+          <p className="text-sm text-muted-foreground mt-1">Manage pricing tiers and assign plans to clients</p>
+        </div>
+        <button 
+          className="bg-foreground text-background hover:bg-foreground/90 rounded-md px-4 py-2 text-sm font-medium flex items-center gap-2"
+          onClick={openCreateForm}
+        >
+          <Plus className="size-4" /> New plan
+        </button>
+      </div>
 
-        {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '32px' }}>
-          <div>
-            <h2 style={{ fontSize: '24px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '8px' }}>
-              Pricing Plans
-            </h2>
-            <p style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>
-              Manage pricing tiers and assign plans to clients
-            </p>
-          </div>
-          <button className="btn-primary" onClick={openCreateForm} style={{ gap: '6px' }}>
-            <Icon name="plus" size={16} /> New Plan
+      <div className="border-b border-border mb-6">
+        <nav className="flex gap-6">
+          <button 
+            onClick={() => setActiveTab('plans')}
+            className={cn(
+              "pb-3 text-sm font-medium border-b-2 -mb-px transition-colors",
+              activeTab === 'plans' ? "border-foreground text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"
+            )}
+          >
+            Plans
           </button>
-        </div>
+          <button 
+            onClick={() => setActiveTab('clients')}
+            className={cn(
+              "pb-3 text-sm font-medium border-b-2 -mb-px transition-colors",
+              activeTab === 'clients' ? "border-foreground text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"
+            )}
+          >
+            Client assignments
+          </button>
+        </nav>
+      </div>
 
-        {/* Tab Switcher */}
-        <div className="tab-pill-group" role="tablist" style={{ marginBottom: '24px' }}>
-          {(['plans', 'clients'] as const).map(tab => (
-            <button
-              type="button"
-              role="tab"
-              aria-selected={activeTab === tab}
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`tab-pill ${activeTab === tab ? 'tab-pill-active active' : ''}`}
+      {loading ? (
+        <div className="text-center py-12 text-muted-foreground text-sm">Loading...</div>
+      ) : activeTab === 'plans' ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {plans.map(plan => (
+            <div 
+              key={plan.id}
+              className={cn(
+                "rounded-lg border bg-card p-6 relative flex flex-col",
+                plan.is_default ? "border-foreground/50 shadow-sm" : "border-border",
+                !plan.is_active && "opacity-50"
+              )}
             >
-              {tab === 'plans' ? 'Plans' : 'Client Assignments'}
-            </button>
-          ))}
-        </div>
-
-        {loading ? (
-          <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--text-tertiary)' }}>Loading...</div>
-        ) : activeTab === 'plans' ? (
-          /* ── Plans Grid ── */
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '16px' }}>
-            {plans.map(plan => (
-              <div
-                key={plan.id}
-                style={{
-                  background: 'var(--bg-raised)',
-                  border: `1px solid ${plan.is_default ? 'var(--brand-accent)' : 'var(--border-subtle)'}`,
-                  borderRadius: 'var(--radius-lg)',
-                  padding: '24px',
-                  position: 'relative',
-                  opacity: plan.is_active ? 1 : 0.5,
-                }}
-              >
-                {plan.is_default === 1 && (
-                  <div style={{
-                    position: 'absolute', top: '-10px', left: '16px',
-                    background: 'var(--brand-accent)', color: '#fff',
-                    fontSize: '11px', fontWeight: 600, padding: '2px 10px',
-                    borderRadius: '10px', letterSpacing: '0.04em',
-                  }}>
-                    DEFAULT
-                  </div>
-                )}
-
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-                  <h3 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--text-primary)' }}>{plan.name}</h3>
-                  <div style={{ display: 'flex', gap: '4px' }}>
-                    <button className="btn-icon" onClick={() => openEditForm(plan)} title="Edit">
-                      <Icon name="pencil" size={14} />
-                    </button>
-                    <button className="btn-icon" onClick={() => setDeleteTargetPlan(plan)} title="Delete" style={{ color: 'var(--red)' }}>
-                      <Icon name="trash-2" size={14} />
-                    </button>
-                  </div>
+              {plan.is_default === 1 && (
+                <div className="absolute -top-3 left-4 bg-foreground text-background px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider">
+                  Default
                 </div>
+              )}
 
-                <div style={{ fontSize: '28px', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '4px' }}>
-                  ${plan.price}<span style={{ fontSize: '14px', fontWeight: 400, color: 'var(--text-tertiary)' }}>/{plan.billing_period}</span>
-                </div>
-
-                <div style={{ fontSize: '12px', color: 'var(--text-tertiary)', marginBottom: '16px' }}>
-                  slug: {plan.slug} {!plan.is_active && '(inactive)'}
-                </div>
-
-                {/* Limits */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '16px' }}>
-                  <div style={{ fontSize: '13px', color: 'var(--text-secondary)', display: 'flex', justifyContent: 'space-between' }}>
-                    <span>Agents</span>
-                    <span style={{ fontWeight: 500 }}>{plan.max_agents === -1 ? 'Unlimited' : plan.max_agents}</span>
-                  </div>
-                  <div style={{ fontSize: '13px', color: 'var(--text-secondary)', display: 'flex', justifyContent: 'space-between' }}>
-                    <span>Calls/mo</span>
-                    <span style={{ fontWeight: 500 }}>{plan.max_calls_per_month === -1 ? 'Unlimited' : plan.max_calls_per_month.toLocaleString()}</span>
-                  </div>
-                  <div style={{ fontSize: '13px', color: 'var(--text-secondary)', display: 'flex', justifyContent: 'space-between' }}>
-                    <span>Phone #s</span>
-                    <span style={{ fontWeight: 500 }}>{plan.max_phone_numbers === -1 ? 'Unlimited' : plan.max_phone_numbers}</span>
-                  </div>
-                </div>
-
-                {/* Features */}
-                <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: '12px' }}>
-                  {Object.entries(plan.features).filter(([, v]) => v).map(([key]) => (
-                    <div key={key} style={{ fontSize: '12px', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
-                      <Icon name="check" size={12} style={{ color: 'var(--green)' }} />
-                      {AVAILABLE_FEATURES.find(f => f.key === key)?.label || key}
-                    </div>
-                  ))}
-                </div>
-
-                {/* Client count */}
-                <div style={{ marginTop: '12px', fontSize: '12px', color: 'var(--text-quaternary)' }}>
-                  {clients.filter(c => c.plan_id === plan.id).length} client(s) on this plan
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-foreground">{plan.name}</h3>
+                <div className="flex items-center gap-1">
+                  <button 
+                    onClick={() => openEditForm(plan)}
+                    className="p-1.5 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                  >
+                    <Pencil className="size-4" />
+                  </button>
+                  <button 
+                    onClick={() => setDeleteTargetPlan(plan)}
+                    className="p-1.5 rounded-md text-muted-foreground hover:bg-red-500/10 hover:text-red-500 transition-colors"
+                  >
+                    <Trash2 className="size-4" />
+                  </button>
                 </div>
               </div>
-            ))}
-          </div>
-        ) : (
-          /* ── Client Assignments Table ── */
-          <div style={{ background: 'var(--bg-raised)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-subtle)', overflow: 'hidden' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                  <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Client</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Email</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Current Plan</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Assign</th>
-                </tr>
-              </thead>
-              <tbody>
-                {clients.filter(c => !c.is_admin).map(client => (
-                  <tr key={client.id} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                    <td style={{ padding: '12px 16px', fontSize: '14px', color: 'var(--text-primary)', fontWeight: 500 }}>
-                      {client.name}
-                    </td>
-                    <td style={{ padding: '12px 16px', fontSize: '13px', color: 'var(--text-secondary)' }}>
-                      {client.email}
-                    </td>
-                    <td style={{ padding: '12px 16px' }}>
-                      {client.plan_name ? (
-                        <span style={{
-                          padding: '3px 10px', borderRadius: '12px', fontSize: '12px', fontWeight: 500,
-                          background: 'rgba(94, 106, 210, 0.12)', color: 'var(--brand-accent)',
-                        }}>
-                          {client.plan_name} (${client.plan_price}/mo)
-                        </span>
-                      ) : (
-                        <span style={{ fontSize: '12px', color: 'var(--text-quaternary)' }}>No plan</span>
-                      )}
-                    </td>
-                    <td style={{ padding: '12px 16px' }}>
-                      <select
-                        value={client.plan_id ?? ''}
-                        onChange={e => handleAssignPlan(client.id, e.target.value ? Number(e.target.value) : null)}
-                        style={{
-                          padding: '6px 10px', fontSize: '13px',
-                          background: 'var(--bg-input)', color: 'var(--text-primary)',
-                          border: '1px solid var(--border-default)', borderRadius: 'var(--radius-sm)',
-                          cursor: 'pointer',
-                        }}
-                      >
-                        <option value="">No plan</option>
-                        {plans.filter(p => p.is_active).map(p => (
-                          <option key={p.id} value={p.id}>{p.name} (${p.price})</option>
-                        ))}
-                      </select>
-                    </td>
-                  </tr>
+
+              <div className="mb-1">
+                <span className="text-3xl font-semibold font-mono tabular-nums text-foreground">${plan.price}</span>
+                <span className="text-sm text-muted-foreground">/{plan.billing_period}</span>
+              </div>
+              <div className="text-xs text-muted-foreground mb-6">
+                slug: {plan.slug} {!plan.is_active && '(inactive)'}
+              </div>
+
+              <div className="space-y-2 mb-6 flex-1">
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Agents</span>
+                  <span className="font-medium text-foreground">{plan.max_agents === -1 ? 'Unlimited' : plan.max_agents}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Calls/mo</span>
+                  <span className="font-medium text-foreground">{plan.max_calls_per_month === -1 ? 'Unlimited' : plan.max_calls_per_month.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Phone #s</span>
+                  <span className="font-medium text-foreground">{plan.max_phone_numbers === -1 ? 'Unlimited' : plan.max_phone_numbers}</span>
+                </div>
+              </div>
+
+              <div className="border-t border-border pt-4 mb-4 space-y-2">
+                {Object.entries(plan.features).filter(([, v]) => v).map(([key]) => (
+                  <div key={key} className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Check className="size-3.5 text-emerald-500 shrink-0" />
+                    <span>{AVAILABLE_FEATURES.find(f => f.key === key)?.label || key}</span>
+                  </div>
                 ))}
-                {clients.filter(c => !c.is_admin).length === 0 && (
-                  <tr>
-                    <td colSpan={4} style={{ padding: '24px', textAlign: 'center', color: 'var(--text-tertiary)', fontSize: '14px' }}>
-                      No clients to display
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+              </div>
+
+              <div className="text-xs text-muted-foreground/60 mt-auto">
+                {clients.filter(c => c.plan_id === plan.id).length} client(s) on this plan
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="rounded-lg border border-border bg-card overflow-hidden">
+          <div className="divide-y divide-border">
+            <div className="grid grid-cols-4 gap-4 p-4 text-sm font-medium text-muted-foreground bg-muted/20">
+              <div>Client</div>
+              <div>Email</div>
+              <div>Current plan</div>
+              <div>Assign</div>
+            </div>
+            
+            {clients.filter(c => !c.is_admin).length === 0 ? (
+              <div className="p-8 text-center text-sm text-muted-foreground">No clients to display</div>
+            ) : (
+              clients.filter(c => !c.is_admin).map(client => (
+                <div key={client.id} className="grid grid-cols-4 gap-4 p-4 items-center text-sm hover:bg-muted/30 transition-colors">
+                  <div className="font-medium text-foreground">{client.name}</div>
+                  <div className="text-muted-foreground truncate">{client.email}</div>
+                  <div>
+                    {client.plan_name ? (
+                      <span className="rounded-full bg-blue-500/10 text-blue-500 px-2.5 py-0.5 text-xs font-medium">
+                        {client.plan_name} (${client.plan_price}/mo)
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground text-xs">No plan</span>
+                    )}
+                  </div>
+                  <div>
+                    <select
+                      value={client.plan_id ?? ''}
+                      onChange={e => handleAssignPlan(client.id, e.target.value ? Number(e.target.value) : null)}
+                      className="w-full rounded-md border border-border bg-background px-3 py-1.5 text-sm outline-none focus:border-foreground/30 transition-colors"
+                    >
+                      <option value="">No plan</option>
+                      {plans.filter(p => p.is_active).map(p => (
+                        <option key={p.id} value={p.id}>{p.name} (${p.price})</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
-        )}
+        </div>
+      )}
 
-        {/* ── Create/Edit Plan Modal ── */}
-        {showForm && (
-          <div style={{
-            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex',
-            alignItems: 'center', justifyContent: 'center', zIndex: 100, backdropFilter: 'blur(4px)',
-          }}
-            onClick={() => setShowForm(false)}
+      {/* Create/Edit Modal */}
+      {showForm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => setShowForm(false)}>
+          <div 
+            className="w-full max-w-2xl rounded-lg border border-border bg-card p-6 shadow-xl max-h-[90vh] overflow-y-auto"
+            onClick={e => e.stopPropagation()}
           >
-            <div
-              style={{
-                background: 'var(--bg-raised)', borderRadius: 'var(--radius-xl)',
-                border: '1px solid var(--border-subtle)', padding: '32px',
-                width: '100%', maxWidth: '560px', maxHeight: '80vh', overflowY: 'auto',
-                boxShadow: 'var(--shadow-lg)',
-              }}
-              onClick={e => e.stopPropagation()}
-            >
-              <h3 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '24px' }}>
-                {editingPlan ? 'Edit Plan' : 'Create New Plan'}
-              </h3>
+            <h3 className="text-lg font-semibold tracking-tight text-foreground mb-6">
+              {editingPlan ? 'Edit plan' : 'Create new plan'}
+            </h3>
 
-              {/* Name & Slug */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
-                <div>
-                  <label style={{ display: 'block', marginBottom: '6px', fontSize: '12px', fontWeight: 500, color: 'var(--text-secondary)' }}>Plan Name</label>
+            <div className="space-y-6">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-foreground">Plan name</label>
                   <input
-                    className="form-input"
+                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
                     value={form.name}
                     onChange={e => {
                       setForm(prev => ({
@@ -414,40 +382,36 @@ export default function AdminPricingPage() {
                       }));
                     }}
                     placeholder="e.g. Professional"
-                    style={{ width: '100%', padding: '8px 12px', background: 'var(--bg-input)', border: '1px solid var(--border-default)', borderRadius: 'var(--radius-sm)', color: 'var(--text-primary)', fontSize: '14px' }}
                   />
                 </div>
-                <div>
-                  <label style={{ display: 'block', marginBottom: '6px', fontSize: '12px', fontWeight: 500, color: 'var(--text-secondary)' }}>Slug</label>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-foreground">Slug</label>
                   <input
-                    className="form-input"
+                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm disabled:opacity-50"
                     value={form.slug}
                     onChange={e => setForm(prev => ({ ...prev, slug: e.target.value }))}
                     placeholder="e.g. professional"
                     disabled={!!editingPlan}
-                    style={{ width: '100%', padding: '8px 12px', background: 'var(--bg-input)', border: '1px solid var(--border-default)', borderRadius: 'var(--radius-sm)', color: 'var(--text-primary)', fontSize: '14px', opacity: editingPlan ? 0.5 : 1 }}
                   />
                 </div>
               </div>
 
-              {/* Price & Billing */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
-                <div>
-                  <label style={{ display: 'block', marginBottom: '6px', fontSize: '12px', fontWeight: 500, color: 'var(--text-secondary)' }}>Price ($)</label>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-foreground">Price ($)</label>
                   <input
-                    className="form-input"
+                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
                     type="number" min="0" step="1"
                     value={form.price}
                     onChange={e => setForm(prev => ({ ...prev, price: parseFloat(e.target.value) || 0 }))}
-                    style={{ width: '100%', padding: '8px 12px', background: 'var(--bg-input)', border: '1px solid var(--border-default)', borderRadius: 'var(--radius-sm)', color: 'var(--text-primary)', fontSize: '14px' }}
                   />
                 </div>
-                <div>
-                  <label style={{ display: 'block', marginBottom: '6px', fontSize: '12px', fontWeight: 500, color: 'var(--text-secondary)' }}>Billing Period</label>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-foreground">Billing period</label>
                   <select
+                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
                     value={form.billing_period}
                     onChange={e => setForm(prev => ({ ...prev, billing_period: e.target.value }))}
-                    style={{ width: '100%', padding: '8px 12px', background: 'var(--bg-input)', border: '1px solid var(--border-default)', borderRadius: 'var(--radius-sm)', color: 'var(--text-primary)', fontSize: '14px' }}
                   >
                     <option value="monthly">Monthly</option>
                     <option value="yearly">Yearly</option>
@@ -455,46 +419,54 @@ export default function AdminPricingPage() {
                 </div>
               </div>
 
-              {/* Limits */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px', marginBottom: '16px' }}>
-                <div>
-                  <label style={{ display: 'block', marginBottom: '6px', fontSize: '12px', fontWeight: 500, color: 'var(--text-secondary)' }}>Max Agents <span style={{ color: 'var(--text-quaternary)' }}>(-1 = ∞)</span></label>
-                  <input className="form-input" type="number" value={form.max_agents} onChange={e => setForm(prev => ({ ...prev, max_agents: parseInt(e.target.value) }))}
-                    style={{ width: '100%', padding: '8px 12px', background: 'var(--bg-input)', border: '1px solid var(--border-default)', borderRadius: 'var(--radius-sm)', color: 'var(--text-primary)', fontSize: '14px' }} />
+              <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-foreground">Max agents <span className="text-muted-foreground font-normal">(-1 = ∞)</span></label>
+                  <input 
+                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm" 
+                    type="number" 
+                    value={form.max_agents} 
+                    onChange={e => setForm(prev => ({ ...prev, max_agents: parseInt(e.target.value) }))}
+                  />
                 </div>
-                <div>
-                  <label style={{ display: 'block', marginBottom: '6px', fontSize: '12px', fontWeight: 500, color: 'var(--text-secondary)' }}>Calls/Month <span style={{ color: 'var(--text-quaternary)' }}>(-1 = ∞)</span></label>
-                  <input className="form-input" type="number" value={form.max_calls_per_month} onChange={e => setForm(prev => ({ ...prev, max_calls_per_month: parseInt(e.target.value) }))}
-                    style={{ width: '100%', padding: '8px 12px', background: 'var(--bg-input)', border: '1px solid var(--border-default)', borderRadius: 'var(--radius-sm)', color: 'var(--text-primary)', fontSize: '14px' }} />
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-foreground">Calls/mo <span className="text-muted-foreground font-normal">(-1 = ∞)</span></label>
+                  <input 
+                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm" 
+                    type="number" 
+                    value={form.max_calls_per_month} 
+                    onChange={e => setForm(prev => ({ ...prev, max_calls_per_month: parseInt(e.target.value) }))}
+                  />
                 </div>
-                <div>
-                  <label style={{ display: 'block', marginBottom: '6px', fontSize: '12px', fontWeight: 500, color: 'var(--text-secondary)' }}>Phone Numbers <span style={{ color: 'var(--text-quaternary)' }}>(-1 = ∞)</span></label>
-                  <input className="form-input" type="number" value={form.max_phone_numbers} onChange={e => setForm(prev => ({ ...prev, max_phone_numbers: parseInt(e.target.value) }))}
-                    style={{ width: '100%', padding: '8px 12px', background: 'var(--bg-input)', border: '1px solid var(--border-default)', borderRadius: 'var(--radius-sm)', color: 'var(--text-primary)', fontSize: '14px' }} />
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-foreground">Phone #s <span className="text-muted-foreground font-normal">(-1 = ∞)</span></label>
+                  <input 
+                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm" 
+                    type="number" 
+                    value={form.max_phone_numbers} 
+                    onChange={e => setForm(prev => ({ ...prev, max_phone_numbers: parseInt(e.target.value) }))}
+                  />
                 </div>
               </div>
 
-              {/* Features */}
-              <div style={{ marginBottom: '16px' }}>
-                <label style={{ display: 'block', marginBottom: '8px', fontSize: '12px', fontWeight: 500, color: 'var(--text-secondary)' }}>Included Features</label>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+              <div className="space-y-3">
+                <label className="text-sm font-medium text-foreground">Included features</label>
+                <div className="grid grid-cols-2 gap-2">
                   {AVAILABLE_FEATURES.map(feat => (
                     <label
                       key={feat.key}
-                      style={{
-                        display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 10px',
-                        borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontSize: '13px',
-                        color: form.features[feat.key] ? 'var(--text-primary)' : 'var(--text-tertiary)',
-                        background: form.features[feat.key] ? 'rgba(94, 106, 210, 0.08)' : 'transparent',
-                        border: `1px solid ${form.features[feat.key] ? 'rgba(94, 106, 210, 0.2)' : 'transparent'}`,
-                        transition: 'all 0.15s ease',
-                      }}
+                      className={cn(
+                        "flex items-center gap-3 p-3 rounded-md cursor-pointer border transition-colors text-sm",
+                        form.features[feat.key] 
+                          ? "border-foreground/30 bg-muted/30 text-foreground font-medium" 
+                          : "border-border/50 text-muted-foreground hover:bg-muted/10"
+                      )}
                     >
                       <input
                         type="checkbox"
                         checked={!!form.features[feat.key]}
                         onChange={() => toggleFeature(feat.key)}
-                        style={{ accentColor: 'var(--brand-accent)' }}
+                        className="rounded border-border bg-background text-foreground shrink-0 size-4"
                       />
                       {feat.label}
                     </label>
@@ -502,49 +474,46 @@ export default function AdminPricingPage() {
                 </div>
               </div>
 
-              {/* Default checkbox */}
-              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '24px', fontSize: '13px', color: 'var(--text-secondary)', cursor: 'pointer' }}>
+              <label className="flex items-center gap-3 text-sm text-foreground cursor-pointer p-2 hover:bg-muted/30 rounded-md transition-colors w-max">
                 <input
                   type="checkbox"
                   checked={!!form.is_default}
                   onChange={e => setForm(prev => ({ ...prev, is_default: e.target.checked ? 1 : 0 }))}
-                  style={{ accentColor: 'var(--brand-accent)' }}
+                  className="rounded border-border bg-background text-foreground shrink-0 size-4"
                 />
                 Set as default plan for new clients
               </label>
 
-              {/* Actions */}
-              <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+              <div className="flex justify-end gap-3 pt-4 border-t border-border">
                 <button
                   onClick={() => setShowForm(false)}
-                  style={{ padding: '8px 20px', fontSize: '13px', fontWeight: 500, background: 'transparent', color: 'var(--text-secondary)', border: '1px solid var(--border-default)', borderRadius: 'var(--radius-md)', cursor: 'pointer' }}
+                  className="rounded-md px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-muted/50 transition-colors"
                 >
                   Cancel
                 </button>
                 <button
-                  className="btn-primary"
                   onClick={handleSave}
                   disabled={saving}
-                  style={{ padding: '8px 20px' }}
+                  className="bg-foreground text-background hover:bg-foreground/90 rounded-md px-4 py-2 text-sm font-medium disabled:opacity-50"
                 >
-                  {saving ? 'Saving...' : (editingPlan ? 'Update Plan' : 'Create Plan')}
+                  {saving ? 'Saving...' : (editingPlan ? 'Update plan' : 'Create plan')}
                 </button>
               </div>
             </div>
           </div>
-        )}
+        </div>
+      )}
 
-        {deleteTargetPlan && (
-          <ConfirmModal
-            title="Delete Pricing Plan"
-            message={`Are you sure you want to permanently delete the "${deleteTargetPlan.name}" (${deleteTargetPlan.slug}) plan?`}
-            confirmLabel="Delete Plan"
-            onConfirm={confirmDeletePlan}
-            onCancel={() => setDeleteTargetPlan(null)}
-            danger={true}
-          />
-        )}
-      </div>
+      {deleteTargetPlan && (
+        <ConfirmModal
+          title="Delete pricing plan"
+          message={`Are you sure you want to permanently delete the "${deleteTargetPlan.name}" (${deleteTargetPlan.slug}) plan?`}
+          confirmLabel="Delete plan"
+          onConfirm={confirmDeletePlan}
+          onCancel={() => setDeleteTargetPlan(null)}
+          danger={true}
+        />
+      )}
     </div>
   );
 }

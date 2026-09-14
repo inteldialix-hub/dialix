@@ -1,72 +1,21 @@
-'use client';
+import { cn } from '@/lib/utils';
+import { LucideIcon } from 'lucide-react';
 
-import React from 'react';
-import { Icon } from '@/components/dashboard/shared/Icon';
-
-export interface EmptyStateProps {
-  icon?: string | React.ReactNode;
-  title?: string;
-  heading?: string;
+interface EmptyStateProps {
+  icon?: LucideIcon;
+  title: string;
   description?: string;
-  action?: string | React.ReactNode;
-  actionLabel?: string;
-  onAction?: () => void;
+  action?: React.ReactNode;
   className?: string;
 }
 
-export function EmptyState({
-  icon = 'inbox',
-  title,
-  heading,
-  description,
-  action,
-  actionLabel,
-  onAction,
-  className = '',
-}: EmptyStateProps) {
-  const displayTitle = heading || title;
-  const displayActionLabel = actionLabel || (typeof action === 'string' ? action : undefined);
-
+export function EmptyState({ icon: Icon, title, description, action, className }: EmptyStateProps) {
   return (
-    <div className={`flex flex-col items-center justify-center py-12 px-4 text-center select-none ${className}`}>
-      {/* Centered icon with subtle glowing backdrop & frosted container */}
-      <div className="relative mb-4 flex items-center justify-center">
-        <div className="absolute -inset-2.5 rounded-full bg-indigo-500/20 blur-xl opacity-70 pointer-events-none" />
-        <div className="relative w-12 h-12 rounded-lg bg-white/[0.04] border border-white/[0.08] flex items-center justify-center text-secondary  ">
-          {typeof icon === 'string' ? (
-            <Icon name={icon} size={22} className="text-secondary" />
-          ) : (
-            icon
-          )}
-        </div>
-      </div>
-
-      {/* Clear heading */}
-      {displayTitle && (
-        <h3 className="text-base font-semibold text-primary mb-1 tracking-tight">
-          {displayTitle}
-        </h3>
-      )}
-
-      {/* Brief explanatory description */}
-      {description && (
-        <p className="text-sm text-secondary max-w-sm text-center mb-5 leading-relaxed">
-          {description}
-        </p>
-      )}
-
-      {/* Optional primary call-to-action button */}
-      {displayActionLabel && onAction ? (
-        <button
-          type="button"
-          onClick={onAction}
-          className="btn btn-primary btn-sm inline-flex items-center gap-2"
-        >
-          {displayActionLabel}
-        </button>
-      ) : (
-        React.isValidElement(action) ? action : null
-      )}
+    <div className={cn("flex flex-col items-center justify-center py-12 text-center", className)}>
+      {Icon && <Icon className="size-10 text-muted-foreground/50 mb-4" />}
+      <h3 className="text-sm font-medium text-foreground">{title}</h3>
+      {description && <p className="mt-1 text-sm text-muted-foreground max-w-sm">{description}</p>}
+      {action && <div className="mt-4">{action}</div>}
     </div>
   );
 }

@@ -3,13 +3,14 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useAuth } from '@/lib/auth-context';
 import { useToast } from '@/components/dashboard/shared/ToastProvider';
-import { Icon } from '@/components/dashboard/shared/Icon';
 import { EmptyState } from '@/components/EmptyState';
 import { SkeletonRows } from '@/components/dashboard/shared/SkeletonRows';
 import { ConfirmModal } from '@/components/dashboard/shared/ConfirmModal';
 import { CustomSelect } from '@/components/dashboard/shared/CustomSelect';
 import AudioPlayer from '@/components/AudioPlayer';
 import { api } from '@/lib/api';
+import { cn } from '@/lib/utils';
+import { Search, Bot, User, Terminal, Trash2, X, Inbox, MessageSquare, Database } from 'lucide-react';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
 
@@ -111,14 +112,14 @@ function relativeDate(unix?: number): string {
   return `${Math.floor(days / 30)} months ago`;
 }
 
-function statusColor(status?: string): string {
-  if (!status) return 'unknown';
+function getStatusColorClass(status?: string): string {
+  if (!status) return 'bg-muted text-muted-foreground';
   const s = status.toLowerCase();
-  if (s === 'done' || s === 'success' || s === 'successful') return 'success';
-  if (s === 'failed' || s === 'error' || s === 'failure') return 'error';
-  if (s === 'no_answer' || s === 'no answer') return 'warning';
-  if (s === 'in-progress' || s === 'processing') return 'active';
-  return 'unknown';
+  if (s === 'done' || s === 'success' || s === 'successful') return 'bg-emerald-500/10 text-emerald-400';
+  if (s === 'failed' || s === 'error' || s === 'failure') return 'bg-red-500/10 text-red-400';
+  if (s === 'no_answer' || s === 'no answer') return 'bg-yellow-500/10 text-yellow-400';
+  if (s === 'in-progress' || s === 'processing') return 'bg-blue-500/10 text-blue-400';
+  return 'bg-muted text-muted-foreground';
 }
 
 function statusLabel(item: ConversationListItem): string {
@@ -152,7 +153,7 @@ export default function AnalysisPage() {
   const [activeTab, setActiveTab] = useState<'overview' | 'transcription' | 'client_data'>('overview');
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
-  // Audio player state (passed as props to AudioPlayer component)
+  // Audio player state
   const [audioError, setAudioError] = useState(false);
   const [audioLoading, setAudioLoading] = useState(false);
   const [audioBlobUrl, setAudioBlobUrl] = useState<string | null>(null);
@@ -190,21 +191,16 @@ export default function AnalysisPage() {
   const loadConversation = useCallback(async (convId: string) => {
     setDetailLoading(true);
     setActiveTab('overview');
-    // Reset audio state
     if (audioBlobUrl && audioBlobUrl.startsWith('blob:')) { URL.revokeObjectURL(audioBlobUrl); }
     setAudioError(false); setAudioLoading(false); setAudioBlobUrl(null);
     try {
-      // Determine provider from selected agent
       const agentProvider = agents.find(a => a.agent_id === selectedAgent)?.provider || 'elevenlabs';
       const providerParam = agentProvider === 'vapi' ? '?provider=vapi' : '';
       const data = await api<ConversationDetail>(`/calls/conversation/${convId}${providerParam}`, { token: token! });
       setConvDetail(data);
-
-      // Load audio via proxy for both ElevenLabs and Vapi
       loadAudio(convId, agentProvider);
     } catch (err) { addToast(err instanceof Error ? err.message : 'Failed to load conversation', 'error'); }
     finally { setDetailLoading(false); }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token, addToast, audioBlobUrl, agents, selectedAgent]);
 
   const loadAudio = useCallback(async (convId: string, provider: string) => {
@@ -216,27 +212,22 @@ export default function AnalysisPage() {
         headers: { 'Authorization': `Bearer ${token}` },
       });
       if (!resp.ok) {
-        console.warn(`[Audio] Server returned ${resp.status}`);
         setAudioError(true);
         return;
       }
       const contentType = resp.headers.get('content-type') || '';
       if (contentType.includes('application/json')) {
-        // Server returned JSON error
-        console.warn('[Audio] Got JSON instead of audio — recording not available');
         setAudioError(true);
         return;
       }
       const blob = await resp.blob();
       if (blob.size === 0) {
-        console.warn('[Audio] Empty blob — no recording');
         setAudioError(true);
         return;
       }
       const url = URL.createObjectURL(blob);
       setAudioBlobUrl(url);
     } catch (err) {
-      console.error('[Audio] Fetch error:', err);
       setAudioError(true);
     } finally {
       setAudioLoading(false);
@@ -271,163 +262,150 @@ export default function AnalysisPage() {
     );
   }, [conversations, search]);
 
-  /* ─── Get agent name ──────────────────────────────────────── */
-
   const agentName = useMemo(() => {
     const a = agents.find(a => a.agent_id === selectedAgent);
     return a?.name || 'Agent';
   }, [agents, selectedAgent]);
 
-  /* ═══════════════════════════════════════════════════════════════
-     RENDER
-     ═══════════════════════════════════════════════════════════════ */
-
   return (
-    <>
-      <div className="analysis-layout">
-
-        {/* ═══ LEFT PANEL — Conversation List ═══ */}
-        <div className="analysis-left">
-          <div className="analysis-left-header">
-            <h2 className="analysis-title">Analysis</h2>
-          </div>
-
-          {/* Search */}
-          <div className="analysis-search">
-            <Icon name="search" size={14} />
-            <input
-              type="text"
-              placeholder="Search conversations..."
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-            />
-          </div>
-
-          {/* Agent selector */}
-          <div className="analysis-agent-select" style={{ padding: '0 16px 16px 16px' }}>
+    <div className="flex h-[calc(100vh-64px)] w-full">
+      {/* ═══ LEFT PANEL — Conversation List ═══ */}
+      <div className="w-[340px] flex flex-col border-r border-border bg-background">
+        <div className="p-4 border-b border-border">
+          <h2 className="text-lg font-semibold tracking-tight mb-4">Analysis</h2>
+          <div className="flex flex-col gap-3">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={14} />
+              <input
+                type="text"
+                placeholder="Search conversations..."
+                className="w-full rounded-md border border-border bg-background pl-9 pr-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+              />
+            </div>
             <CustomSelect
               value={selectedAgent}
               onChange={e => { setSelectedAgent(e.target.value); loadHistory(e.target.value); }}
               options={agents.map(a => ({ value: a.agent_id, label: a.name }))}
             />
           </div>
+        </div>
 
-          {/* Conversation list */}
-          <div className="analysis-list">
-            {loading ? (
-              <div style={{ padding: '16px' }}><SkeletonRows count={6} /></div>
-            ) : filtered.length === 0 ? (
-              <div className="p-4">
-                <EmptyState
-                  icon="inbox"
-                  title={search ? "No calls found" : "No conversations"}
-                  description={search ? "No calls match your search query." : "No call recordings found for this agent yet."}
-                />
-              </div>
-            ) : (
-              filtered.map((conv) => {
-                const isSelected = selectedConvId === conv.conversation_id;
-                const sc = statusColor(conv.call_successful || conv.status);
-                return (
-                  <div
-                    key={conv.conversation_id}
-                    className={`analysis-list-item border-b border-white/[0.04] hover:bg-white/[0.02] transition-colors duration-150 ${isSelected ? 'selected' : ''}`}
-                    onClick={() => selectConversation(conv.conversation_id)}
-                  >
-                    <div className="analysis-list-item-main">
-                      <span className="analysis-list-item-title">
-                        {conv.conversation_id ? `${conv.conversation_id.slice(0, 24)}…` : 'Untitled'}
-                      </span>
-                      <span className="analysis-list-item-meta">
-                        {relativeDate(conv.start_time_unix_secs)} · {fmtDuration(conv.call_duration_secs)}
-                      </span>
-                    </div>
-                    <span className={`analysis-status-badge ${sc}`}>
+        <div className="flex-1 overflow-y-auto">
+          {loading ? (
+            <div className="p-4"><SkeletonRows count={6} /></div>
+          ) : filtered.length === 0 ? (
+            <div className="p-4">
+              <EmptyState
+                icon={Inbox}
+                title={search ? "No calls found" : "No conversations"}
+                description={search ? "No calls match your search query." : "No call recordings found for this agent yet."}
+              />
+            </div>
+          ) : (
+            filtered.map((conv) => {
+              const isSelected = selectedConvId === conv.conversation_id;
+              const scClass = getStatusColorClass(conv.call_successful || conv.status);
+              return (
+                <div
+                  key={conv.conversation_id}
+                  className={cn(
+                    "flex flex-col gap-1 p-3 border-b border-border cursor-pointer transition-colors",
+                    isSelected ? "bg-accent" : "hover:bg-accent/50"
+                  )}
+                  onClick={() => selectConversation(conv.conversation_id)}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-foreground truncate">
+                      {conv.conversation_id ? `${conv.conversation_id.slice(0, 24)}…` : 'Untitled'}
+                    </span>
+                    <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-medium tracking-wide uppercase", scClass)}>
                       {statusLabel(conv)}
                     </span>
                   </div>
-                );
-              })
-            )}
-          </div>
+                  <span className="text-xs text-muted-foreground">
+                    {relativeDate(conv.start_time_unix_secs)} · {fmtDuration(conv.call_duration_secs)}
+                  </span>
+                </div>
+              );
+            })
+          )}
         </div>
+      </div>
 
-        {/* ═══ CENTER PANEL — Conversation Detail ═══ */}
-        <div className="analysis-center">
-          {!selectedConvId ? (
-            <div className="h-full flex items-center justify-center p-8">
-              <EmptyState
-                icon="message-square"
-                title="Select a conversation"
-                description="Choose a conversation from the list to view its details, transcription, and analysis."
-              />
-            </div>
-          ) : detailLoading ? (
-            <div className="analysis-center-loading">
-              <div className="spinner" />
-              <span>Loading conversation...</span>
-            </div>
-          ) : convDetail ? (
-            <>
-              {/* Conversation header */}
-              <div className="analysis-detail-header">
-                <h3>Conversation with {agentName}</h3>
-                <span className="analysis-conv-id">
-                  {convDetail.conversation_id}
-                </span>
-              </div>
+      {/* ═══ CENTER PANEL — Conversation Detail ═══ */}
+      <div className="flex-1 flex flex-col overflow-hidden bg-background">
+        {!selectedConvId ? (
+          <div className="h-full flex items-center justify-center p-8">
+            <EmptyState
+              icon={MessageSquare}
+              title="Select a conversation"
+              description="Choose a conversation from the list to view its details, transcription, and analysis."
+            />
+          </div>
+        ) : detailLoading ? (
+          <div className="h-full flex items-center justify-center">
+            <span className="text-sm text-muted-foreground">Loading conversation...</span>
+          </div>
+        ) : convDetail ? (
+          <div className="flex h-full">
+            <div className="flex-1 flex flex-col overflow-y-auto">
+              <div className="p-6 border-b border-border">
+                <h3 className="text-xl font-semibold tracking-tight mb-1">Conversation with {agentName}</h3>
+                <span className="text-sm text-muted-foreground font-mono">{convDetail.conversation_id}</span>
+                
+                <div className="mt-6">
+                  <AudioPlayer
+                    src={audioBlobUrl}
+                    loading={audioLoading}
+                    error={audioError}
+                    duration={convDetail.metadata?.call_duration_secs}
+                    conversationId={convDetail.conversation_id}
+                    token={token!}
+                    provider={convDetail.provider}
+                  />
+                </div>
 
-              {/* ── Premium Audio Player ── */}
-              <AudioPlayer
-                src={audioBlobUrl}
-                loading={audioLoading}
-                error={audioError}
-                duration={convDetail.metadata?.call_duration_secs}
-                conversationId={convDetail.conversation_id}
-                token={token!}
-                provider={convDetail.provider}
-              />
-
-              {/* Tabs */}
-              <div style={{ padding: '0 28px', marginTop: '16px', marginBottom: '8px' }}>
-                <div className="tab-pill-group" role="tablist">
-                  {(['overview', 'transcription', 'client_data'] as const).map(tab => (
-                    <button
-                      type="button"
-                      role="tab"
-                      aria-selected={activeTab === tab}
-                      key={tab}
-                      className={`tab-pill ${activeTab === tab ? 'tab-pill-active active' : ''}`}
-                      onClick={() => setActiveTab(tab)}
-                    >
-                      {tab === 'overview' ? 'Overview' : tab === 'transcription' ? 'Transcription' : 'Client data'}
-                    </button>
-                  ))}
+                <div className="border-b border-border mt-8">
+                  <nav className="flex gap-6">
+                    {(['overview', 'transcription', 'client_data'] as const).map(tab => (
+                      <button
+                        key={tab}
+                        onClick={() => setActiveTab(tab)}
+                        className={cn(
+                          "pb-3 text-sm font-medium transition-colors border-b-2 -mb-px capitalize",
+                          activeTab === tab
+                            ? "border-foreground text-foreground"
+                            : "border-transparent text-muted-foreground hover:text-foreground"
+                        )}
+                      >
+                        {tab.replace('_', ' ')}
+                      </button>
+                    ))}
+                  </nav>
                 </div>
               </div>
 
-              {/* Tab content */}
-              <div className="analysis-tab-content">
+              <div className="p-6 flex-1 overflow-y-auto">
                 {activeTab === 'overview' && <OverviewTab detail={convDetail} />}
                 {activeTab === 'transcription' && <TranscriptionTab detail={convDetail} agentName={agentName} />}
                 {activeTab === 'client_data' && <ClientDataTab detail={convDetail} />}
               </div>
-            </>
-          ) : null}
-        </div>
-
-        {/* ═══ RIGHT PANEL — Metadata Sidebar ═══ */}
-        {convDetail && (
-          <div className="analysis-right">
-            <div className="analysis-right-header">
-              <span>Metadata</span>
-              <button className="btn-icon" onClick={() => { setSelectedConvId(null); setConvDetail(null); }}>
-                <Icon name="x" size={14} />
-              </button>
             </div>
-            <MetadataSidebar detail={convDetail} onDelete={() => setDeleteTarget(convDetail.conversation_id)} />
+
+            {/* Right Panel Metadata */}
+            <div className="w-[300px] border-l border-border bg-card overflow-y-auto flex-shrink-0">
+              <div className="p-4 border-b border-border flex items-center justify-between">
+                <span className="font-semibold text-sm">Metadata</span>
+                <button className="text-muted-foreground hover:text-foreground" onClick={() => { setSelectedConvId(null); setConvDetail(null); }}>
+                  <X size={16} />
+                </button>
+              </div>
+              <MetadataSidebar detail={convDetail} onDelete={() => setDeleteTarget(convDetail.conversation_id)} />
+            </div>
           </div>
-        )}
+        ) : null}
       </div>
 
       {deleteTarget && (
@@ -440,10 +418,9 @@ export default function AnalysisPage() {
           danger
         />
       )}
-    </>
+    </div>
   );
 }
-
 
 /* ═══════════════════════════════════════════════════════════════
    OVERVIEW TAB
@@ -452,80 +429,80 @@ export default function AnalysisPage() {
 function OverviewTab({ detail }: { detail: ConversationDetail }) {
   const summary = detail.analysis?.transcript_summary;
   const callStatus = detail.analysis?.call_successful || detail.status || 'unknown';
-  const sc = statusColor(callStatus);
+  const scClass = getStatusColorClass(callStatus);
 
   return (
-    <div className="analysis-overview">
-      {/* Summary */}
+    <div className="flex flex-col gap-8 max-w-3xl">
       {summary && (
-        <div className="analysis-overview-section">
-          <h4>Summary</h4>
-          <p className="analysis-summary-text">{summary}</p>
+        <div>
+          <h4 className="text-sm font-semibold mb-2">Summary</h4>
+          <p className="text-sm text-muted-foreground leading-relaxed">{summary}</p>
         </div>
       )}
 
-      {/* Call status */}
-      <div className="analysis-overview-row">
-        <span className="analysis-overview-label">Call status</span>
-        <span className={`analysis-status-badge ${sc}`}>
-          {callStatus === 'success' ? 'Successful' : callStatus === 'failure' ? 'Failed' : callStatus.charAt(0).toUpperCase() + callStatus.slice(1)}
-        </span>
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <span className="block text-xs font-medium text-muted-foreground mb-1 uppercase tracking-wider">Call status</span>
+          <span className={cn("rounded-full px-2 py-0.5 text-xs font-medium uppercase inline-block", scClass)}>
+            {callStatus === 'success' ? 'Successful' : callStatus === 'failure' ? 'Failed' : callStatus}
+          </span>
+        </div>
+        <div>
+          <span className="block text-xs font-medium text-muted-foreground mb-1 uppercase tracking-wider">Conversation status</span>
+          <span className="text-sm">{detail.status || '—'}</span>
+        </div>
       </div>
 
-      {/* Status */}
-      <div className="analysis-overview-row">
-        <span className="analysis-overview-label">Conversation status</span>
-        <span className="analysis-overview-value">{detail.status || '—'}</span>
-      </div>
-
-      {/* Evaluation criteria */}
       {detail.analysis?.evaluation_criteria_results && Object.keys(detail.analysis.evaluation_criteria_results).length > 0 && (
-        <div className="analysis-overview-section">
-          <h4>Evaluation Criteria</h4>
-          {Object.entries(detail.analysis.evaluation_criteria_results).map(([key, val]) => (
-            <div key={key} className="analysis-overview-row">
-              <span className="analysis-overview-label">{key}</span>
-              <span className="analysis-overview-value">{String(val)}</span>
-            </div>
-          ))}
+        <div>
+          <h4 className="text-sm font-semibold mb-3">Evaluation Criteria</h4>
+          <div className="rounded-lg border border-border bg-card divide-y divide-border">
+            {Object.entries(detail.analysis.evaluation_criteria_results).map(([key, val]) => (
+              <div key={key} className="flex justify-between items-center p-3 text-sm">
+                <span className="text-muted-foreground">{key}</span>
+                <span className="font-medium">{String(val)}</span>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
-      {/* Data collection */}
       {detail.analysis?.data_collection_results && Object.keys(detail.analysis.data_collection_results).length > 0 && (
-        <div className="analysis-overview-section">
-          <h4>Data Collection</h4>
-          {Object.entries(detail.analysis.data_collection_results).map(([key, val]) => (
-            <div key={key} className="analysis-overview-row">
-              <span className="analysis-overview-label">{key}</span>
-              <span className="analysis-overview-value">{String(val)}</span>
-            </div>
-          ))}
+        <div>
+          <h4 className="text-sm font-semibold mb-3">Data Collection</h4>
+          <div className="rounded-lg border border-border bg-card divide-y divide-border">
+            {Object.entries(detail.analysis.data_collection_results).map(([key, val]) => (
+              <div key={key} className="flex justify-between items-center p-3 text-sm">
+                <span className="text-muted-foreground">{key}</span>
+                <span className="font-medium">{String(val)}</span>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
-      {/* Feedback */}
       {detail.metadata?.feedback && (
-        <div className="analysis-overview-section">
-          <h4>Feedback</h4>
-          {detail.metadata.feedback.score !== undefined && (
-            <div className="analysis-overview-row">
-              <span className="analysis-overview-label">Rating</span>
-              <span className="analysis-overview-value">{'⭐'.repeat(detail.metadata.feedback.score)}</span>
-            </div>
-          )}
-          {detail.metadata.feedback.comment && (
-            <div className="analysis-overview-row">
-              <span className="analysis-overview-label">Comment</span>
-              <span className="analysis-overview-value">{detail.metadata.feedback.comment}</span>
-            </div>
-          )}
+        <div>
+          <h4 className="text-sm font-semibold mb-3">Feedback</h4>
+          <div className="rounded-lg border border-border bg-card divide-y divide-border">
+            {detail.metadata.feedback.score !== undefined && (
+              <div className="flex justify-between items-center p-3 text-sm">
+                <span className="text-muted-foreground">Rating</span>
+                <span>{'⭐'.repeat(detail.metadata.feedback.score)}</span>
+              </div>
+            )}
+            {detail.metadata.feedback.comment && (
+              <div className="flex justify-between items-center p-3 text-sm">
+                <span className="text-muted-foreground">Comment</span>
+                <span>{detail.metadata.feedback.comment}</span>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>
   );
 }
-
 
 /* ═══════════════════════════════════════════════════════════════
    TRANSCRIPTION TAB
@@ -536,64 +513,68 @@ function TranscriptionTab({ detail, agentName }: { detail: ConversationDetail; a
 
   if (transcript.length === 0) {
     return (
-      <div className="p-8">
-        <EmptyState
-          icon="message-square"
-          title="No transcript available"
-          description="No transcript entries were recorded for this conversation."
-        />
-      </div>
+      <EmptyState
+        icon={MessageSquare}
+        title="No transcript available"
+        description="No transcript entries were recorded for this conversation."
+      />
     );
   }
 
   return (
-    <div className="analysis-transcript">
+    <div className="flex flex-col gap-6 max-w-3xl">
       {transcript.map((entry, i) => {
         const isAgent = entry.role === 'agent';
         const isSystem = entry.role === 'system' || entry.role === 'tool';
-        const timeStr = entry.time_in_call_secs !== undefined
-          ? fmtDuration(entry.time_in_call_secs) : '';
+        const timeStr = entry.time_in_call_secs !== undefined ? fmtDuration(entry.time_in_call_secs) : '';
 
         if (isSystem) {
           return (
-            <div key={i} className="transcript-system">
-              <Icon name="terminal" size={12} />
+            <div key={i} className="flex items-center gap-2 text-xs text-muted-foreground font-mono bg-accent/30 p-2 rounded-md mx-auto my-2">
+              <Terminal size={12} />
               <span>{entry.tool_name || 'System'}: {entry.message || entry.tool_output || '—'}</span>
             </div>
           );
         }
 
         return (
-          <div key={i} className={`transcript-bubble-row ${isAgent ? 'agent' : 'user'}`}>
+          <div key={i} className={cn("flex gap-4 w-full", isAgent ? "justify-start" : "justify-end")}>
             {isAgent && (
-              <div className="transcript-bubble-avatar agent">
-                <Icon name="bot" size={14} />
+              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 mt-1">
+                <Bot size={16} className="text-primary" />
               </div>
             )}
-            <div className="transcript-bubble-content">
-              {isAgent && (
-                <span className="transcript-bubble-name">{agentName}</span>
-              )}
-              <div className={`transcript-bubble ${isAgent ? 'agent' : 'user'}`}>
-                <p>{entry.message}</p>
-                {timeStr && <span className="transcript-bubble-time">{timeStr}</span>}
+            
+            <div className={cn("flex flex-col gap-1 max-w-[80%]", isAgent ? "items-start" : "items-end")}>
+              {isAgent && <span className="text-xs text-muted-foreground ml-1">{agentName}</span>}
+              
+              <div className={cn(
+                "px-4 py-2.5 text-sm",
+                isAgent 
+                  ? "bg-card border border-border rounded-2xl rounded-tl-sm" 
+                  : "bg-accent rounded-2xl rounded-tr-sm text-foreground"
+              )}>
+                <p className="whitespace-pre-wrap">{entry.message}</p>
               </div>
-              {/* Latency badges */}
-              <div className="transcript-latency">
+              
+              <div className="flex items-center gap-2 mt-1 px-1 flex-wrap">
+                {timeStr && <span className="text-xs text-muted-foreground font-mono">{timeStr}</span>}
+                
                 {entry.llm_latency !== undefined && entry.llm_latency > 0 && (
-                  <span className="latency-badge llm">LLM {entry.llm_latency}ms</span>
+                  <span className="bg-blue-500/10 text-blue-400 rounded-full px-2 py-0.5 text-[10px] font-mono">LLM {entry.llm_latency}ms</span>
                 )}
                 {entry.tts_latency !== undefined && entry.tts_latency > 0 && (
-                  <span className="latency-badge tts">TTS {entry.tts_latency}ms</span>
+                  <span className="bg-emerald-500/10 text-emerald-400 rounded-full px-2 py-0.5 text-[10px] font-mono">TTS {entry.tts_latency}ms</span>
                 )}
                 {entry.asr_latency !== undefined && entry.asr_latency > 0 && (
-                  <span className="latency-badge asr">ASR {entry.asr_latency}ms</span>
+                  <span className="bg-yellow-500/10 text-yellow-400 rounded-full px-2 py-0.5 text-[10px] font-mono">ASR {entry.asr_latency}ms</span>
                 )}
               </div>
             </div>
+
             {!isAgent && (
-              <div className="transcript-bubble-avatar user">
-                <Icon name="user" size={14} />
+              <div className="w-8 h-8 rounded-full bg-accent flex items-center justify-center flex-shrink-0 mt-1">
+                <User size={16} className="text-foreground" />
               </div>
             )}
           </div>
@@ -602,7 +583,6 @@ function TranscriptionTab({ detail, agentName }: { detail: ConversationDetail; a
     </div>
   );
 }
-
 
 /* ═══════════════════════════════════════════════════════════════
    CLIENT DATA TAB
@@ -614,32 +594,29 @@ function ClientDataTab({ detail }: { detail: ConversationDetail }) {
   const configOverride = initData?.conversation_config_override || {};
 
   return (
-    <div className="analysis-client-data">
-      {/* Dynamic Variables */}
-      <div className="analysis-client-section">
-        <h4>Dynamic Variables</h4>
+    <div className="flex flex-col gap-8 max-w-3xl">
+      <div>
+        <h4 className="text-sm font-semibold mb-3">Dynamic Variables</h4>
         {Object.keys(dynVars).length === 0 ? (
-          <div className="p-6">
-            <EmptyState
-              icon="database"
-              title="No dynamic variables"
-              description="No dynamic variables were sent with this conversation."
-            />
-          </div>
+          <EmptyState
+            icon={Database}
+            title="No dynamic variables"
+            description="No dynamic variables were sent with this conversation."
+          />
         ) : (
-          <div className="border border-white/[0.08] rounded-lg overflow-hidden ">
-            <table className="w-full text-left border-collapse">
-              <thead className="bg-white/[0.02] border-b border-white/[0.08]">
-                <tr className="h-10">
-                  <th className="py-2.5 px-4 text-xs font-semibold tracking-wider uppercase text-secondary">Variable Key</th>
-                  <th className="py-2.5 px-4 text-xs font-semibold tracking-wider uppercase text-secondary">Value</th>
+          <div className="rounded-lg border border-border bg-card">
+            <table className="w-full text-left">
+              <thead className="border-b border-border bg-muted/50">
+                <tr>
+                  <th className="px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">Variable Key</th>
+                  <th className="px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">Value</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/[0.04]">
+              <tbody className="divide-y divide-border">
                 {Object.entries(dynVars).map(([key, val]) => (
-                  <tr key={key} className="border-b border-white/[0.04] hover:bg-white/[0.02] transition-colors duration-150">
-                    <td className="py-3 px-4 text-xs font-mono text-secondary font-medium">{key}</td>
-                    <td className={`py-3 px-4 text-xs font-mono ${!val ? 'text-gray-500 italic' : 'text-gray-200'}`}>
+                  <tr key={key} className="hover:bg-accent/50 transition-colors">
+                    <td className="px-4 py-3 text-sm font-mono">{key}</td>
+                    <td className={cn("px-4 py-3 text-sm font-mono", !val && "text-muted-foreground italic")}>
                       {val || 'EMPTY STRING'}
                     </td>
                   </tr>
@@ -650,11 +627,10 @@ function ClientDataTab({ detail }: { detail: ConversationDetail }) {
         )}
       </div>
 
-      {/* Config Override */}
       {Object.keys(configOverride).length > 0 && (
-        <div className="analysis-client-section">
-          <h4>Configuration Override</h4>
-          <pre className="analysis-client-json">
+        <div>
+          <h4 className="text-sm font-semibold mb-3">Configuration Override</h4>
+          <pre className="rounded-lg border border-border bg-card p-4 text-xs font-mono overflow-x-auto text-foreground">
             {JSON.stringify(configOverride, null, 2)}
           </pre>
         </div>
@@ -662,7 +638,6 @@ function ClientDataTab({ detail }: { detail: ConversationDetail }) {
     </div>
   );
 }
-
 
 /* ═══════════════════════════════════════════════════════════════
    METADATA SIDEBAR
@@ -674,120 +649,101 @@ function MetadataSidebar({ detail, onDelete }: { detail: ConversationDetail; onD
   const isVapi = detail.provider === 'vapi' || meta.authorization_method === 'vapi';
   const cb = meta.costBreakdown;
 
-  return (
-    <div className="analysis-metadata">
-      {/* Provider badge */}
-      {isVapi && (
-        <div className="analysis-meta-row">
-          <span className="analysis-meta-label">Provider</span>
-          <span className="analysis-meta-value" style={{ color: 'var(--brand-accent)', fontWeight: 600 }}>Vapi</span>
-        </div>
-      )}
-      <div className="analysis-meta-row">
-        <span className="analysis-meta-label">Date</span>
-        <span className="analysis-meta-value">{fmtDate(meta.start_time_unix_secs)}</span>
-      </div>
-      <div className="analysis-meta-row">
-        <span className="analysis-meta-label">Status</span>
-        <span className={`analysis-status-badge ${statusColor(detail.status)}`}>
-          {detail.status || '—'}
-        </span>
-      </div>
-      <div className="analysis-meta-row">
-        <span className="analysis-meta-label">Duration</span>
-        <span className="analysis-meta-value">{fmtDuration(meta.call_duration_secs)}</span>
-      </div>
-      {meta.endedReason && (
-        <div className="analysis-meta-row">
-          <span className="analysis-meta-label">Ended Reason</span>
-          <span className="analysis-meta-value" style={{ fontSize: 11 }}>{meta.endedReason}</span>
-        </div>
-      )}
-      {meta.type && (
-        <div className="analysis-meta-row">
-          <span className="analysis-meta-label">Call Type</span>
-          <span className="analysis-meta-value">{meta.type}</span>
-        </div>
-      )}
-      {meta.cost !== undefined && (
-        <div className="analysis-meta-row">
-          <span className="analysis-meta-label">Total Cost</span>
-          <span className="analysis-meta-value">${typeof meta.cost === 'number' ? meta.cost.toFixed(4) : meta.cost}</span>
-        </div>
-      )}
+  const renderRow = (label: string, value: React.ReactNode, valueClass?: string) => (
+    <div className="flex justify-between items-start py-2 text-sm">
+      <span className="text-muted-foreground mr-4">{label}</span>
+      <span className={cn("text-right word-break-all", valueClass)}>{value}</span>
+    </div>
+  );
 
-      {/* Vapi cost breakdown */}
-      {cb && (cb.llm || cb.tts || cb.stt || cb.transport || cb.vapi) ? (
-        <div style={{ padding: '8px 0', borderTop: '1px solid var(--border-faint)', marginTop: 4 }}>
-          <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-quaternary)', marginBottom: 6 }}>Cost Breakdown</div>
-          {cb.llm ? <div className="analysis-meta-row"><span className="analysis-meta-label" style={{ fontSize: 11 }}>LLM</span><span className="analysis-meta-value">${cb.llm.toFixed(4)}</span></div> : null}
-          {cb.tts ? <div className="analysis-meta-row"><span className="analysis-meta-label" style={{ fontSize: 11 }}>TTS</span><span className="analysis-meta-value">${cb.tts.toFixed(4)}</span></div> : null}
-          {cb.stt ? <div className="analysis-meta-row"><span className="analysis-meta-label" style={{ fontSize: 11 }}>STT</span><span className="analysis-meta-value">${cb.stt.toFixed(4)}</span></div> : null}
-          {cb.transport ? <div className="analysis-meta-row"><span className="analysis-meta-label" style={{ fontSize: 11 }}>Transport</span><span className="analysis-meta-value">${cb.transport.toFixed(4)}</span></div> : null}
-          {cb.vapi ? <div className="analysis-meta-row"><span className="analysis-meta-label" style={{ fontSize: 11 }}>Vapi Fee</span><span className="analysis-meta-value">${cb.vapi.toFixed(4)}</span></div> : null}
+  return (
+    <div className="p-4 flex flex-col gap-4">
+      <div className="divide-y divide-border">
+        {isVapi && renderRow('Provider', 'Vapi', 'text-primary font-medium')}
+        {renderRow('Date', fmtDate(meta.start_time_unix_secs))}
+        {renderRow('Status', (
+          <span className={cn("rounded-full px-2 py-0.5 text-xs font-medium uppercase", getStatusColorClass(detail.status))}>
+            {detail.status || '—'}
+          </span>
+        ))}
+        {renderRow('Duration', fmtDuration(meta.call_duration_secs))}
+        {meta.endedReason && renderRow('Ended Reason', meta.endedReason, 'text-xs')}
+        {meta.type && renderRow('Call Type', meta.type)}
+        {meta.cost !== undefined && renderRow('Total Cost', `$${typeof meta.cost === 'number' ? meta.cost.toFixed(4) : meta.cost}`)}
+      </div>
+
+      {cb && (cb.llm || cb.tts || cb.stt || cb.transport || cb.vapi) && (
+        <div>
+          <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2">Cost Breakdown</div>
+          <div className="divide-y divide-border">
+            {cb.llm && renderRow('LLM', `$${cb.llm.toFixed(4)}`, 'text-xs')}
+            {cb.tts && renderRow('TTS', `$${cb.tts.toFixed(4)}`, 'text-xs')}
+            {cb.stt && renderRow('STT', `$${cb.stt.toFixed(4)}`, 'text-xs')}
+            {cb.transport && renderRow('Transport', `$${cb.transport.toFixed(4)}`, 'text-xs')}
+            {cb.vapi && renderRow('Vapi Fee', `$${cb.vapi.toFixed(4)}`, 'text-xs')}
+          </div>
         </div>
-      ) : null}
+      )}
 
       {charging?.developer_cost_in_credits_per_minute !== undefined && (
-        <div className="analysis-meta-row">
-          <span className="analysis-meta-label">Cost/min</span>
-          <span className="analysis-meta-value">{charging.developer_cost_in_credits_per_minute} credits/min</span>
+        <div className="divide-y divide-border">
+          {renderRow('Cost/min', `${charging.developer_cost_in_credits_per_minute} credits/min`)}
         </div>
       )}
 
-      {/* Model / Voice / Transcriber config (Vapi) */}
       {meta.model && (
-        <div style={{ padding: '8px 0', borderTop: '1px solid var(--border-faint)', marginTop: 4 }}>
-          <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-quaternary)', marginBottom: 6 }}>Model Config</div>
-          {meta.model.provider && <div className="analysis-meta-row"><span className="analysis-meta-label" style={{ fontSize: 11 }}>Provider</span><span className="analysis-meta-value">{meta.model.provider}</span></div>}
-          {meta.model.model && <div className="analysis-meta-row"><span className="analysis-meta-label" style={{ fontSize: 11 }}>Model</span><span className="analysis-meta-value" style={{ fontSize: 11 }}>{meta.model.model}</span></div>}
-          {meta.model.temperature !== null && meta.model.temperature !== undefined && <div className="analysis-meta-row"><span className="analysis-meta-label" style={{ fontSize: 11 }}>Temperature</span><span className="analysis-meta-value">{meta.model.temperature}</span></div>}
+        <div>
+          <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2">Model Config</div>
+          <div className="divide-y divide-border">
+            {meta.model.provider && renderRow('Provider', meta.model.provider, 'text-xs')}
+            {meta.model.model && renderRow('Model', meta.model.model, 'text-xs')}
+            {meta.model.temperature !== null && meta.model.temperature !== undefined && renderRow('Temperature', meta.model.temperature, 'text-xs')}
+          </div>
         </div>
       )}
+
       {meta.voice && (
-        <div style={{ padding: '8px 0', borderTop: '1px solid var(--border-faint)', marginTop: 4 }}>
-          <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-quaternary)', marginBottom: 6 }}>Voice Config</div>
-          {meta.voice.provider && <div className="analysis-meta-row"><span className="analysis-meta-label" style={{ fontSize: 11 }}>Provider</span><span className="analysis-meta-value">{meta.voice.provider}</span></div>}
-          {meta.voice.voiceId && <div className="analysis-meta-row"><span className="analysis-meta-label" style={{ fontSize: 11 }}>Voice ID</span><span className="analysis-meta-value mono" style={{ fontSize: 10 }}>{meta.voice.voiceId.slice(0, 16)}…</span></div>}
+        <div>
+          <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2">Voice Config</div>
+          <div className="divide-y divide-border">
+            {meta.voice.provider && renderRow('Provider', meta.voice.provider, 'text-xs')}
+            {meta.voice.voiceId && renderRow('Voice ID', `${meta.voice.voiceId.slice(0, 16)}…`, 'text-xs font-mono')}
+          </div>
         </div>
       )}
+
       {meta.transcriber && (
-        <div style={{ padding: '8px 0', borderTop: '1px solid var(--border-faint)', marginTop: 4 }}>
-          <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-quaternary)', marginBottom: 6 }}>Transcriber</div>
-          {meta.transcriber.provider && <div className="analysis-meta-row"><span className="analysis-meta-label" style={{ fontSize: 11 }}>Provider</span><span className="analysis-meta-value">{meta.transcriber.provider}</span></div>}
-          {meta.transcriber.model && <div className="analysis-meta-row"><span className="analysis-meta-label" style={{ fontSize: 11 }}>Model</span><span className="analysis-meta-value">{meta.transcriber.model}</span></div>}
-          {meta.transcriber.language && <div className="analysis-meta-row"><span className="analysis-meta-label" style={{ fontSize: 11 }}>Language</span><span className="analysis-meta-value">{meta.transcriber.language}</span></div>}
+        <div>
+          <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2">Transcriber</div>
+          <div className="divide-y divide-border">
+            {meta.transcriber.provider && renderRow('Provider', meta.transcriber.provider, 'text-xs')}
+            {meta.transcriber.model && renderRow('Model', meta.transcriber.model, 'text-xs')}
+            {meta.transcriber.language && renderRow('Language', meta.transcriber.language, 'text-xs')}
+          </div>
         </div>
       )}
 
-      {meta.usage && (meta.usage.promptTokens || meta.usage.completionTokens || meta.usage.totalTokens) ? (
-        <div style={{ padding: '8px 0', borderTop: '1px solid var(--border-faint)', marginTop: 4 }}>
-          <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-quaternary)', marginBottom: 6 }}>Token Usage</div>
-          {meta.usage.promptTokens !== undefined && <div className="analysis-meta-row"><span className="analysis-meta-label" style={{ fontSize: 11 }}>Prompt</span><span className="analysis-meta-value">{meta.usage.promptTokens}</span></div>}
-          {meta.usage.completionTokens !== undefined && <div className="analysis-meta-row"><span className="analysis-meta-label" style={{ fontSize: 11 }}>Completion</span><span className="analysis-meta-value">{meta.usage.completionTokens}</span></div>}
-          {meta.usage.totalTokens !== undefined && <div className="analysis-meta-row"><span className="analysis-meta-label" style={{ fontSize: 11 }}>Total</span><span className="analysis-meta-value">{meta.usage.totalTokens}</span></div>}
+      {(meta.usage?.promptTokens || meta.usage?.completionTokens || meta.usage?.totalTokens) && (
+        <div>
+          <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2">Token Usage</div>
+          <div className="divide-y divide-border">
+            {meta.usage.promptTokens !== undefined && renderRow('Prompt', meta.usage.promptTokens, 'text-xs')}
+            {meta.usage.completionTokens !== undefined && renderRow('Completion', meta.usage.completionTokens, 'text-xs')}
+            {meta.usage.totalTokens !== undefined && renderRow('Total', meta.usage.totalTokens, 'text-xs')}
+          </div>
         </div>
-      ) : null}
+      )}
 
-      <div className="analysis-meta-row">
-        <span className="analysis-meta-label">Auth method</span>
-        <span className="analysis-meta-value">{meta.authorization_method || '—'}</span>
-      </div>
-      <div className="analysis-meta-row">
-        <span className="analysis-meta-label">Conversation ID</span>
-        <span className="analysis-meta-value mono" title={detail.conversation_id}>{detail.conversation_id.slice(0, 20)}…</span>
-      </div>
-      <div className="analysis-meta-row">
-        <span className="analysis-meta-label">Agent ID</span>
-        <span className="analysis-meta-value mono" title={detail.agent_id}>{detail.agent_id.slice(0, 20)}…</span>
+      <div className="divide-y divide-border mt-4">
+        {renderRow('Auth method', meta.authorization_method || '—')}
+        {renderRow('Conversation ID', <span className="font-mono text-xs" title={detail.conversation_id}>{detail.conversation_id.slice(0, 20)}…</span>)}
+        {renderRow('Agent ID', <span className="font-mono text-xs" title={detail.agent_id}>{detail.agent_id.slice(0, 20)}…</span>)}
       </div>
 
-      {/* Transcript message count & Latency */}
       {detail.transcript && detail.transcript.length > 0 && (
-        <>
-          <div className="analysis-meta-row">
-            <span className="analysis-meta-label">Messages</span>
-            <span className="analysis-meta-value">{detail.transcript.length}</span>
+        <div>
+          <div className="divide-y divide-border">
+            {renderRow('Messages', detail.transcript.length)}
           </div>
           {(() => {
             const llms = detail.transcript.map(t => t.llm_latency).filter(l => l !== undefined && l > 0) as number[];
@@ -801,38 +757,37 @@ function MetadataSidebar({ detail, onDelete }: { detail: ConversationDetail; onD
             if (!avgLlm && !avgAsr && !avgTts) return null;
 
             return (
-              <div style={{ padding: '8px 0', borderTop: '1px solid var(--border-faint)', marginTop: 4 }}>
-                <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-quaternary)', marginBottom: 6 }}>Avg Latency</div>
-                {avgLlm ? <div className="analysis-meta-row"><span className="analysis-meta-label" style={{ fontSize: 11 }}>LLM</span><span className="analysis-meta-value">{avgLlm}ms</span></div> : null}
-                {avgAsr ? <div className="analysis-meta-row"><span className="analysis-meta-label" style={{ fontSize: 11 }}>ASR</span><span className="analysis-meta-value">{avgAsr}ms</span></div> : null}
-                {avgTts ? <div className="analysis-meta-row"><span className="analysis-meta-label" style={{ fontSize: 11 }}>TTS</span><span className="analysis-meta-value">{avgTts}ms</span></div> : null}
+              <div className="mt-4">
+                <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2">Avg Latency</div>
+                <div className="divide-y divide-border">
+                  {avgLlm && renderRow('LLM', `${avgLlm}ms`, 'text-xs')}
+                  {avgAsr && renderRow('ASR', `${avgAsr}ms`, 'text-xs')}
+                  {avgTts && renderRow('TTS', `${avgTts}ms`, 'text-xs')}
+                </div>
               </div>
             );
           })()}
-        </>
+        </div>
       )}
 
-      {/* Success Evaluation (Vapi) */}
       {detail.analysis?.successEvaluation && (
-        <div className="analysis-meta-row">
-          <span className="analysis-meta-label">Evaluation</span>
-          <span className="analysis-meta-value" style={{ fontSize: 11 }}>{detail.analysis.successEvaluation}</span>
+        <div className="divide-y divide-border mt-2">
+          {renderRow('Evaluation', detail.analysis.successEvaluation, 'text-xs')}
         </div>
       )}
 
-      {/* Recording link (Vapi) */}
       {meta.recordingUrl && (
-        <div className="analysis-meta-row">
-          <span className="analysis-meta-label">Recording</span>
-          <a href={meta.recordingUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: 11, color: 'var(--brand-accent)' }}>Listen ↗</a>
+        <div className="divide-y divide-border mt-2">
+          {renderRow('Recording', <a href={meta.recordingUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline text-xs">Listen ↗</a>)}
         </div>
       )}
 
-      {/* Delete button */}
-      <div style={{ padding: '16px 0', borderTop: '1px solid var(--border-faint)', marginTop: '8px' }}>
-        <button className="btn-danger" style={{ width: '100%', justifyContent: 'center' }} onClick={onDelete}>
-          <Icon name="trash-2" size={14} />
-          Delete conversation
+      <div className="mt-4 pt-4 border-t border-border">
+        <button 
+          className="w-full bg-red-600 text-white hover:bg-red-700 rounded-md px-4 py-2 text-sm font-medium inline-flex items-center justify-center gap-2"
+          onClick={onDelete}
+        >
+          <Trash2 size={16} /> Delete conversation
         </button>
       </div>
     </div>

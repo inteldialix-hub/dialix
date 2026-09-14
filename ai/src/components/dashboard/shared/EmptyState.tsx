@@ -1,37 +1,23 @@
-'use client';
-
-import React from 'react';
-import { Icon } from './Icon';
-
-/**
- * EmptyState — displays when a list/view has no data.
- * Extracted from frontend/app.js lines 544-560.
- */
+import { cn } from '@/lib/utils';
+import { LucideIcon } from 'lucide-react';
 
 interface EmptyStateProps {
-  icon: string;
+  icon?: LucideIcon;
   title: string;
   description?: string;
-  action?: string;
-  onAction?: () => void;
+  action?: React.ReactNode;
+  className?: string;
 }
 
-export function EmptyState({ icon, title, description, action, onAction }: EmptyStateProps) {
+export function EmptyState({ icon: Icon, title, description, action, className }: EmptyStateProps) {
   return (
-    <div className="empty-state">
-      <div className="relative mb-4 flex items-center justify-center">
-        <div className="absolute -inset-2.5 rounded-full bg-indigo-500/20 blur-xl opacity-70 pointer-events-none" />
-        <div className="relative w-12 h-12 rounded-lg bg-white/[0.04] border border-white/[0.08] flex items-center justify-center text-[var(--text-secondary)]  ">
-          <Icon name={icon} size={22} className="text-[var(--text-secondary)]" />
-        </div>
-      </div>
-      <div className="empty-state-title">{title}</div>
-      {description && <div className="empty-state-description">{description}</div>}
-      {action && onAction && (
-        <button className="btn-primary" onClick={onAction} style={{ marginTop: '12px' }}>
-          {action}
-        </button>
-      )}
+    <div className={cn("flex flex-col items-center justify-center py-12 text-center", className)}>
+      {Icon && <Icon className="size-10 text-muted-foreground/50 mb-4" />}
+      <h3 className="text-sm font-medium text-foreground">{title}</h3>
+      {description && <p className="mt-1 text-sm text-muted-foreground max-w-sm">{description}</p>}
+      {action && <div className="mt-4">{action}</div>}
     </div>
   );
 }
+
+export default EmptyState;
