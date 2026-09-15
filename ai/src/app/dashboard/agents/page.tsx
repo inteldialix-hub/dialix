@@ -10,6 +10,7 @@ import { CustomSelect } from '@/components/dashboard/shared/CustomSelect';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { Bot, Plus, CheckCircle, Cpu, Radio, Search, TrendingUp, TrendingDown, Minus, ChevronRight, X, Sparkles, ArrowLeft, PlusCircle } from 'lucide-react';
+import { useTopBar } from '@/components/dashboard/TopBarContext';
 import {
   FALLBACK_LLM_OPTIONS,
   FALLBACK_TTS_MODEL_OPTIONS,
@@ -58,6 +59,7 @@ interface AgentTemplate {
 export default function AgentsPage() {
   const { token } = useAuth();
   const { addToast } = useToast();
+  const { setTopBar } = useTopBar();
   const router = useRouter();
   const [agents, setAgents] = useState<Agent[]>([]);
   const [loading, setLoading] = useState(true);
@@ -67,6 +69,7 @@ export default function AgentsPage() {
 
   const [search, setSearch] = useState('');
   const [providerFilter, setProviderFilter] = useState('');
+
 
   const loadAgents = useCallback(async () => {
     try {
@@ -102,11 +105,27 @@ export default function AgentsPage() {
     }
   };
 
-  const handleOpenCreate = () => {
+  const handleOpenCreate = useCallback(() => {
     loadVoices();
     loadTemplates();
     setShowCreate(true);
-  };
+  }, []);
+
+  useEffect(() => {
+    setTopBar({
+      title: 'Agents',
+      subtitle: 'Create and manage your AI calling agents',
+      actions: (
+        <button 
+          onClick={handleOpenCreate}
+          className="h-8 px-3 rounded-md bg-foreground text-background hover:bg-foreground/90 text-xs font-semibold transition-all flex items-center gap-1.5 shadow-sm"
+        >
+          <Plus className="size-3.5" />
+          <span>New agent</span>
+        </button>
+      ),
+    });
+  }, [setTopBar, handleOpenCreate]);
 
   const totalAgents = agents.length;
   const activeAgents = agents.filter(a => a.status !== 'unavailable' && a.status !== 'inactive').length;
@@ -170,21 +189,7 @@ export default function AgentsPage() {
 
   return (
     <div className="max-w-7xl mx-auto px-6 py-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-semibold tracking-tight">Agents</h2>
-          <p className="text-sm text-muted-foreground mt-1">Create and manage your AI calling agents</p>
-        </div>
-        <button 
-          onClick={handleOpenCreate}
-          className="inline-flex items-center justify-center rounded-md bg-primary text-primary-foreground px-4 py-2 text-sm font-medium hover:bg-primary/90 transition-colors"
-        >
-          <Plus className="mr-2 h-4 w-4" />
-          Create agent
-        </button>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {statCards.map((card, i) => {
           const Icon = card.icon;
           return (

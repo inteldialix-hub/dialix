@@ -12,6 +12,7 @@ import {
   User, Layers
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useTopBar } from '@/components/dashboard/TopBarContext';
 import { SkeletonRows } from '@/components/dashboard/shared/SkeletonRows';
 import { ConfirmModal } from '@/components/dashboard/shared/ConfirmModal';
 import { api } from '@/lib/api';
@@ -35,6 +36,7 @@ export default function AgentDetailPage() {
   const router = useRouter();
   const { token } = useAuth();
   const { addToast } = useToast();
+  const { setTopBar } = useTopBar();
 
   const [config, setConfig] = useState<AgentConfig | null>(null);
   const [voices, setVoices] = useState<Voice[]>([]);
@@ -681,6 +683,21 @@ export default function AgentDetailPage() {
     } catch (err) { addToast(err instanceof Error ? err.message : 'Call failed', 'error'); }
     finally { setCalling(false); }
   };
+
+  useEffect(() => {
+    setTopBar({
+      title: name || (config?.name as string) || 'New agent',
+      backHref: '/dashboard/agents',
+      isAgent: true,
+      agentId,
+      badge: provider === 'vapi' ? 'Vapi' : provider === 'gemini' ? 'Gemini' : 'ElevenLabs',
+      isDirty: dirty,
+      isSaving: saving,
+      onPreview: promptTestCall,
+      onSave: handleSave,
+      onArchitect: () => setActiveTab('tools'),
+    });
+  }, [name, config?.name, agentId, provider, dirty, saving, setTopBar]);
 
   const set = <T,>(setter: React.Dispatch<React.SetStateAction<T>>) => (v: T) => { setter(v); setDirty(true); };
 

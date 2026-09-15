@@ -13,6 +13,7 @@ import {
   Filter, RefreshCw, Radio, Server, MessageSquare, GitBranch, User, PhoneCall,
   Loader2
 } from 'lucide-react';
+import { useTopBar } from '@/components/dashboard/TopBarContext';
 
 ChartJS.register(ArcElement, Tooltip, Legend);
 
@@ -74,6 +75,7 @@ interface ActiveCall {
 export default function DashboardPage() {
   const { token } = useAuth();
   const { addToast } = useToast();
+  const { setTopBar } = useTopBar();
   const [stats, setStats] = useState<Stats | null>(null);
   const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
   const [webhooks, setWebhooks] = useState<WebhookSubscription[]>([]);
@@ -88,6 +90,7 @@ export default function DashboardPage() {
   const [filterStatus, setFilterStatus] = useState('');
   const [filterDateFrom, setFilterDateFrom] = useState('');
   const [filterDateTo, setFilterDateTo] = useState('');
+
 
   useEffect(() => {
     if (!token) return;
@@ -165,6 +168,33 @@ export default function DashboardPage() {
     }
     setExportLoading(null);
   };
+
+  useEffect(() => {
+    setTopBar({
+      title: 'Dashboard',
+      subtitle: 'Overview of your AI calling operations',
+      actions: (
+        <div className="flex items-center gap-2">
+          <button
+            className="text-muted-foreground hover:text-foreground hover:bg-accent rounded-md px-2.5 py-1.5 text-xs transition-colors flex items-center gap-1.5 border border-border bg-card/60"
+            onClick={() => handleExport('csv')}
+            disabled={exportLoading === 'csv'}
+          >
+            {exportLoading === 'csv' ? <Loader2 className="size-3.5 animate-spin" /> : <Download className="size-3.5" />}
+            <span>Export CSV</span>
+          </button>
+          <button
+            className="text-muted-foreground hover:text-foreground hover:bg-accent rounded-md px-2.5 py-1.5 text-xs transition-colors flex items-center gap-1.5 border border-border bg-card/60"
+            onClick={() => handleExport('pdf')}
+            disabled={exportLoading === 'pdf'}
+          >
+            {exportLoading === 'pdf' ? <Loader2 className="size-3.5 animate-spin" /> : <FileText className="size-3.5" />}
+            <span>Export PDF</span>
+          </button>
+        </div>
+      ),
+    });
+  }, [setTopBar, exportLoading]);
 
   const handleCreateWebhook = async (e: React.FormEvent, event: string, url: string, secret: string) => {
     e.preventDefault();
@@ -289,32 +319,7 @@ export default function DashboardPage() {
 
   return (
     <div className="max-w-7xl mx-auto px-6 py-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
-          <p className="text-sm text-muted-foreground mt-1">Overview of your AI calling operations</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <button
-            className="text-muted-foreground hover:text-foreground hover:bg-accent rounded-md px-3 py-2 text-sm transition-colors flex items-center gap-2 border border-border"
-            onClick={() => handleExport('csv')}
-            disabled={exportLoading === 'csv'}
-          >
-            {exportLoading === 'csv' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-            Export CSV
-          </button>
-          <button
-            className="text-muted-foreground hover:text-foreground hover:bg-accent rounded-md px-3 py-2 text-sm transition-colors flex items-center gap-2 border border-border"
-            onClick={() => handleExport('pdf')}
-            disabled={exportLoading === 'pdf'}
-          >
-            {exportLoading === 'pdf' ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
-            Export PDF
-          </button>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mt-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         {statCards.map((card, i) => (
           <div key={i} className="rounded-lg border border-border bg-card p-6">
             <p className="text-sm text-muted-foreground">{card.label}</p>

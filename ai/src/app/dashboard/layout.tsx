@@ -4,13 +4,15 @@ import React, { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
 import { Sidebar } from '@/components/dashboard/Sidebar';
+import { TopBar } from '@/components/dashboard/TopBar';
+import { TopBarProvider } from '@/components/dashboard/TopBarContext';
 import { ToastProvider } from '@/components/dashboard/shared/ToastProvider';
 import { DashboardErrorBoundary } from '@/components/dashboard/ErrorBoundary';
 
 /**
  * Dashboard layout — wraps all /dashboard/* pages.
  * Protected route: redirects to /login if not authenticated.
- * Renders the sidebar on the left + content area on the right.
+ * Renders sidebar on left, top bar above content, and content area below.
  */
 
 export default function DashboardLayout({
@@ -27,7 +29,6 @@ export default function DashboardLayout({
     }
   }, [isLoading, isAuthenticated, router]);
 
-  // Show loading spinner while checking auth or redirecting
   if (isLoading || !isAuthenticated) {
     return (
       <>
@@ -48,14 +49,19 @@ export default function DashboardLayout({
 
   return (
     <ToastProvider>
-      <div className="flex min-h-screen bg-background">
-        <Sidebar />
-        <main id="main-content" className="flex-1 overflow-y-auto" role="main">
-          <DashboardErrorBoundary>
-            {children}
-          </DashboardErrorBoundary>
-        </main>
-      </div>
+      <TopBarProvider>
+        <div className="flex min-h-screen bg-background">
+          <Sidebar />
+          <div className="flex-1 flex flex-col overflow-hidden">
+            <TopBar />
+            <main id="main-content" className="flex-1 overflow-y-auto" role="main">
+              <DashboardErrorBoundary>
+                {children}
+              </DashboardErrorBoundary>
+            </main>
+          </div>
+        </div>
+      </TopBarProvider>
     </ToastProvider>
   );
 }
