@@ -422,11 +422,15 @@ router.get('/:agent_id/test-call/signed-url', authenticate, async (req, res) => 
       if (!geminiData) {
         return res.status(404).json({ error: 'Gemini agent not found' });
       }
+      let model = geminiData.model || 'models/gemini-2.5-flash-native-audio-latest';
+      if (!model.includes('native-audio')) {
+        model = 'models/gemini-2.5-flash-native-audio-latest';
+      }
       return res.json({
         provider: 'gemini',
         agent_id,
         voice: geminiData.voice || 'Kore',
-        model: geminiData.model || 'models/gemini-2.5-flash-native-audio-latest',
+        model,
       });
     }
 

@@ -280,7 +280,12 @@ export default function TestCallView({ agentId, agentName, leadName, token, prov
       const bts = new Uint8Array(pcm16.buffer);
       let bin = '';
       for (let i = 0; i < bts.length; i++) bin += String.fromCharCode(bts[i]);
-      ws.send(JSON.stringify({ type: 'user_audio_chunk', user_audio_chunk: btoa(bin) }));
+      const b64Data = btoa(bin);
+      ws.send(JSON.stringify({
+        type: 'user_audio_chunk',
+        user_audio_chunk: b64Data,
+        data: b64Data,
+      }));
     };
     source.connect(processor);
     const silentGain = micCtx.createGain();
@@ -393,6 +398,7 @@ export default function TestCallView({ agentId, agentName, leadName, token, prov
           micCtxRef.current = micCtx;
           const playCtx = new AudioContext({ sampleRate: 24000 });
           playCtxRef.current = playCtx;
+          outputSRRef.current = 24000;
           nextPlayTimeRef.current = 0;
 
           const ws = new WebSocket(geminiWsUrl);
@@ -417,6 +423,8 @@ export default function TestCallView({ agentId, agentName, leadName, token, prov
                 if (msg.text) setTranscript(prev => [...prev, { role: 'user', text: msg.text, time: Date.now() }]);
               } else if (msg.type === 'error') {
                 console.error('[Gemini] Error:', msg.message);
+                setTranscript(prev => [...prev, { role: 'system', text: `Error: ${msg.message}`, time: Date.now() }]);
+                setStatus('error');
               } else if (msg.type === 'session_ended') {
                 setStatus('ended');
                 setTranscript(prev => [...prev, { role: 'system', text: 'Call ended', time: Date.now() }]);

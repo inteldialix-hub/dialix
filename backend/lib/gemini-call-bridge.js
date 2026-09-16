@@ -57,8 +57,13 @@ function attachGeminiCallBridge(server) {
 
     try {
       // Build Gemini session config from agent settings
+      let model = agentConfig.model;
+      if (!model || !model.includes('native-audio')) {
+        model = 'models/gemini-2.5-flash-native-audio-latest';
+      }
+
       const sessionOpts = {
-        model: agentConfig.model || undefined,
+        model,
         voice: agentConfig.voice || 'Kore',
         systemPrompt: agentConfig.system_prompt || 'You are a helpful AI assistant.',
         temperature: agentConfig.temperature ?? 1.0,
@@ -158,7 +163,10 @@ function attachGeminiCallBridge(server) {
 
     } catch (err) {
       console.error(`[GeminiBridge] Failed to create session for ${agentId}:`, err.message);
-      ws.close(4500, 'Failed to connect to Gemini');
+      if (ws.readyState === ws.OPEN) {
+        ws.send(JSON.stringify({ type: 'error', message: err.message }));
+        ws.close(4500, err.message);
+      }
       return;
     }
 
@@ -167,9 +175,12 @@ function attachGeminiCallBridge(server) {
       try {
         const msg = JSON.parse(data.toString());
 
-        if (msg.type === 'audio' && session) {
-          // Browser sends audio chunks
-          session.sendAudio(msg.data, msg.mimeType || 'audio/pcm;rate=16000');
+        if ((msg.type === 'audio' || msg.type === 'user_audio_chunk') && session) {
+          // Browser sends audio chunks (supports either format)
+          const audioChunk = msg.data || msg.user_audio_chunk;
+          if (audioChunk) {
+            session.sendAudio(audioChunk, msg.mimeType || 'audio/pcm;rate=16000');
+          }
         } else if (msg.type === 'text' && session) {
           // Browser sends text
           session.sendText(msg.text);

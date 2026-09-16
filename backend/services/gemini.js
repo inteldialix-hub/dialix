@@ -52,14 +52,22 @@ class GeminiSession extends EventEmitter {
     this.closed = false;
     this.startTime = Date.now();
     this.transcript = [];
+    // Ensure model is valid for Gemini Live (bidiGenerateContent only supports native-audio models)
+    let requestedModel = config.model || process.env.GEMINI_MODEL || DEFAULT_MODEL;
+    if (!requestedModel || !requestedModel.includes('native-audio')) {
+      console.warn(`[Gemini] Model "${requestedModel}" does not support live audio bidiGenerateContent. Falling back to "${DEFAULT_MODEL}".`);
+      requestedModel = DEFAULT_MODEL;
+    }
+
     this.config = {
-      model: config.model || process.env.GEMINI_MODEL || DEFAULT_MODEL,
+      model: requestedModel,
       voice: config.voice || 'Kore',
       systemPrompt: config.systemPrompt || 'You are a helpful AI assistant.',
       temperature: config.temperature ?? 1.0,
       language: config.language || 'en',
       responseModalities: config.responseModalities || ['AUDIO'],
       ...config,
+      model: requestedModel,
     };
 
     this._timeoutId = setTimeout(() => {
@@ -109,9 +117,13 @@ class GeminiSession extends EventEmitter {
       });
 
       this.ws.on('close', (code, reason) => {
-        console.log(`[Gemini] Session ${this.sessionId} closed: ${code} ${reason}`);
+        const reasonStr = reason ? reason.toString() : '';
+        console.log(`[Gemini] Session ${this.sessionId} closed: ${code} ${reasonStr}`);
         this._cleanup();
-        this.emit('closed', { code, reason: reason.toString() });
+        this.emit('closed', { code, reason: reasonStr });
+        if (!this.ready) {
+          reject(new Error(`Gemini connection closed before ready (${code}): ${reasonStr || 'connection closed'}`));
+        }
       });
     });
   }
