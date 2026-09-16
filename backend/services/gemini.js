@@ -217,6 +217,7 @@ class GeminiSession extends EventEmitter {
     //   setup.proactivity = this.config.proactivity;
     // }
 
+    console.log('[Gemini] Sending setup:', JSON.stringify(setup, null, 2).substring(0, 500));
     this.ws.send(JSON.stringify({ setup }));
   }
 

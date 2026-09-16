@@ -71,10 +71,10 @@ function attachGeminiCallBridge(server) {
         responseModalities: ['AUDIO'],
       };
 
-      // Thinking level
+      // Thinking level — API expects UPPERCASE enum values
       const tl = agentConfig.thinking_level || 'none';
       if (tl !== 'none') {
-        sessionOpts.thinkingConfig = { thinkingLevel: tl === 'low' ? 'low' : tl === 'medium' ? 'medium' : 'high' };
+        sessionOpts.thinkingConfig = { thinkingLevel: tl.toUpperCase() };
       }
 
       // Affective dialog
