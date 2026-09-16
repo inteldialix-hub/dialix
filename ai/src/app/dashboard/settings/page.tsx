@@ -13,6 +13,7 @@ import {
   Info, UserPlus, Trash2, Mail, Copy, Plus, Globe, Radio, Send, AlertTriangle, 
   CheckCircle, Cpu, Check, ChevronDown, ChevronUp, RefreshCw, X
 } from 'lucide-react';
+import { useTopBar } from '@/components/dashboard/TopBarContext';
 
 type SettingsTab = 'account' | 'team' | 'api-keys' | 'webhooks' | 'telemetry';
 
@@ -71,6 +72,7 @@ export default function SettingsPage() {
   const { client, token } = useAuth();
   const { theme, setTheme } = useTheme();
   const { addToast } = useToast();
+  const { setTopBar } = useTopBar();
 
   const [activeTab, setActiveTab] = useState<SettingsTab>('account');
   const [apiStatus, setApiStatus] = useState<{ status?: string; timestamp?: string } | null>(null);
@@ -470,16 +472,15 @@ export default function SettingsPage() {
     { id: 'telemetry' as const, label: 'System Health & Bugs', icon: Activity },
   ];
 
+  useEffect(() => {
+    setTopBar({
+      title: 'Settings',
+    });
+  }, [setTopBar]);
+
   return (
     <div className="max-w-7xl mx-auto px-6 py-6">
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold tracking-tight">Settings & Infrastructure</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Manage your organization, team members, developer API keys, outbound webhooks, and AI bug diagnostics.
-        </p>
-      </div>
-
-      <div className="border-b border-border mt-6 mb-6">
+      <div className="border-b border-border mb-6">
         <nav className="flex gap-6">
           {tabs.map(tab => {
             const Icon = tab.icon;

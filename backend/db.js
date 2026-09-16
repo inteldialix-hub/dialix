@@ -184,6 +184,9 @@ async function initSqliteDb() {
       is_admin INTEGER DEFAULT 0,
       is_active BOOLEAN DEFAULT TRUE,
       must_change_password INTEGER DEFAULT 0,
+      email_verified BOOLEAN DEFAULT FALSE,
+      verification_token TEXT,
+      verification_token_expires TIMESTAMP,
       created_at TEXT DEFAULT (datetime('now')),
       updated_at TEXT DEFAULT (datetime('now'))
     )
@@ -260,6 +263,14 @@ async function initSqliteDb() {
       updated_at TEXT DEFAULT (datetime('now'))
     )
   `);
+
+  // ── agent_settings migrations ──
+  try { db.run("ALTER TABLE agent_settings ADD COLUMN status TEXT DEFAULT 'active'"); persistSync(); } catch (e) {}
+  try { db.run("ALTER TABLE agent_settings ADD COLUMN tts_model_id TEXT"); persistSync(); } catch (e) {}
+  try { db.run("ALTER TABLE agent_settings ADD COLUMN stability REAL DEFAULT 0.5"); persistSync(); } catch (e) {}
+  try { db.run("ALTER TABLE agent_settings ADD COLUMN similarity_boost REAL DEFAULT 0.75"); persistSync(); } catch (e) {}
+  try { db.run("ALTER TABLE agent_settings ADD COLUMN speed REAL DEFAULT 1.0"); persistSync(); } catch (e) {}
+  try { db.run("ALTER TABLE agent_settings ADD COLUMN streaming_latency INTEGER DEFAULT 3"); persistSync(); } catch (e) {}
 
   db.run(`
     CREATE TABLE IF NOT EXISTS webhook_subscriptions (
@@ -810,6 +821,9 @@ async function initPostgresDb() {
       is_admin INTEGER DEFAULT 0,
       is_active BOOLEAN DEFAULT TRUE,
       must_change_password INTEGER DEFAULT 0,
+      email_verified BOOLEAN DEFAULT FALSE,
+      verification_token TEXT,
+      verification_token_expires TIMESTAMP,
       created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
     )

@@ -7,6 +7,7 @@ import { api } from '@/lib/api';
 import { useToast } from '@/components/dashboard/shared/ToastProvider';
 import { Search, Plus, Upload, Download, Trash2, Edit2, X, PhoneOff, Phone, Loader2, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useTopBar } from '@/components/dashboard/TopBarContext';
 
 interface Contact {
   id: number;
@@ -25,6 +26,7 @@ interface Contact {
 export default function ContactsPage() {
   const { token } = useAuth();
   const { addToast } = useToast();
+  const { setTopBar } = useTopBar();
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [loading, setLoading] = useState(true);
   const [total, setTotal] = useState(0);
@@ -345,13 +347,10 @@ export default function ContactsPage() {
 
   const totalPages = Math.max(1, Math.ceil(total / limit));
 
-  return (
-    <div className="max-w-7xl mx-auto px-6 py-6 space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Contacts</h1>
-          <p className="text-sm text-muted-foreground mt-1">Manage your leads, customers, and outreach targets</p>
-        </div>
+  useEffect(() => {
+    setTopBar({
+      title: 'Contacts',
+      actions: (
         <div className="flex items-center gap-3 flex-wrap">
           <button 
             className="text-muted-foreground hover:text-foreground hover:bg-accent rounded-md px-3 py-2 text-sm flex items-center gap-2 border border-border" 
@@ -374,8 +373,12 @@ export default function ContactsPage() {
             <Plus size={16} /> Add contact
           </button>
         </div>
-      </div>
+      )
+    });
+  }, [setTopBar, exporting]);
 
+  return (
+    <div className="max-w-7xl mx-auto px-6 py-6 space-y-6">
       <div className="rounded-lg border border-border bg-card p-4">
         <div className="flex flex-col md:flex-row gap-4 justify-between items-center">
           <div className="relative flex-1 w-full md:max-w-md">

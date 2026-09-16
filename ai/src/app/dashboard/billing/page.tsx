@@ -8,6 +8,8 @@ import { useToast } from '@/components/dashboard/shared/ToastProvider';
 import { Loader2, Check, AlertCircle, CreditCard, Clock, Bot, PhoneCall, Phone, Activity, TrendingUp, CheckCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
+import { useTopBar } from '@/components/dashboard/TopBarContext';
+
 interface Plan {
   id: string;
   slug?: string;
@@ -38,6 +40,7 @@ interface PaymentHistory {
 export default function BillingPage() {
   const { token, isAuthenticated } = useAuth();
   const { addToast } = useToast();
+  const { setTopBar } = useTopBar();
   const [plans, setPlans] = useState<Plan[]>([]);
   const [currentPlan, setCurrentPlan] = useState<CurrentPlan | null>(null);
   const [paymentHistory, setPaymentHistory] = useState<PaymentHistory[]>([]);
@@ -47,6 +50,12 @@ export default function BillingPage() {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showCancelModal, setShowCancelModal] = useState(false);
+
+  useEffect(() => {
+    setTopBar({
+      title: 'Billing & subscription',
+    });
+  }, [setTopBar]);
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -167,8 +176,6 @@ export default function BillingPage() {
   if (loading) {
     return (
       <div className="max-w-7xl mx-auto px-6 py-6">
-        <h1 className="text-2xl font-semibold tracking-tight">Billing & subscription</h1>
-        <p className="text-sm text-muted-foreground mt-1 mb-6">Manage your plan, limits, payments, and invoices</p>
         <div className="flex flex-col items-center justify-center p-16 rounded-lg border border-border bg-card">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground mb-3" />
           <p className="text-sm text-muted-foreground">Loading billing information...</p>
@@ -191,11 +198,6 @@ export default function BillingPage() {
 
   return (
     <div className="max-w-7xl mx-auto px-6 py-6 space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Billing & subscription</h1>
-        <p className="text-sm text-muted-foreground mt-1">Manage your plan, usage limits, payments, and invoices</p>
-      </div>
-
       {error && (
         <div className="p-4 rounded-lg flex items-center gap-3 bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
           <AlertCircle size={18} />

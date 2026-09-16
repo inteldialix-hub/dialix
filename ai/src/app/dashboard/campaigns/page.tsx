@@ -14,6 +14,7 @@ import {
 import { EmptyState } from '@/components/dashboard/shared/EmptyState';
 import { ConfirmModal } from '@/components/dashboard/shared/ConfirmModal';
 import { SkeletonRows } from '@/components/dashboard/shared/SkeletonRows';
+import { useTopBar } from '@/components/dashboard/TopBarContext';
 
 interface CampaignStats {
   total?: number;
@@ -70,6 +71,7 @@ interface PhoneNumber {
 export default function CampaignsPage() {
   const { token, isAuthenticated } = useAuth();
   const { addToast } = useToast();
+  const { setTopBar } = useTopBar();
 
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);
@@ -353,20 +355,19 @@ export default function CampaignsPage() {
     },
   ];
 
+  useEffect(() => {
+    setTopBar({
+      title: 'Campaigns',
+      actions: (
+        <button className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md px-4 py-2 text-sm font-medium inline-flex items-center gap-2" onClick={openWizard}>
+          <Plus size={16} /> New Campaign
+        </button>
+      )
+    });
+  }, [setTopBar]); // Not including openWizard to avoid exhaustive deps issues, as eslint is disabled
+
   return (
     <div className="max-w-7xl mx-auto px-6 py-6">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Campaigns</h1>
-          <p className="text-sm text-muted-foreground mt-1">Automated outbound call sequences with smart retry algorithms</p>
-        </div>
-        <div>
-          <button className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md px-4 py-2 text-sm font-medium inline-flex items-center gap-2" onClick={openWizard}>
-            <Plus size={16} /> New Campaign
-          </button>
-        </div>
-      </div>
-
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         {summaryCards.map((card, i) => {
           const IconComponent = card.icon;

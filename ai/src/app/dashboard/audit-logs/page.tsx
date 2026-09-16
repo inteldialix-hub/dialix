@@ -6,6 +6,7 @@ import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
 import { Search, ShieldAlert, Loader2, ChevronLeft, ChevronRight, Shield } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useTopBar } from '@/components/dashboard/TopBarContext';
 
 interface AuditLog {
   id: string;
@@ -21,6 +22,7 @@ interface AuditLog {
 
 export default function AuditLogsPage() {
   const { token, isAuthenticated } = useAuth();
+  const { setTopBar } = useTopBar();
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -32,6 +34,12 @@ export default function AuditLogsPage() {
   const [search, setSearch] = useState('');
   const [actionType, setActionType] = useState('ALL');
   
+  useEffect(() => {
+    setTopBar({
+      title: 'Audit logs',
+    });
+  }, [setTopBar]);
+
   useEffect(() => {
     if (isAuthenticated) {
       fetchLogs();
@@ -133,11 +141,6 @@ export default function AuditLogsPage() {
 
   return (
     <div className="max-w-7xl mx-auto px-6 py-6 space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Audit logs</h1>
-        <p className="text-sm text-muted-foreground mt-1">Track security events, data changes, and administrative actions</p>
-      </div>
-
       {/* Filters */}
       <div className="rounded-lg border border-border bg-card p-4 flex flex-col md:flex-row gap-4 items-center justify-between">
         <form onSubmit={handleSearch} className="flex-1 w-full flex gap-2">

@@ -11,6 +11,7 @@ import { ConfirmModal } from '@/components/dashboard/shared/ConfirmModal';
 import { api } from '@/lib/api';
 import { FEATURE_KEYS } from '@/lib/constants';
 import { cn } from '@/lib/utils';
+import { useTopBar } from '@/components/dashboard/TopBarContext';
 import { Users, Bot, UserPlus, ChevronDown, ChevronRight, Trash2, Settings, Lock, Unlock, UserMinus, EyeOff, Edit3, Eye, Check, Plus } from 'lucide-react';
 
 interface Client { id: number; name: string; email: string; is_admin: boolean; agent_count: number; }
@@ -36,6 +37,13 @@ export default function AdminPage() {
   const [deleteClientTarget, setDeleteClientTarget] = useState<Client | null>(null);
   const [deleteAgentTarget, setDeleteAgentTarget] = useState<Agent | null>(null);
   const [expandedFeatureAgent, setExpandedFeatureAgent] = useState<{ clientId: number; agentId: string } | null>(null);
+  const { setTopBar } = useTopBar();
+
+  useEffect(() => {
+    setTopBar({
+      title: 'Admin panel',
+    });
+  }, [setTopBar]);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -152,12 +160,7 @@ export default function AdminPage() {
 
   return (
     <div className="max-w-7xl mx-auto px-6 py-6">
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold tracking-tight">Admin panel</h1>
-        <p className="text-sm text-muted-foreground mt-1">Manage clients, platform permissions, and agent assignments</p>
-      </div>
-
-      <div className="border-b border-border mt-6 mb-6">
+      <div className="border-b border-border mb-6">
         <nav className="flex gap-6">
           {tabs.map(t => (
             <button key={t.id} onClick={() => setTab(t.id)}

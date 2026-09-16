@@ -5,10 +5,10 @@ import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
 import { useToast } from '@/components/dashboard/shared/ToastProvider';
 import {
-  ArrowLeft, Upload, FileText, Globe, Trash2, Plus, PhoneForwarded, PhoneOff,
+  Upload, FileText, Globe, Trash2, Plus, PhoneForwarded, PhoneOff,
   Code, AlertCircle, Phone, Play, Square, Mic, AudioLines, Settings, Wrench,
   Brain, Sliders, Shield, Lock, BookOpen, Volume2, Disc, BarChart2, CheckCircle,
-  Clock, DollarSign, Headphones, Keyboard, Gauge, ChevronRight, X, Zap, Info,
+  Clock, DollarSign, Headphones, Keyboard, Gauge, ChevronRight, X, Info,
   User, Layers
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -706,49 +706,7 @@ export default function AgentDetailPage() {
 
   return (
     <div className="max-w-7xl mx-auto px-6 py-6">
-      <button 
-        onClick={() => router.push('/dashboard/agents')}
-        className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-4 transition-colors"
-      >
-        <ArrowLeft className="size-4" />
-        Back to agents
-      </button>
-
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-semibold tracking-tight">{name || config.name as string}</h1>
-            <span className={cn(
-              "rounded-full px-2 py-0.5 text-xs font-medium",
-              provider === 'vapi' ? "bg-blue-500/10 text-blue-400" :
-              provider === 'gemini' ? "bg-emerald-500/10 text-emerald-400" :
-              "bg-blue-500/10 text-blue-400"
-            )}>
-              {provider === 'vapi' ? 'Vapi' : provider === 'gemini' ? 'Gemini' : 'ElevenLabs'}
-            </span>
-          </div>
-          <p className="text-sm text-muted-foreground mt-1">ID: {agentId}</p>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <button
-            onClick={handleSyncWithProvider}
-            disabled={syncing}
-            className="flex items-center gap-2 text-muted-foreground hover:text-foreground hover:bg-accent rounded-md px-3 py-2 text-sm transition-colors"
-          >
-            <Zap className={cn("size-4", syncing && "animate-spin")} />
-            {syncing ? 'Syncing...' : 'Sync Config'}
-          </button>
-          <button
-            onClick={promptTestCall}
-            className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md px-4 py-2 text-sm font-medium transition-colors"
-          >
-            Test Call
-          </button>
-        </div>
-      </div>
-
-      <div className="border-b border-border mt-6">
+      <div className="border-b border-border">
         <nav className="flex gap-6 overflow-x-auto pb-[2px]">
           {['Configuration', 'Voice', 'Knowledge', 'Tools', 'Analytics'].map(tab => (
             <button

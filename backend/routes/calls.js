@@ -44,6 +44,19 @@ router.post('/outbound', authenticate, async (req, res) => {
       return res.status(403).json({ error: callLimitCheck.reason });
     }
 
+    // ── DNC Check: Block calls to do-not-call numbers ──
+    const dncEntry = await get(
+      'SELECT id, reason FROM dnc_list WHERE phone_e164 = ? AND (client_id = ? OR client_id IS NULL)',
+      [to_number, req.client.id]
+    );
+    if (dncEntry) {
+      return res.status(403).json({
+        error: 'This number is on the Do-Not-Call list and cannot be contacted.',
+        dnc_reason: dncEntry.reason || 'opt_out'
+      });
+    }
+
+
     const agent = await get(
       'SELECT id FROM client_agents WHERE client_id = ? AND agent_id = ?',
       [req.client.id, agent_id]

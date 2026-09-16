@@ -7,6 +7,7 @@ const { authenticate } = require('../middleware/auth');
 const { validateSchema } = require('../middleware/validate');
 const { loginSchema, registerSchema, changePasswordSchema, forgotPasswordSchema, resetPasswordSchema, otpSchema } = require('../lib/schemas');
 const securityLogger = require('../lib/security-logger');
+const { sendVerificationEmail, sendPasswordResetEmail } = require('../lib/email');
 
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) {
@@ -177,6 +178,17 @@ router.post('/register', registerLimiter, validateSchema(registerSchema), async 
       }
     }
 
+    const crypto = require('crypto');
+    const verificationToken = crypto.randomBytes(32).toString('hex');
+    const verificationExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+    
+    await run(
+      'UPDATE clients SET verification_token = ?, verification_token_expires = ? WHERE id = ?',
+      [verificationToken, verificationExpiresAt, newClient.id]
+    );
+    
+    await sendVerificationEmail(trimmedEmail, verificationToken, displayName);
+
     const token = createAuthToken(newClient);
 
     // If registered via team invitation token, link to organization and accept invitation
@@ -264,7 +276,7 @@ router.post('/forgot-password', ipBruteForceLimiter, sensitiveOperationLimiter, 
     const { email } = req.body;
     const normalizedEmail = String(email).toLowerCase().trim();
 
-    const client = await get('SELECT id, email FROM clients WHERE email = ?', [normalizedEmail]);
+    const client = await get('SELECT id, email, name FROM clients WHERE email = ?', [normalizedEmail]);
 
     if (client) {
       // Generate a secure reset token
@@ -277,17 +289,7 @@ router.post('/forgot-password', ipBruteForceLimiter, sensitiveOperationLimiter, 
       await run('UPDATE clients SET reset_token = ?, reset_token_expires = ? WHERE id = ?',
         [resetTokenHash, expiresAt, client.id]);
 
-      // Build reset URL
-      const frontendUrl = process.env.FRONTEND_URL || process.env.APP_BASE_URL || 'http://localhost:3000';
-      const resetUrl = `${frontendUrl}/reset-password?token=${resetToken}&email=${encodeURIComponent(normalizedEmail)}`;
-
-      // If SMTP is configured, send email. Otherwise log to console for dev.
-      if (process.env.SMTP_HOST || process.env.SENDGRID_API_KEY) {
-        // TODO: integrate email service when credentials are available
-        console.log(`[AUTH] Password reset email would be sent to ${normalizedEmail}`);
-      } else {
-        console.log(`[AUTH] Password reset link for ${normalizedEmail}: ${resetUrl}`);
-      }
+      await sendPasswordResetEmail(normalizedEmail, resetToken, client.name || '');
 
       securityLogger.logAuthFailure(normalizedEmail, 'password_reset_generated', req);
     }
@@ -351,6 +353,79 @@ router.post('/verify-otp', otpLimiter, otpHourlyLimiter, validateSchema(otpSchem
     res.status(501).json({ error: 'OTP verification not yet implemented' });
   } catch (err) {
     console.error('OTP verification error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+const resendVerificationLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 3,
+  message: { error: 'Too many verification requests. Please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req, res) => ipKeyGenerator(req, res),
+});
+
+/**
+ * POST /api/auth/verify-email
+ * Body: { token }
+ */
+router.post('/verify-email', sensitiveOperationLimiter, async (req, res) => {
+  try {
+    const { token } = req.body;
+    if (!token) {
+      return res.status(400).json({ error: 'Token is required' });
+    }
+
+    const client = await get(
+      'SELECT id, email FROM clients WHERE verification_token = ? AND verification_token_expires > ?',
+      [token, new Date().toISOString()]
+    );
+
+    if (!client) {
+      return res.status(400).json({ error: 'Invalid or expired verification link.' });
+    }
+
+    await run(
+      'UPDATE clients SET email_verified = 1, verification_token = NULL, verification_token_expires = NULL WHERE id = ?',
+      [client.id]
+    );
+
+    res.json({ success: true, message: 'Email verified successfully.' });
+  } catch (err) {
+    console.error('Verify email error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/**
+ * POST /api/auth/resend-verification
+ * Requires authentication
+ */
+router.post('/resend-verification', authenticate, resendVerificationLimiter, async (req, res) => {
+  try {
+    const client = await get('SELECT id, email, name, email_verified FROM clients WHERE id = ?', [req.client.id]);
+    if (!client) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    if (client.email_verified) {
+      return res.status(400).json({ error: 'Email is already verified.' });
+    }
+
+    const crypto = require('crypto');
+    const verificationToken = crypto.randomBytes(32).toString('hex');
+    const verificationExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+    
+    await run(
+      'UPDATE clients SET verification_token = ?, verification_token_expires = ? WHERE id = ?',
+      [verificationToken, verificationExpiresAt, client.id]
+    );
+    
+    await sendVerificationEmail(client.email, verificationToken, client.name);
+
+    res.json({ success: true, message: 'Verification email sent.' });
+  } catch (err) {
+    console.error('Resend verification error:', err);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

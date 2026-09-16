@@ -70,4 +70,62 @@ function requireAdmin(req, res, next) {
   next();
 }
 
-module.exports = { authenticate, requireAdmin };
+// ─── RBAC: Role-Based Access Control ──────────────────────────
+// Role hierarchy: higher roles inherit all lower permissions
+// Think of it like a pyramid — owner at the top can do everything
+const ROLE_HIERARCHY = {
+  owner: 7,
+  admin: 6,
+  manager: 5,
+  supervisor: 4,
+  analyst: 3,
+  billing: 2,
+  viewer: 1,
+};
+
+/**
+ * Middleware factory: require at least one of the given roles.
+ * Must be used AFTER authenticate.
+ * Example: requireRole('owner', 'admin', 'manager')
+ *
+ * If useHierarchy is true (default), a higher role can access
+ * endpoints that require a lower role. For example, an 'owner'
+ * can access anything that requires 'viewer'.
+ */
+function requireRole(...allowedRoles) {
+  return async (req, res, next) => {
+    if (!req.client) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+
+    // Platform admins bypass role checks
+    if (req.client.is_admin === 1) {
+      return next();
+    }
+
+    // Account owners (the client themselves) get 'owner' role
+    const userRole = req.client._teamRole || 'owner';
+    const userLevel = ROLE_HIERARCHY[userRole] || 0;
+
+    // Check if user's role level meets the minimum required
+    const minRequiredLevel = Math.min(
+      ...allowedRoles.map(r => ROLE_HIERARCHY[r] || 0)
+    );
+
+    if (userLevel >= minRequiredLevel) {
+      return next();
+    }
+
+    securityLogger.logAccessDenied(
+      req.client.email,
+      `role_required: ${allowedRoles.join(',')}; has: ${userRole}`,
+      req
+    );
+    return res.status(403).json({
+      error: 'You do not have permission to perform this action.',
+      required_roles: allowedRoles,
+    });
+  };
+}
+
+module.exports = { authenticate, requireAdmin, requireRole, ROLE_HIERARCHY };

@@ -970,6 +970,134 @@ router.delete('/:agent_id', authenticate, async (req, res) => {
 });
 
 /**
+ * POST /api/agents/:agent_id/duplicate — Clone an agent with a new name
+ */
+router.post('/:agent_id/duplicate', authenticate, async (req, res) => {
+  try {
+    const { agent_id } = req.params;
+
+    // Check agent belongs to this client
+    const assignment = await get(
+      "SELECT agent_id, agent_name, provider FROM client_agents WHERE client_id = ? AND agent_id = ?",
+      [req.client.id, agent_id]
+    );
+    if (!assignment) {
+      return res.status(404).json({ error: 'Agent not found' });
+    }
+
+    // Check plan limit
+    const limitCheck = await checkAgentLimit(req.client.id);
+    if (!limitCheck.allowed) {
+      return res.status(403).json({ error: limitCheck.reason });
+    }
+
+    const provider = assignment.provider || 'elevenlabs';
+    const newName = `${assignment.agent_name} (Copy)`;
+    let newAgentId;
+
+    if (provider === 'gemini') {
+      // Clone from gemini_agents table
+      const original = await get('SELECT * FROM gemini_agents WHERE agent_id = ?', [agent_id]);
+      if (!original) return res.status(404).json({ error: 'Gemini agent config not found' });
+
+      newAgentId = `gemini_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+      await run(
+        `INSERT INTO gemini_agents (agent_id, name, system_prompt, first_message, language, voice, model, temperature, max_duration_seconds, client_id, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
+        [newAgentId, newName, original.system_prompt, original.first_message, original.language, original.voice, original.model, original.temperature, original.max_duration_seconds, req.client.id]
+      );
+    } else if (provider === 'vapi') {
+      // Fetch from Vapi and recreate
+      const original = await vapi.getAssistant(agent_id);
+      const clonePayload = {
+        name: newName,
+        model: original.model,
+        voice: original.voice,
+        firstMessage: original.firstMessage,
+        ...(original.transcriber && { transcriber: original.transcriber }),
+      };
+      const newAgent = await vapi.createAssistant(clonePayload);
+      newAgentId = newAgent.id;
+    } else {
+      // ElevenLabs — fetch config and recreate
+      const original = await elevenlabs.getAgentConfig(agent_id);
+      const cloneConfig = {
+        ...original,
+        name: newName,
+      };
+      // Remove IDs and timestamps that shouldn't be cloned
+      delete cloneConfig.agent_id;
+      delete cloneConfig.created_at;
+      const newAgent = await elevenlabs.createAgent(cloneConfig);
+      newAgentId = newAgent.agent_id;
+    }
+
+    // Assign to client
+    await run(
+      'INSERT INTO client_agents (client_id, agent_id, agent_name, provider) VALUES (?, ?, ?, ?)',
+      [req.client.id, newAgentId, newName, provider]
+    );
+
+    // Copy agent settings if they exist
+    const settings = await get('SELECT * FROM agent_settings WHERE agent_id = ?', [agent_id]);
+    if (settings) {
+      await run(
+        'INSERT OR IGNORE INTO agent_settings (agent_id, tts_model_id, stability, similarity_boost, speed, streaming_latency) VALUES (?, ?, ?, ?, ?, ?)',
+        [newAgentId, settings.tts_model_id, settings.stability, settings.similarity_boost, settings.speed, settings.streaming_latency]
+      );
+    }
+
+    // Log audit
+    await run(
+      "INSERT INTO audit_logs (client_id, actor, action, resource_type, resource_id, details, created_at) VALUES (?, ?, ?, ?, ?, ?, datetime('now'))",
+      [req.client.id, req.client.email, 'agent.duplicated', 'agent', newAgentId, JSON.stringify({ source_agent: agent_id, new_name: newName })]
+    );
+
+    res.json({ success: true, agent_id: newAgentId, name: newName, provider });
+  } catch (err) {
+    console.error('POST /api/agents/:id/duplicate error:', err);
+    res.status(500).json({ error: err.body || 'Failed to duplicate agent' });
+  }
+});
+
+/**
+ * POST /api/agents/:agent_id/archive — Soft-archive an agent (mark inactive, keep data)
+ */
+router.post('/:agent_id/archive', authenticate, async (req, res) => {
+  try {
+    const { agent_id } = req.params;
+
+    const assignment = await get(
+      'SELECT agent_id, agent_name FROM client_agents WHERE client_id = ? AND agent_id = ?',
+      [req.client.id, agent_id]
+    );
+    if (!assignment) {
+      return res.status(404).json({ error: 'Agent not found' });
+    }
+
+    // Toggle archive status in agent_settings
+    const current = await get('SELECT status FROM agent_settings WHERE agent_id = ?', [agent_id]);
+    const newStatus = current?.status === 'archived' ? 'active' : 'archived';
+
+    await run(
+      'INSERT INTO agent_settings (agent_id, status) VALUES (?, ?) ON CONFLICT(agent_id) DO UPDATE SET status = ?',
+      [agent_id, newStatus, newStatus]
+    );
+
+    // Log audit
+    await run(
+      "INSERT INTO audit_logs (client_id, actor, action, resource_type, resource_id, details, created_at) VALUES (?, ?, ?, ?, ?, ?, datetime('now'))",
+      [req.client.id, req.client.email, newStatus === 'archived' ? 'agent.archived' : 'agent.unarchived', 'agent', agent_id, JSON.stringify({ name: assignment.agent_name })]
+    );
+
+    res.json({ success: true, agent_id, status: newStatus });
+  } catch (err) {
+    console.error('POST /api/agents/:id/archive error:', err);
+    res.status(500).json({ error: 'Failed to archive agent' });
+  }
+});
+
+/**
  * GET /api/agents/:agent_id/raw — Debug: raw Vapi response (admin only)
  */
 router.get('/:agent_id/raw', authenticate, async (req, res) => {

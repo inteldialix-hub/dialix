@@ -3,6 +3,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@/lib/auth-context';
 import { useToast } from '@/components/dashboard/shared/ToastProvider';
+import { useTopBar } from '@/components/dashboard/TopBarContext';
 import { Loader2, Plus, Phone, Trash2 } from 'lucide-react';
 import { api } from '@/lib/api';
 
@@ -12,6 +13,7 @@ interface Agent { agent_id: string; name: string; }
 export default function PhoneNumbersPage() {
   const { token } = useAuth();
   const { addToast } = useToast();
+  const { setTopBar } = useTopBar();
   const [phoneNumbers, setPhoneNumbers] = useState<PhoneNumber[]>([]);
   const [agents, setAgents] = useState<Agent[]>([]);
   const [loading, setLoading] = useState(true);
@@ -88,18 +90,24 @@ export default function PhoneNumbersPage() {
     }
   };
 
+  useEffect(() => {
+    setTopBar({
+      title: 'Phone numbers',
+      actions: (
+        <button 
+          onClick={() => setShowAdd(true)}
+          disabled={loading}
+          className={`bg-foreground text-background hover:bg-foreground/90 rounded-md px-4 py-2 text-sm font-medium flex items-center gap-2 ${loading ? 'opacity-50' : ''}`}
+        >
+          <Plus size={16} /> Connect number
+        </button>
+      )
+    });
+  }, [setTopBar, loading, setShowAdd]);
+
   if (loading) {
     return (
       <div className="max-w-7xl mx-auto px-6 py-6">
-        <div className="flex justify-between items-start mb-6">
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight">Phone numbers</h1>
-            <p className="text-sm text-muted-foreground mt-1">Connect and configure inbound and outbound telephony lines</p>
-          </div>
-          <button disabled className="bg-foreground text-background rounded-md px-4 py-2 text-sm font-medium opacity-50 flex items-center gap-2">
-            <Plus size={16} /> Connect number
-          </button>
-        </div>
         <div className="space-y-4">
           {[1, 2, 3].map(i => (
             <div key={i} className="h-12 w-full rounded-md bg-muted animate-pulse" />
@@ -111,19 +119,6 @@ export default function PhoneNumbersPage() {
 
   return (
     <div className="max-w-7xl mx-auto px-6 py-6 space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Phone numbers</h1>
-          <p className="text-sm text-muted-foreground mt-1">Connect and configure inbound and outbound telephony lines</p>
-        </div>
-        <button 
-          onClick={() => setShowAdd(true)}
-          className="bg-foreground text-background hover:bg-foreground/90 rounded-md px-4 py-2 text-sm font-medium flex items-center gap-2"
-        >
-          <Plus size={16} /> Connect number
-        </button>
-      </div>
-
       {phoneNumbers.length === 0 ? (
         <div className="rounded-lg border border-border bg-card p-12 flex flex-col items-center justify-center text-center">
           <Phone className="h-8 w-8 text-muted-foreground mb-3" />
