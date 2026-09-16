@@ -161,10 +161,12 @@ class GeminiSession extends EventEmitter {
       },
     };
 
-    // Thinking config
-    if (this.config.thinkingConfig) {
-      generationConfig.thinkingConfig = this.config.thinkingConfig;
-    }
+    // NOTE: thinkingConfig is rejected by the Live API with "Thinking level
+    // is not supported for this model" — even on gemini-3.8-live-extended-thinking.
+    // The extended-thinking model handles reasoning internally without this field.
+    // if (this.config.thinkingConfig) {
+    //   generationConfig.thinkingConfig = this.config.thinkingConfig;
+    // }
 
     const voiceDirectives = 
       '\n\n[NATURAL CONVERSATIONAL VOICE & INTERRUPTION GUIDELINES]' +
