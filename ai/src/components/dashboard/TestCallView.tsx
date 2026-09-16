@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useRef, useCallback } from 'react';
-import { ArrowLeft, X, PhoneOff, Mic, MicOff, Bot, User, Clock, Phone, MessageSquare, Trash2 } from 'lucide-react';
+import { ArrowLeft, X, PhoneOff, Mic, MicOff, Bot, User, Clock, Phone, MessageSquare, Trash2, Brain, Wrench, Volume2, Ear } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { VoicePoweredOrb } from '@/components/dashboard/shared/VoicePoweredOrb';
 import { api } from '@/lib/api';
@@ -21,6 +21,7 @@ interface TestCallViewProps {
 }
 
 type CallStatus = 'connecting' | 'active' | 'ended' | 'error';
+type AgentActivity = 'listening' | 'thinking' | 'speaking' | 'tool_calling';
 
 interface TranscriptEntry {
   role: 'agent' | 'user' | 'system';
@@ -96,6 +97,7 @@ export default function TestCallView({ agentId, agentName, leadName, token, prov
   const [callTime, setCallTime] = useState(0);
   const [transcript, setTranscript] = useState<TranscriptEntry[]>([]);
   const [isMuted, setIsMuted] = useState(false);
+  const [agentActivity, setAgentActivity] = useState<AgentActivity>('listening');
   const [isVapiCall, setIsVapiCall] = useState(false);
   const vapiRef = useRef<Vapi | null>(null);
 
@@ -516,6 +518,12 @@ export default function TestCallView({ agentId, agentName, leadName, token, prov
                 if (text) {
                   setTranscript(prev => [...prev, { role: 'user', text, time: Date.now() }]);
                 }
+              } else if (msg.type === 'agent_activity') {
+                setAgentActivity(msg.activity as AgentActivity);
+              } else if (msg.type === 'tool_call') {
+                setAgentActivity('tool_calling');
+                const toolName = msg.data?.functionCalls?.[0]?.name || 'tool';
+                setTranscript(prev => [...prev, { role: 'system', text: `🔧 Calling ${toolName}…`, time: Date.now() }]);
               } else if (msg.type === 'error') {
                 console.error('[Gemini] Error:', msg.message);
                 setTranscript(prev => [...prev, { role: 'system', text: `Error: ${msg.message}`, time: Date.now() }]);
@@ -771,15 +779,57 @@ export default function TestCallView({ agentId, agentName, leadName, token, prov
               />
             </div>
 
-            {/* Speaking indicator */}
+            {/* Agent activity indicator — ElevenLabs-style */}
             {status === 'active' && (
-              <div className="flex items-center gap-2 mt-6 text-sm text-muted-foreground">
-                <div className="flex items-center gap-0.5 h-4">
-                  {[...Array(5)].map((_, i) => (
-                    <span key={i} className="w-0.5 bg-foreground/40 rounded-full animate-pulse" style={{height: `${8 + (i % 3) * 4}px`, animationDelay: `${i * 0.1}s`}} />
-                  ))}
+              <div className="flex flex-col items-center gap-2 mt-6">
+                {/* Activity status pill */}
+                <div className={cn(
+                  "flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-300",
+                  agentActivity === 'listening' && "bg-blue-500/10 text-blue-400",
+                  agentActivity === 'thinking' && "bg-amber-500/10 text-amber-400",
+                  agentActivity === 'speaking' && "bg-green-500/10 text-green-400",
+                  agentActivity === 'tool_calling' && "bg-purple-500/10 text-purple-400",
+                )}>
+                  {agentActivity === 'listening' && (
+                    <>
+                      <Ear className="size-4" />
+                      <span>Listening</span>
+                      <span className="flex gap-0.5">
+                        {[...Array(3)].map((_, i) => (
+                          <span key={i} className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-pulse" style={{ animationDelay: `${i * 0.2}s` }} />
+                        ))}
+                      </span>
+                    </>
+                  )}
+                  {agentActivity === 'thinking' && (
+                    <>
+                      <Brain className="size-4 animate-pulse" />
+                      <span>Thinking</span>
+                      <span className="flex gap-0.5">
+                        {[...Array(3)].map((_, i) => (
+                          <span key={i} className="w-1 h-1 bg-amber-400 rounded-full animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />
+                        ))}
+                      </span>
+                    </>
+                  )}
+                  {agentActivity === 'speaking' && (
+                    <>
+                      <Volume2 className="size-4" />
+                      <span>Speaking</span>
+                      <span className="flex items-center gap-0.5 h-4">
+                        {[...Array(5)].map((_, i) => (
+                          <span key={i} className="w-0.5 bg-green-400 rounded-full animate-pulse" style={{ height: `${6 + (i % 3) * 4}px`, animationDelay: `${i * 0.1}s` }} />
+                        ))}
+                      </span>
+                    </>
+                  )}
+                  {agentActivity === 'tool_calling' && (
+                    <>
+                      <Wrench className="size-4 animate-spin" style={{ animationDuration: '2s' }} />
+                      <span>Using tool</span>
+                    </>
+                  )}
                 </div>
-                <span>Listening…</span>
               </div>
             )}
 

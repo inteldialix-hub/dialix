@@ -145,15 +145,43 @@ function attachGeminiCallBridge(server) {
       session.on('interrupted', () => {
         if (ws.readyState === ws.OPEN) {
           ws.send(JSON.stringify({ type: 'interrupted' }));
+          ws.send(JSON.stringify({ type: 'agent_activity', activity: 'listening' }));
         }
       });
 
-      // Forward turn completion
+      // Forward turn completion — agent is now listening
       session.on('turn_complete', () => {
         if (ws.readyState === ws.OPEN) {
           ws.send(JSON.stringify({ type: 'turn_complete' }));
+          ws.send(JSON.stringify({ type: 'agent_activity', activity: 'listening' }));
         }
       });
+
+      // Forward tool calls
+      session.on('tool_call', (toolData) => {
+        if (ws.readyState === ws.OPEN) {
+          ws.send(JSON.stringify({ type: 'tool_call', data: toolData }));
+          ws.send(JSON.stringify({ type: 'agent_activity', activity: 'tool_calling' }));
+        }
+      });
+
+      // Track when user starts/stops speaking for activity state
+      session.on('user_transcript', () => {
+        // User just finished speaking — agent is now thinking
+        if (ws.readyState === ws.OPEN) {
+          ws.send(JSON.stringify({ type: 'agent_activity', activity: 'thinking' }));
+        }
+      });
+
+      // When audio starts flowing — agent is speaking
+      let firstAudioSent = false;
+      session.on('audio', () => {
+        if (!firstAudioSent && ws.readyState === ws.OPEN) {
+          ws.send(JSON.stringify({ type: 'agent_activity', activity: 'speaking' }));
+          firstAudioSent = true;
+        }
+      });
+      session.on('turn_complete', () => { firstAudioSent = false; });
 
       session.on('error', (err) => {
         console.error(`[GeminiBridge] Session ${sessionId} error:`, err.message);
