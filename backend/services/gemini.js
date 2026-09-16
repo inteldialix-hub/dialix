@@ -205,14 +205,15 @@ class GeminiSession extends EventEmitter {
       };
     }
 
-    // Affective dialog (emotional understanding)
-    if (this.config.enableAffectiveDialog) {
-      setup.enableAffectiveDialog = true;
-    }
-
-    // Proactive audio (model can speak unprompted)
-    if (this.config.proactivity) {
-      setup.proactivity = this.config.proactivity;
+    // Affective dialog & proactive audio — only supported by gemini-3.8-live models
+    const supports38Features = this.config.model && this.config.model.includes('3.8-live');
+    if (supports38Features) {
+      if (this.config.enableAffectiveDialog) {
+        setup.enableAffectiveDialog = true;
+      }
+      if (this.config.proactivity) {
+        setup.proactivity = this.config.proactivity;
+      }
     }
 
     this.ws.send(JSON.stringify({ setup }));
