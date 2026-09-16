@@ -737,34 +737,6 @@ export default function AgentDetailPage() {
       <div className="mt-6 pb-24">
         {activeTab === 'configuration' && (
           <div className="space-y-6">
-            {/* Quick Test Call Banner */}
-            <div className="rounded-lg border border-emerald-500/20 bg-emerald-950/20 p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm">
-              <div className="flex items-center gap-3.5">
-                <div className="flex size-10 items-center justify-center rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 shrink-0">
-                  <Phone className="size-5 text-emerald-400" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-                    Test Call & Live Audio Preview
-                    <span className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                      Instant
-                    </span>
-                  </h3>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    Start a browser-based test call with {name || 'this agent'} to preview conversation flow, voice quality, and latency.
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={promptTestCall}
-                className="w-full sm:w-auto px-4 py-2 rounded-md bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold flex items-center justify-center gap-2 shadow-sm transition-all hover:scale-[1.02] active:scale-[0.98] shrink-0"
-              >
-                <Phone className="size-3.5 text-white" />
-                <span>Start Test Call</span>
-              </button>
-            </div>
-
             <div className="rounded-lg border border-border bg-card p-6">
               <h3 className="text-sm font-medium mb-4 flex items-center gap-2"><User className="size-4" /> General settings</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1216,21 +1188,6 @@ export default function AgentDetailPage() {
           danger={confirmAction.danger ?? true}
         />
       )}
-
-      {/* Persistent Floating Test Call Button (ElevenLabs style) */}
-      <button
-        type="button"
-        onClick={promptTestCall}
-        className="fixed bottom-6 right-6 z-40 flex items-center gap-2.5 px-4 py-2.5 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs shadow-xl shadow-emerald-950/40 hover:shadow-emerald-500/25 border border-emerald-400/30 transition-all hover:scale-105 active:scale-95 group"
-        title="Test Call Agent"
-      >
-        <span className="relative flex h-2.5 w-2.5">
-          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-300 opacity-75"></span>
-          <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-200"></span>
-        </span>
-        <Phone className="size-3.5 text-white" />
-        <span>Test Call Agent</span>
-      </button>
     </div>
   );
 }

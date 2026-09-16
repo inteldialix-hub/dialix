@@ -594,12 +594,15 @@ router.get('/models', authenticate, async (req, res) => {
         if (geminiRes.ok) {
           const gData = await geminiRes.json();
           geminiModels = (gData.models || [])
-            .filter(m =>
-              m.name.includes('gemini') &&
-              !m.name.includes('embedding') &&
-              !m.name.includes('aqa') &&
-              !m.name.includes('imagen')
-            )
+            .filter(m => {
+              const name = m.name.toLowerCase();
+              const methods = m.supportedGenerationMethods || [];
+              const isVoiceLive = methods.includes('bidiGenerateContent');
+              const isTTS = name.includes('tts');
+              const isNativeAudio = name.includes('native-audio');
+              const isTranscribeLive = name.includes('transcribe-live');
+              return isVoiceLive || isNativeAudio || isTTS || isTranscribeLive;
+            })
             .map(m => {
               const isLive = (m.supportedGenerationMethods || []).includes('bidiGenerateContent');
               const baseName = m.displayName || m.name.replace('models/', '');
@@ -619,10 +622,7 @@ router.get('/models', authenticate, async (req, res) => {
     if (geminiModels.length === 0) {
       geminiModels = [
         { value: 'models/gemini-2.5-flash-native-audio-latest', label: 'Gemini 2.5 Flash Native Audio (Live Audio)', is_live: true },
-        { value: 'models/gemini-2.5-flash', label: 'Gemini 2.5 Flash' },
-        { value: 'models/gemini-2.5-pro', label: 'Gemini 2.5 Pro' },
-        { value: 'models/gemini-2.0-flash', label: 'Gemini 2.0 Flash' },
-        { value: 'models/gemini-2.0-flash-lite', label: 'Gemini 2.0 Flash Lite' },
+        { value: 'models/gemini-3.5-transcribe-live', label: 'Gemini 3.5 Transcribe Live (Live Audio)', is_live: true },
       ];
     }
 
