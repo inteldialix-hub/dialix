@@ -137,6 +137,51 @@ export default function TestCallView({ agentId, agentName, leadName, token, prov
     transcriptEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [transcript]);
 
+  // Real-time client-side speech recognition for user transcription
+  useEffect(() => {
+    if (status !== 'active' || isMuted) return;
+    if (typeof window === 'undefined') return;
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) return;
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let recognition: any = null;
+    try {
+      recognition = new SpeechRecognition();
+      recognition.continuous = true;
+      recognition.interimResults = false;
+      recognition.lang = 'en-US';
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      recognition.onresult = (event: any) => {
+        const lastResult = event.results[event.results.length - 1];
+        if (lastResult && lastResult.isFinal) {
+          const userSpoken = lastResult[0]?.transcript?.trim();
+          if (userSpoken) {
+            setTranscript(prev => {
+              const last = [...prev].reverse().find(e => e.role === 'user');
+              if (last && (last.text.toLowerCase() === userSpoken.toLowerCase() || (Date.now() - last.time < 3000 && last.text.includes(userSpoken)))) {
+                return prev;
+              }
+              return [...prev, { role: 'user', text: userSpoken, time: Date.now() }];
+            });
+          }
+        }
+      };
+
+      recognition.onerror = () => {};
+      recognition.start();
+    } catch {}
+
+    return () => {
+      if (recognition) {
+        try { recognition.stop(); } catch {}
+      }
+    };
+  }, [status, isMuted]);
+
   // Save call when it ends
   useEffect(() => {
     if ((status === 'ended' || status === 'error') && transcript.length > 1 && !callSaved.current) {
@@ -420,7 +465,15 @@ export default function TestCallView({ agentId, agentName, leadName, token, prov
               } else if (msg.type === 'text') {
                 if (msg.text) setTranscript(prev => [...prev, { role: 'agent', text: msg.text, time: Date.now() }]);
               } else if (msg.type === 'transcript') {
-                if (msg.text) setTranscript(prev => [...prev, { role: 'user', text: msg.text, time: Date.now() }]);
+                if (msg.text) {
+                  setTranscript(prev => {
+                    const lastUser = [...prev].reverse().find(e => e.role === 'user');
+                    if (lastUser && (lastUser.text.toLowerCase() === msg.text.toLowerCase() || (Date.now() - lastUser.time < 3500 && lastUser.text.includes(msg.text)))) {
+                      return prev;
+                    }
+                    return [...prev, { role: 'user', text: msg.text, time: Date.now() }];
+                  });
+                }
               } else if (msg.type === 'error') {
                 console.error('[Gemini] Error:', msg.message);
                 setTranscript(prev => [...prev, { role: 'system', text: `Error: ${msg.message}`, time: Date.now() }]);

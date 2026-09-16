@@ -152,6 +152,8 @@ class GeminiSession extends EventEmitter {
     const setup = {
       model: this.config.model,
       generationConfig,
+      inputAudioTranscription: {},
+      outputAudioTranscription: {},
       systemInstruction: {
         parts: [{ text: this.config.systemPrompt }],
       },
@@ -195,6 +197,14 @@ class GeminiSession extends EventEmitter {
     if (msg.serverContent) {
       const sc = msg.serverContent;
 
+      // Accumulate output audio transcription (actual words spoken by model)
+      if (sc.outputTranscription) {
+        const chunk = sc.outputTranscription.text || (sc.outputTranscription.parts && sc.outputTranscription.parts.map(p => p.text).join('')) || '';
+        if (chunk) {
+          this._currentTurnSpokenText = (this._currentTurnSpokenText || '') + chunk;
+        }
+      }
+
       // Model turn — audio or text parts
       if (sc.modelTurn && sc.modelTurn.parts) {
         for (const part of sc.modelTurn.parts) {
@@ -205,24 +215,34 @@ class GeminiSession extends EventEmitter {
               mimeType: part.inlineData.mimeType,
             });
           }
-          if (part.text) {
-            this.emit('text', part.text);
-            this.transcript.push({ role: 'agent', text: part.text, time: Date.now() });
+          if (part.text && !this._currentTurnSpokenText) {
+            this._currentTurnModelText = (this._currentTurnModelText || '') + part.text;
           }
         }
       }
 
-      // Turn complete
+      // Turn complete — emit the spoken agent text
       if (sc.turnComplete) {
+        const spoken = (this._currentTurnSpokenText || this._currentTurnModelText || '').trim();
+        if (spoken) {
+          // If thoughts header was included, clean it
+          const cleaned = spoken.replace(/^\*\*.*?\*\*\s*/s, '').trim();
+          const finalAgentText = cleaned || spoken;
+          this.emit('text', finalAgentText);
+          this.transcript.push({ role: 'agent', text: finalAgentText, time: Date.now() });
+        }
+        this._currentTurnSpokenText = '';
+        this._currentTurnModelText = '';
         this.emit('turn_complete');
       }
 
       // Input transcription (user speech → text)
-      if (sc.inputTranscription) {
-        const text = sc.inputTranscription.text || '';
+      const inputTx = sc.inputTranscription || sc.interimInputTranscription;
+      if (inputTx) {
+        const text = inputTx.text || (inputTx.parts && inputTx.parts.map(p => p.text).join('')) || '';
         if (text.trim()) {
-          this.emit('transcript', text);
-          this.transcript.push({ role: 'user', text, time: Date.now() });
+          this.emit('transcript', text.trim());
+          this.transcript.push({ role: 'user', text: text.trim(), time: Date.now() });
         }
       }
     }
