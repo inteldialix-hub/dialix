@@ -465,29 +465,27 @@ router.get('/models', authenticate, async (req, res) => {
   try {
     const rawModels = await elevenlabs.getModels();
 
-    // Only these TTS model IDs are valid for conversational AI agents
-    const VALID_CONV_TTS = new Set([
-      'eleven_turbo_v2',
-      'eleven_flash_v2',
-      'eleven_v3_conversational',
-    ]);
-
-    // Voice parameter support per model family
+    // Include all TTS models that can do text to speech (do not restrict to hardcoded list)
     const MODEL_CAPABILITIES = {
-      'eleven_turbo_v2':          { supports_speed: false, supports_style: false, supports_speaker_boost: true,  latency_ms: 300 },
-      'eleven_flash_v2':          { supports_speed: true,  supports_style: false, supports_speaker_boost: true,  latency_ms: 150 },
-      'eleven_v3_conversational': { supports_speed: false, supports_style: false, supports_speaker_boost: false, latency_ms: 250 },
+      'eleven_v3_conversational': { supports_speed: false, supports_style: false, supports_speaker_boost: false, latency_ms: 200, badge: 'Now GA', supportsExpressive: true },
+      'eleven_v3':                { supports_speed: false, supports_style: false, supports_speaker_boost: false, latency_ms: 220, badge: 'V3', supportsExpressive: true },
+      'eleven_flash_v2_5':        { supports_speed: true,  supports_style: false, supports_speaker_boost: true,  latency_ms: 100, badge: 'Low Latency', supportsExpressive: true },
+      'eleven_flash_v2':          { supports_speed: true,  supports_style: false, supports_speaker_boost: true,  latency_ms: 120, badge: 'Fastest', supportsExpressive: false },
+      'eleven_multilingual_v2':   { supports_speed: true,  supports_style: true,  supports_speaker_boost: true,  latency_ms: 250, badge: '29 Languages', supportsExpressive: false },
+      'eleven_turbo_v2_5':        { supports_speed: true,  supports_style: false, supports_speaker_boost: true,  latency_ms: 200, badge: 'Turbo v2.5', supportsExpressive: false },
+      'eleven_turbo_v2':          { supports_speed: false, supports_style: false, supports_speaker_boost: true,  latency_ms: 300, badge: 'Turbo v2', supportsExpressive: false },
     };
 
     // Shape models into a clean format for the frontend
-    // Filter to only valid conversational models and include parameter support info
     const models = rawModels
-      .filter(m => VALID_CONV_TTS.has(m.model_id))
+      .filter(m => m.can_do_text_to_speech !== false)
       .map(m => {
-        const caps = MODEL_CAPABILITIES[m.model_id] || {};
+        const caps = MODEL_CAPABILITIES[m.model_id] || { supports_speed: true, supports_style: false, supports_speaker_boost: true };
         return {
           model_id: m.model_id,
           name: m.name,
+          badge: caps.badge || null,
+          supportsExpressive: caps.supportsExpressive || false,
           description: m.description || '',
           can_do_text_to_speech: m.can_do_text_to_speech || false,
           can_do_voice_conversion: m.can_do_voice_conversion || false,
@@ -499,7 +497,6 @@ router.get('/models', authenticate, async (req, res) => {
             name: l.name,
           })),
           max_characters_request: m.max_characters_request_free_user || 0,
-          // Voice parameter support flags
           supports_speed: caps.supports_speed || false,
           supports_style: caps.supports_style || false,
           supports_speaker_boost: caps.supports_speaker_boost || false,
@@ -532,7 +529,6 @@ router.get('/models', authenticate, async (req, res) => {
         })
         .map(l => {
           const id = l.llm || '';
-          // Derive provider from ID prefix
           let provider = 'Other';
           if (/^gpt-/i.test(id)) provider = 'OpenAI';
           else if (/^claude/i.test(id)) provider = 'Anthropic';
@@ -542,36 +538,13 @@ router.get('/models', authenticate, async (req, res) => {
           else if (/^gpt-oss/i.test(id)) provider = 'ElevenLabs';
           else if (/^deepseek/i.test(id)) provider = 'DeepSeek';
 
-          // Estimate first-token latency in ms based on known benchmarks
           const lo = id.toLowerCase();
-          let latency_ms = 500; // default for unknown models
-          // ElevenLabs hosted — optimized infra, lowest latency
-          if (lo.includes('glm-')) latency_ms = 150;
-          else if (lo.includes('qwen')) latency_ms = 180;
-          else if (lo.includes('gpt-oss')) latency_ms = 200;
-          // OpenAI
-          else if (lo.includes('gpt-4o-mini') || lo.includes('gpt-4.1-nano')) latency_ms = 200;
-          else if (lo.includes('gpt-4.1-mini') || lo.includes('gpt-5-nano')) latency_ms = 250;
-          else if (lo.includes('gpt-3.5')) latency_ms = 220;
-          else if (lo.includes('gpt-4o') && !lo.includes('mini')) latency_ms = 350;
-          else if (lo.includes('gpt-4.1') && !lo.includes('mini') && !lo.includes('nano')) latency_ms = 400;
-          else if (lo.includes('gpt-4-turbo')) latency_ms = 500;
-          else if (lo.includes('gpt-5-mini')) latency_ms = 300;
-          else if (lo.includes('gpt-5') && !lo.includes('mini') && !lo.includes('nano')) latency_ms = 600;
-          // Anthropic
-          else if (lo.includes('haiku')) latency_ms = 200;
-          else if (lo.includes('sonnet') && lo.includes('3.5')) latency_ms = 400;
-          else if (lo.includes('sonnet') && (lo.includes('3.7') || lo.includes('4'))) latency_ms = 450;
-          else if (lo.includes('sonnet-4.5')) latency_ms = 500;
-          else if (lo.includes('opus')) latency_ms = 900;
-          // Google
-          else if (lo.includes('flash-lite') || lo.includes('flash_lite')) latency_ms = 150;
-          else if (lo.includes('flash')) latency_ms = 180;
-          else if (lo.includes('pro')) latency_ms = 600;
-          // DeepSeek
-          else if (lo.includes('deepseek')) latency_ms = 350;
+          let latency_ms = 300;
+          if (lo.includes('glm-') || lo.includes('flash-lite')) latency_ms = 150;
+          else if (lo.includes('qwen') || lo.includes('flash')) latency_ms = 180;
+          else if (lo.includes('gpt-4o-mini') || lo.includes('haiku')) latency_ms = 200;
+          else if (lo.includes('gpt-4o') || lo.includes('sonnet')) latency_ms = 350;
 
-          // Human-friendly label
           const label = id
             .replace(/^gpt-/i, 'GPT-')
             .replace(/^claude-/i, 'Claude ')
@@ -597,10 +570,135 @@ router.get('/models', authenticate, async (req, res) => {
         })
         .filter(l => l.value);
     } catch (llmErr) {
-      console.warn('Failed to fetch LLMs, using empty list:', llmErr.message);
+      console.warn('Failed to fetch LLMs, using fallback list:', llmErr.message);
     }
 
-    res.json({ models, languages, llms: llmModels });
+    if (llmModels.length === 0) {
+      llmModels = [
+        { value: 'gpt-4o-mini', label: 'GPT-4o Mini', provider: 'OpenAI' },
+        { value: 'gpt-4o', label: 'GPT-4o', provider: 'OpenAI' },
+        { value: 'claude-3-7-sonnet', label: 'Claude 3.7 Sonnet', provider: 'Anthropic' },
+        { value: 'claude-3-5-sonnet', label: 'Claude 3.5 Sonnet', provider: 'Anthropic' },
+        { value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash', provider: 'Google' },
+        { value: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash', provider: 'Google' },
+        { value: 'glm-4.5-air', label: 'GLM 4.5 Air', provider: 'ElevenLabs' },
+        { value: 'qwen3-30b-a3b', label: 'Qwen3 30B-A3B', provider: 'ElevenLabs' },
+      ];
+    }
+
+    // ── Dynamic Gemini Models Discovery ──
+    let geminiModels = [];
+    if (process.env.GOOGLE_API_KEY) {
+      try {
+        const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${process.env.GOOGLE_API_KEY}`);
+        if (geminiRes.ok) {
+          const gData = await geminiRes.json();
+          geminiModels = (gData.models || [])
+            .filter(m =>
+              m.name.includes('gemini') &&
+              !m.name.includes('embedding') &&
+              !m.name.includes('aqa') &&
+              !m.name.includes('imagen')
+            )
+            .map(m => {
+              const isLive = (m.supportedGenerationMethods || []).includes('bidiGenerateContent');
+              const baseName = m.displayName || m.name.replace('models/', '');
+              return {
+                value: m.name,
+                label: baseName + (isLive ? ' (Live Audio)' : ''),
+                description: m.description,
+                is_live: isLive,
+              };
+            })
+            .sort((a, b) => (b.is_live ? 1 : 0) - (a.is_live ? 1 : 0));
+        }
+      } catch (gErr) {
+        console.warn('Failed to fetch Gemini models from Google API:', gErr.message);
+      }
+    }
+    if (geminiModels.length === 0) {
+      geminiModels = [
+        { value: 'models/gemini-2.5-flash-native-audio-latest', label: 'Gemini 2.5 Flash Native Audio (Live Audio)', is_live: true },
+        { value: 'models/gemini-2.5-flash', label: 'Gemini 2.5 Flash' },
+        { value: 'models/gemini-2.5-pro', label: 'Gemini 2.5 Pro' },
+        { value: 'models/gemini-2.0-flash', label: 'Gemini 2.0 Flash' },
+        { value: 'models/gemini-2.0-flash-lite', label: 'Gemini 2.0 Flash Lite' },
+      ];
+    }
+
+    // ── Multi-Provider Vapi Catalog ──
+    const vapiCatalog = {
+      providers: [
+        { value: 'openai', label: 'OpenAI' },
+        { value: 'anthropic', label: 'Anthropic' },
+        { value: 'google', label: 'Google' },
+        { value: 'groq', label: 'Groq' },
+        { value: 'deepinfra', label: 'DeepInfra' },
+        { value: 'together-ai', label: 'Together AI' },
+        { value: 'xai', label: 'xAI (Grok)' },
+        { value: 'custom-llm', label: 'Custom LLM / Endpoint' },
+      ],
+      models: {
+        openai: [
+          { value: 'gpt-4o', label: 'GPT-4o (Omni)' },
+          { value: 'gpt-4o-mini', label: 'GPT-4o Mini (Fast & Cheap)' },
+          { value: 'o1', label: 'OpenAI o1' },
+          { value: 'o3-mini', label: 'OpenAI o3-mini' },
+          { value: 'gpt-4-turbo', label: 'GPT-4 Turbo' },
+          { value: 'gpt-4.1', label: 'GPT-4.1' },
+          { value: 'gpt-4.1-mini', label: 'GPT-4.1 Mini' },
+          { value: 'gpt-5-mini', label: 'GPT-5 Mini' },
+        ],
+        anthropic: [
+          { value: 'claude-3-7-sonnet-20250219', label: 'Claude 3.7 Sonnet (Hybrid Thinking - Latest)' },
+          { value: 'claude-3-5-sonnet-20241022', label: 'Claude 3.5 Sonnet (v2)' },
+          { value: 'claude-3-5-haiku-20241022', label: 'Claude 3.5 Haiku (Ultra Fast)' },
+          { value: 'claude-3-opus-20240229', label: 'Claude 3 Opus' },
+        ],
+        google: [
+          { value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash' },
+          { value: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro' },
+          { value: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash' },
+          { value: 'gemini-1.5-pro', label: 'Gemini 1.5 Pro' },
+          { value: 'gemini-1.5-flash', label: 'Gemini 1.5 Flash' },
+        ],
+        groq: [
+          { value: 'llama-3.3-70b-versatile', label: 'Llama 3.3 70B (Fast)' },
+          { value: 'llama-3.1-70b-versatile', label: 'Llama 3.1 70B' },
+          { value: 'llama-3.1-8b-instant', label: 'Llama 3.1 8B Instant' },
+          { value: 'deepseek-r1-distill-llama-70b', label: 'DeepSeek R1 Distill Llama 70B' },
+          { value: 'mixtral-8x7b-32768', label: 'Mixtral 8x7B' },
+        ],
+        deepinfra: [
+          { value: 'meta-llama/Meta-Llama-3.1-70B-Instruct', label: 'Llama 3.1 70B Instruct' },
+          { value: 'meta-llama/Meta-Llama-3.1-405B-Instruct', label: 'Llama 3.1 405B Instruct' },
+          { value: 'Qwen/Qwen2.5-72B-Instruct', label: 'Qwen 2.5 72B Instruct' },
+        ],
+        'together-ai': [
+          { value: 'meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo', label: 'Llama 3.1 70B Turbo' },
+          { value: 'meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo', label: 'Llama 3.1 405B Turbo' },
+        ],
+        xai: [
+          { value: 'grok-2-1212', label: 'Grok 2' },
+          { value: 'grok-2-vision-1212', label: 'Grok 2 Vision' },
+          { value: 'grok-beta', label: 'Grok Beta' },
+        ],
+        'custom-llm': [
+          { value: 'custom', label: 'Custom Model ID (Type your own)' },
+        ],
+      },
+    };
+
+    res.json({
+      models,
+      languages,
+      llms: llmModels,
+      gemini: {
+        models: geminiModels,
+        voices: ['Aoede', 'Charon', 'Fenrir', 'Kore', 'Puck', 'Leda', 'Orus', 'Zephyr'],
+      },
+      vapi: vapiCatalog,
+    });
   } catch (err) {
     console.error('GET /api/agents/models error:', err);
     res.status(500).json({ error: 'Failed to fetch models' });
