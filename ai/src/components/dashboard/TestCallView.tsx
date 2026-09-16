@@ -378,7 +378,7 @@ export default function TestCallView({ agentId, agentName, leadName, token, prov
 
         // ── Gemini flow: Backend WebSocket bridge + PCM audio ──
         if (data.provider === 'gemini' || provider === 'gemini') {
-          const apiBase = process.env.NEXT_PUBLIC_API_URL || '';
+          const apiBase = process.env.NEXT_PUBLIC_API_URL || (typeof window !== 'undefined' && window.location.hostname === 'localhost' ? 'http://localhost:5000' : 'https://dialix-backend.onrender.com');
           const wsProto = apiBase.startsWith('https') ? 'wss' : 'ws';
           const wsHost = apiBase.replace(/^https?:\/\//, '');
           const geminiWsUrl = `${wsProto}://${wsHost}/ws/gemini-call?agent_id=${agentId}&token=${token}`;

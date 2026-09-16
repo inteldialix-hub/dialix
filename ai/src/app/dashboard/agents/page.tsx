@@ -9,8 +9,9 @@ import { SkeletonRows } from '@/components/dashboard/shared/SkeletonRows';
 import { CustomSelect } from '@/components/dashboard/shared/CustomSelect';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
-import { Bot, Plus, CheckCircle, Cpu, Radio, Search, TrendingUp, TrendingDown, Minus, ChevronRight, X, Sparkles, ArrowLeft, PlusCircle } from 'lucide-react';
+import { Bot, Plus, CheckCircle, Cpu, Radio, Search, TrendingUp, TrendingDown, Minus, ChevronRight, X, Sparkles, ArrowLeft, PlusCircle, Phone } from 'lucide-react';
 import { useTopBar } from '@/components/dashboard/TopBarContext';
+import TestCallView from '@/components/dashboard/TestCallView';
 import {
   FALLBACK_LLM_OPTIONS,
   FALLBACK_TTS_MODEL_OPTIONS,
@@ -69,6 +70,12 @@ export default function AgentsPage() {
 
   const [search, setSearch] = useState('');
   const [providerFilter, setProviderFilter] = useState('');
+
+  // Quick test call state
+  const [testCallAgent, setTestCallAgent] = useState<{ id: string; name: string; provider: string } | null>(null);
+  const [showQuickPrompt, setShowQuickPrompt] = useState(false);
+  const [quickLeadName, setQuickLeadName] = useState('Test User');
+  const [showTestCall, setShowTestCall] = useState(false);
 
 
   const loadAgents = useCallback(async () => {
@@ -264,7 +271,7 @@ export default function AgentsPage() {
                   <th className="text-left text-muted-foreground font-medium px-4 py-3">Provider</th>
                   <th className="text-left text-muted-foreground font-medium px-4 py-3">Language</th>
                   <th className="text-left text-muted-foreground font-medium px-4 py-3">Model</th>
-                  <th className="text-right text-muted-foreground font-medium px-4 py-3"></th>
+                  <th className="text-right text-muted-foreground font-medium px-4 py-3">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -306,9 +313,25 @@ export default function AgentsPage() {
                         {agent.llm || 'GPT-4o Mini'}
                       </td>
                       <td className="px-4 py-3 text-right">
-                        <Link href={`/dashboard/agents/${agent.agent_id}`} className="inline-flex items-center justify-center h-8 w-8 rounded-md hover:bg-muted text-muted-foreground">
-                          <ChevronRight className="h-4 w-4" />
-                        </Link>
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setTestCallAgent({ id: agent.agent_id, name: agent.name, provider: agent.provider || 'elevenlabs' });
+                              setQuickLeadName('Test User');
+                              setShowQuickPrompt(true);
+                            }}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
+                            title="Start test call with this agent"
+                          >
+                            <Phone className="size-3 text-emerald-400" />
+                            <span>Test call</span>
+                          </button>
+                          <Link href={`/dashboard/agents/${agent.agent_id}`} className="inline-flex items-center justify-center h-8 w-8 rounded-md hover:bg-muted text-muted-foreground transition-colors">
+                            <ChevronRight className="h-4 w-4" />
+                          </Link>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -318,6 +341,63 @@ export default function AgentsPage() {
           </div>
         )}
       </div>
+
+      {/* Quick Test Call Lead Name Prompt Modal */}
+      {showQuickPrompt && testCallAgent && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 animate-in fade-in duration-150">
+          <div className="w-full max-w-sm rounded-lg border border-border bg-card p-6 text-center shadow-2xl">
+            <div className="w-12 h-12 rounded-full bg-emerald-500/10 flex items-center justify-center mx-auto mb-4">
+              <Phone className="size-6 text-emerald-500" />
+            </div>
+            <h2 className="text-base font-semibold mb-1">Test Call: {testCallAgent.name}</h2>
+            <p className="text-xs text-muted-foreground mb-4">Enter the lead name for greeting (or start directly):</p>
+            <input 
+              autoFocus
+              className="w-full rounded-md border border-border bg-background px-4 py-2.5 text-sm text-center mb-5 focus:outline-none focus:ring-1 focus:ring-ring"
+              value={quickLeadName}
+              onChange={e => setQuickLeadName(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter') {
+                  setShowQuickPrompt(false);
+                  setShowTestCall(true);
+                }
+              }}
+              placeholder="e.g. John"
+            />
+            <div className="flex gap-2.5">
+              <button 
+                type="button"
+                onClick={() => { setShowQuickPrompt(false); setTestCallAgent(null); }} 
+                className="flex-1 text-xs font-medium border border-border hover:bg-accent rounded-md py-2 transition-colors"
+              >
+                Cancel
+              </button>
+              <button 
+                type="button"
+                onClick={() => { setShowQuickPrompt(false); setShowTestCall(true); }} 
+                className="flex-1 text-xs font-medium bg-emerald-600 text-white hover:bg-emerald-500 rounded-md py-2 transition-colors flex items-center justify-center gap-1.5 shadow-sm"
+              >
+                <Phone className="size-3.5" /> Start Call
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Full-screen Test Call View */}
+      {showTestCall && testCallAgent && token && (
+        <TestCallView
+          agentId={testCallAgent.id}
+          agentName={testCallAgent.name}
+          leadName={quickLeadName || 'Test User'}
+          token={token}
+          provider={testCallAgent.provider as any}
+          onClose={() => {
+            setShowTestCall(false);
+            setTestCallAgent(null);
+          }}
+        />
+      )}
 
       {showCreate && (
         <CreateAgentModal
@@ -357,25 +437,56 @@ function CreateAgentModal({ token, voices, templates, onClose, onCreated }: {
   const [creating, setCreating] = useState(false);
 
   const [llm, setLlm] = useState('gpt-4o-mini');
+  const [customLlm, setCustomLlm] = useState('');
+  const [isCustomLlm, setIsCustomLlm] = useState(false);
+
   const [ttsModel, setTtsModel] = useState('eleven_v3_conversational');
   const [voiceId, setVoiceId] = useState('');
 
   const [modelProvider, setModelProvider] = useState('openai');
   const [vapiLlm, setVapiLlm] = useState('gpt-4o-mini');
+  const [customVapiLlm, setCustomVapiLlm] = useState('');
+  const [isCustomVapiLlm, setIsCustomVapiLlm] = useState(false);
+
   const [voiceProvider, setVoiceProvider] = useState('11labs');
   const [vapiVoiceId, setVapiVoiceId] = useState('');
   const [transcriberProvider, setTranscriberProvider] = useState('deepgram');
 
   const [geminiVoice, setGeminiVoice] = useState('Kore');
   const [geminiModel, setGeminiModel] = useState('models/gemini-2.5-flash-native-audio-latest');
+  const [customGeminiModel, setCustomGeminiModel] = useState('');
+  const [isCustomGeminiModel, setIsCustomGeminiModel] = useState(false);
   const [geminiThinkingLevel, setGeminiThinkingLevel] = useState('none');
 
+  // Dynamic discovery from /api/agents/models
+  const [dynamicLLMs, setDynamicLLMs] = useState<{ value: string; label: string; provider?: string }[]>([]);
+  const [dynamicTTSModels, setDynamicTTSModels] = useState<{ value: string; label: string; badge?: string }[]>([]);
+  const [dynamicGeminiModels, setDynamicGeminiModels] = useState<{ value: string; label: string }[]>([]);
+  const [dynamicVapiCatalog, setDynamicVapiCatalog] = useState<{ providers: { value: string; label: string }[]; models: Record<string, { value: string; label: string }[]> } | null>(null);
+
   useEffect(() => {
-    const options = VAPI_LLM_OPTIONS[modelProvider];
-    if (options && options.length > 0) {
-      setVapiLlm(options[0].value);
+    if (!token) return;
+    api<any>('/agents/models', { token })
+      .then(res => {
+        if (res?.llms?.length) setDynamicLLMs(res.llms);
+        if (res?.models?.length) {
+          setDynamicTTSModels(res.models.map((m: any) => ({
+            value: m.model_id || m.value,
+            label: m.name ? `${m.name}${m.badge ? ` — ${m.badge}` : ''}` : m.label,
+          })));
+        }
+        if (res?.gemini?.models?.length) setDynamicGeminiModels(res.gemini.models);
+        if (res?.vapi) setDynamicVapiCatalog(res.vapi);
+      })
+      .catch(() => {});
+  }, [token]);
+
+  useEffect(() => {
+    const providerModels = (dynamicVapiCatalog?.models?.[modelProvider]) || VAPI_LLM_OPTIONS[modelProvider];
+    if (providerModels && providerModels.length > 0 && !isCustomVapiLlm) {
+      setVapiLlm(providerModels[0].value);
     }
-  }, [modelProvider]);
+  }, [modelProvider, dynamicVapiCatalog, isCustomVapiLlm]);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -383,6 +494,10 @@ function CreateAgentModal({ token, voices, templates, onClose, onCreated }: {
     setCreating(true);
 
     try {
+      const finalElevenLlm = isCustomLlm && customLlm.trim() ? customLlm.trim() : llm;
+      const finalGeminiModel = isCustomGeminiModel && customGeminiModel.trim() ? customGeminiModel.trim() : geminiModel;
+      const finalVapiLlm = isCustomVapiLlm && customVapiLlm.trim() ? customVapiLlm.trim() : vapiLlm;
+
       const baseBody: Record<string, unknown> = {
         provider,
         name: name.trim(),
@@ -396,20 +511,20 @@ function CreateAgentModal({ token, voices, templates, onClose, onCreated }: {
 
       if (provider === 'elevenlabs') {
         Object.assign(baseBody, {
-          llm,
+          llm: finalElevenLlm,
           tts_model_id: ttsModel,
           voice_id: voiceId || undefined,
         });
       } else if (provider === 'gemini') {
         Object.assign(baseBody, {
           gemini_voice: geminiVoice,
-          gemini_model: geminiModel,
+          gemini_model: finalGeminiModel,
           thinking_level: geminiThinkingLevel,
         });
       } else {
         Object.assign(baseBody, {
           model_provider: modelProvider,
-          llm: vapiLlm,
+          llm: finalVapiLlm,
           voice_provider: voiceProvider,
           voice_id: vapiVoiceId || undefined,
           transcriber_provider: transcriberProvider,
@@ -617,7 +732,32 @@ function CreateAgentModal({ token, voices, templates, onClose, onCreated }: {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <label className="text-sm font-medium">Model</label>
-                      <CustomSelect value={geminiModel} onChange={e => setGeminiModel(e.target.value)} options={GEMINI_MODELS} placeholder="Select model" />
+                      <CustomSelect 
+                        value={isCustomGeminiModel ? '__custom__' : geminiModel} 
+                        onChange={e => {
+                          if (e.target.value === '__custom__') {
+                            setIsCustomGeminiModel(true);
+                          } else {
+                            setIsCustomGeminiModel(false);
+                            setGeminiModel(e.target.value);
+                          }
+                        }} 
+                        options={[
+                          ...(dynamicGeminiModels.length ? dynamicGeminiModels : GEMINI_MODELS),
+                          { value: '__custom__', label: 'Custom model (type below)...' }
+                        ]} 
+                        placeholder="Select model" 
+                      />
+                      {isCustomGeminiModel && (
+                        <input
+                          type="text"
+                          placeholder="e.g. models/gemini-2.5-flash-native-audio-latest"
+                          value={customGeminiModel}
+                          onChange={e => setCustomGeminiModel(e.target.value)}
+                          className="w-full mt-1.5 rounded-md border border-border bg-background px-3 py-1.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                          autoFocus
+                        />
+                      )}
                     </div>
                     <div className="space-y-2">
                       <label className="text-sm font-medium">Thinking level</label>
@@ -627,14 +767,39 @@ function CreateAgentModal({ token, voices, templates, onClose, onCreated }: {
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Temperature: {temperature.toFixed(2)}</label>
                     <input type="range" className="w-full accent-primary" min="0" max="2" step="0.05" value={temperature} onChange={e => setTemperature(parseFloat(e.target.value))} />
-                    <div className="text-[10px] text-muted-foreground">Recommended: 1.0 for Gemini 3</div>
+                    <div className="text-[10px] text-muted-foreground">Recommended: 1.0 for Gemini</div>
                   </div>
                 </>
               ) : provider === 'elevenlabs' ? (
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <label className="text-sm font-medium">LLM</label>
-                    <CustomSelect value={llm} onChange={e => setLlm(e.target.value)} options={FALLBACK_LLM_OPTIONS} placeholder="Select LLM" />
+                    <CustomSelect 
+                      value={isCustomLlm ? '__custom__' : llm} 
+                      onChange={e => {
+                        if (e.target.value === '__custom__') {
+                          setIsCustomLlm(true);
+                        } else {
+                          setIsCustomLlm(false);
+                          setLlm(e.target.value);
+                        }
+                      }} 
+                      options={[
+                        ...(dynamicLLMs.length ? dynamicLLMs : FALLBACK_LLM_OPTIONS),
+                        { value: '__custom__', label: 'Custom model (type below)...' }
+                      ]} 
+                      placeholder="Select LLM" 
+                    />
+                    {isCustomLlm && (
+                      <input
+                        type="text"
+                        placeholder="e.g. gpt-4.5-preview or custom model ID"
+                        value={customLlm}
+                        onChange={e => setCustomLlm(e.target.value)}
+                        className="w-full mt-1.5 rounded-md border border-border bg-background px-3 py-1.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                        autoFocus
+                      />
+                    )}
                   </div>
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Temperature: {temperature.toFixed(2)}</label>
@@ -646,16 +811,41 @@ function CreateAgentModal({ token, voices, templates, onClose, onCreated }: {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <label className="text-sm font-medium">Model provider</label>
-                      <CustomSelect value={modelProvider} onChange={e => setModelProvider(e.target.value)} options={VAPI_MODEL_PROVIDERS} placeholder="Select provider" />
+                      <CustomSelect 
+                        value={modelProvider} 
+                        onChange={e => setModelProvider(e.target.value)} 
+                        options={dynamicVapiCatalog?.providers || VAPI_MODEL_PROVIDERS} 
+                        placeholder="Select provider" 
+                      />
                     </div>
                     <div className="space-y-2">
                       <label className="text-sm font-medium">LLM</label>
                       <CustomSelect
-                        value={vapiLlm}
-                        onChange={e => setVapiLlm(e.target.value)}
-                        options={VAPI_LLM_OPTIONS[modelProvider] || []}
+                        value={isCustomVapiLlm ? '__custom__' : vapiLlm}
+                        onChange={e => {
+                          if (e.target.value === '__custom__') {
+                            setIsCustomVapiLlm(true);
+                          } else {
+                            setIsCustomVapiLlm(false);
+                            setVapiLlm(e.target.value);
+                          }
+                        }}
+                        options={[
+                          ...((dynamicVapiCatalog?.models?.[modelProvider]) || VAPI_LLM_OPTIONS[modelProvider] || []),
+                          { value: '__custom__', label: 'Custom model (type below)...' }
+                        ]}
                         placeholder="Select model"
                       />
+                      {isCustomVapiLlm && (
+                        <input
+                          type="text"
+                          placeholder="e.g. claude-3-7-sonnet-20250219 or gpt-4.5"
+                          value={customVapiLlm}
+                          onChange={e => setCustomVapiLlm(e.target.value)}
+                          className="w-full mt-1.5 rounded-md border border-border bg-background px-3 py-1.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                          autoFocus
+                        />
+                      )}
                     </div>
                   </div>
                   <div className="space-y-2">
@@ -696,7 +886,7 @@ function CreateAgentModal({ token, voices, templates, onClose, onCreated }: {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <label className="text-sm font-medium">TTS model</label>
-                      <CustomSelect value={ttsModel} onChange={e => setTtsModel(e.target.value)} options={FALLBACK_TTS_MODEL_OPTIONS} placeholder="Select TTS model" />
+                      <CustomSelect value={ttsModel} onChange={e => setTtsModel(e.target.value)} options={dynamicTTSModels.length ? dynamicTTSModels : FALLBACK_TTS_MODEL_OPTIONS} placeholder="Select TTS model" />
                     </div>
                     <div className="space-y-2">
                       <label className="text-sm font-medium">Max duration (sec)</label>

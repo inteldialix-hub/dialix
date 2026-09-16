@@ -53,6 +53,9 @@ export default function AgentDetailPage() {
   const [liveLLMs, setLiveLLMs] = useState<any[]>(FALLBACK_LLM_OPTIONS);
   const [liveTTSModels, setLiveTTSModels] = useState<any[]>(FALLBACK_TTS_MODEL_OPTIONS);
   const [liveLanguages, setLiveLanguages] = useState<any[]>(FALLBACK_LANGUAGE_OPTIONS);
+  const [liveGeminiModels, setLiveGeminiModels] = useState<any[]>(GEMINI_MODELS);
+  const [vapiCatalog, setVapiCatalog] = useState<{ providers: any[]; models: Record<string, any[]> } | null>(null);
+  const [isCustomModel, setIsCustomModel] = useState(false);
   const [rawTTSData, setRawTTSData] = useState<Record<string, unknown>[]>([]);
 
   const [leadName, setLeadName] = useState('');
@@ -524,7 +527,7 @@ export default function AgentDetailPage() {
   };
 
   const promptTestCall = () => {
-    setTestLeadName('');
+    setTestLeadName('Test User');
     setShowLeadNamePrompt(true);
   };
 
@@ -539,7 +542,7 @@ export default function AgentDetailPage() {
       const [v, p, m] = await Promise.allSettled([
         api<{ voices: Voice[] }>('/agents/voices', { token: token! }),
         api<{ phoneNumbers: PhoneNumber[] }>('/phone-numbers', { token: token! }),
-        api<{ models: any[]; languages: any[]; llms: any[] }>('/agents/models', { token: token! }),
+        api<{ models: any[]; languages: any[]; llms: any[]; gemini?: any; vapi?: any }>('/agents/models', { token: token! }),
       ]);
       if (v.status === 'fulfilled') setVoices(v.value.voices || []);
       if (p.status === 'fulfilled') setPhoneNumbers(p.value.phoneNumbers || []);
@@ -558,9 +561,15 @@ export default function AgentDetailPage() {
             .filter((mod: any) => mod.model_id && mod.name)
             .map((mod: any) => ({
               value: mod.model_id as string,
-              label: mod.name as string,
+              label: `${mod.name}${mod.badge ? ` — ${mod.badge}` : ''}`,
             }));
           if (ttsOpts.length) setLiveTTSModels(ttsOpts);
+        }
+        if (md.gemini?.models?.length) {
+          setLiveGeminiModels(md.gemini.models);
+        }
+        if (md.vapi) {
+          setVapiCatalog(md.vapi);
         }
       }
     } catch { /* non-critical */ }
@@ -728,6 +737,34 @@ export default function AgentDetailPage() {
       <div className="mt-6 pb-24">
         {activeTab === 'configuration' && (
           <div className="space-y-6">
+            {/* Quick Test Call Banner */}
+            <div className="rounded-lg border border-emerald-500/20 bg-emerald-950/20 p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm">
+              <div className="flex items-center gap-3.5">
+                <div className="flex size-10 items-center justify-center rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 shrink-0">
+                  <Phone className="size-5 text-emerald-400" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                    Test Call & Live Audio Preview
+                    <span className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                      Instant
+                    </span>
+                  </h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Start a browser-based test call with {name || 'this agent'} to preview conversation flow, voice quality, and latency.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={promptTestCall}
+                className="w-full sm:w-auto px-4 py-2 rounded-md bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold flex items-center justify-center gap-2 shadow-sm transition-all hover:scale-[1.02] active:scale-[0.98] shrink-0"
+              >
+                <Phone className="size-3.5 text-white" />
+                <span>Start Test Call</span>
+              </button>
+            </div>
+
             <div className="rounded-lg border border-border bg-card p-6">
               <h3 className="text-sm font-medium mb-4 flex items-center gap-2"><User className="size-4" /> General settings</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -758,16 +795,68 @@ export default function AgentDetailPage() {
                 {provider === 'vapi' && (
                   <div>
                     <label className="text-sm font-medium text-foreground mb-1.5 block">Model provider</label>
-                    <select className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground" value={modelProvider} onChange={e => { set(setModelProvider)(e.target.value); const models = VAPI_LLM_OPTIONS[e.target.value]; if (models?.length) set(setLlm)(models[0].value); }}>
-                      {VAPI_MODEL_PROVIDERS.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
+                    <select 
+                      className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring" 
+                      value={modelProvider} 
+                      onChange={e => { 
+                        set(setModelProvider)(e.target.value); 
+                        const models = (vapiCatalog?.models?.[e.target.value]) || VAPI_LLM_OPTIONS[e.target.value]; 
+                        if (models?.length && !isCustomModel) set(setLlm)(models[0].value); 
+                      }}
+                    >
+                      {(vapiCatalog?.providers || VAPI_MODEL_PROVIDERS).map((p: any) => (
+                        <option key={p.value} value={p.value}>{p.label}</option>
+                      ))}
                     </select>
                   </div>
                 )}
                 <div>
                   <label className="text-sm font-medium text-foreground mb-1.5 block">Model</label>
-                  <select className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground" value={llm} onChange={e => set(setLlm)(e.target.value)}>
-                    {(provider === 'gemini' ? GEMINI_MODELS : provider === 'vapi' ? (VAPI_LLM_OPTIONS[modelProvider] || []) : liveLLMs).map((o: any) => <option key={o.value} value={o.value}>{o.label}</option>)}
-                  </select>
+                  {(() => {
+                    const modelOpts = provider === 'gemini' 
+                      ? (liveGeminiModels.length ? liveGeminiModels : GEMINI_MODELS)
+                      : provider === 'vapi'
+                      ? ((vapiCatalog?.models?.[modelProvider]) || VAPI_LLM_OPTIONS[modelProvider] || [])
+                      : (liveLLMs.length ? liveLLMs : FALLBACK_LLM_OPTIONS);
+                    const isCustom = isCustomModel || !modelOpts.some((o: any) => o.value === llm);
+
+                    return (
+                      <>
+                        <select 
+                          className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring" 
+                          value={isCustom ? '__custom__' : llm} 
+                          onChange={e => {
+                            if (e.target.value === '__custom__') {
+                              setIsCustomModel(true);
+                            } else {
+                              setIsCustomModel(false);
+                              set(setLlm)(e.target.value);
+                            }
+                          }}
+                        >
+                          {modelOpts.map((o: any) => (
+                            <option key={o.value} value={o.value}>{o.label}</option>
+                          ))}
+                          <option value="__custom__">Custom model (enter ID below)...</option>
+                        </select>
+                        {isCustom && (
+                          <div className="mt-2 space-y-1">
+                            <input
+                              type="text"
+                              placeholder="e.g. gpt-4.5-preview, claude-3-7-sonnet-20250219, models/gemini-2.5-pro..."
+                              value={llm}
+                              onChange={e => set(setLlm)(e.target.value)}
+                              className="w-full rounded-md border border-border bg-background px-3 py-1.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring font-mono"
+                              autoFocus
+                            />
+                            <p className="text-[11px] text-muted-foreground">
+                              Type any custom model ID supported by your provider API.
+                            </p>
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
                 </div>
                 <div>
                   <label className="text-sm font-medium text-foreground mb-1.5 block">Temperature: {temperature.toFixed(2)}</label>
@@ -1089,12 +1178,16 @@ export default function AgentDetailPage() {
               className="w-full rounded-md border border-border bg-background px-4 py-3 text-sm text-center mb-6 focus:outline-none focus:ring-1 focus:ring-ring"
               value={testLeadName}
               onChange={e => setTestLeadName(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && testLeadName.trim() && handleStartTestCall(testLeadName.trim())}
-              placeholder="e.g. John"
+              onKeyDown={e => e.key === 'Enter' && handleStartTestCall(testLeadName.trim() || 'Test User')}
+              placeholder="e.g. John (defaults to Test User)"
             />
             <div className="flex gap-3">
-              <button onClick={() => setShowLeadNamePrompt(false)} className="flex-1 text-sm font-medium border border-border hover:bg-accent rounded-md py-2 transition-colors">Cancel</button>
-              <button onClick={() => testLeadName.trim() && handleStartTestCall(testLeadName.trim())} disabled={!testLeadName.trim()} className="flex-1 text-sm font-medium bg-emerald-600 text-white hover:bg-emerald-700 rounded-md py-2 transition-colors flex items-center justify-center gap-2">
+              <button type="button" onClick={() => setShowLeadNamePrompt(false)} className="flex-1 text-sm font-medium border border-border hover:bg-accent rounded-md py-2 transition-colors">Cancel</button>
+              <button 
+                type="button"
+                onClick={() => handleStartTestCall(testLeadName.trim() || 'Test User')} 
+                className="flex-1 text-sm font-medium bg-emerald-600 text-white hover:bg-emerald-500 rounded-md py-2 transition-colors flex items-center justify-center gap-2 shadow-sm"
+              >
                 <Phone className="size-4" /> Start Call
               </button>
             </div>
@@ -1123,6 +1216,21 @@ export default function AgentDetailPage() {
           danger={confirmAction.danger ?? true}
         />
       )}
+
+      {/* Persistent Floating Test Call Button (ElevenLabs style) */}
+      <button
+        type="button"
+        onClick={promptTestCall}
+        className="fixed bottom-6 right-6 z-40 flex items-center gap-2.5 px-4 py-2.5 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs shadow-xl shadow-emerald-950/40 hover:shadow-emerald-500/25 border border-emerald-400/30 transition-all hover:scale-105 active:scale-95 group"
+        title="Test Call Agent"
+      >
+        <span className="relative flex h-2.5 w-2.5">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-300 opacity-75"></span>
+          <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-200"></span>
+        </span>
+        <Phone className="size-3.5 text-white" />
+        <span>Test Call Agent</span>
+      </button>
     </div>
   );
 }

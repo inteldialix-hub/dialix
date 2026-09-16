@@ -351,15 +351,15 @@ export function TopBar() {
                 <span className="hidden sm:inline">Vars</span>
               </button>
 
-              {/* Preview Button */}
+              {/* Test Call / Preview Button */}
               <button
                 type="button"
                 onClick={onPreview}
-                className="h-8 px-2.5 sm:px-3 rounded-md border border-border bg-card/60 hover:bg-accent text-xs font-medium text-foreground transition-colors flex items-center gap-1.5 shadow-sm"
-                title="Preview / Test Call"
+                className="h-8 px-2.5 sm:px-3 rounded-md border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-xs font-semibold text-emerald-400 transition-colors flex items-center gap-1.5 shadow-sm hover:scale-[1.02] active:scale-[0.98]"
+                title="Test Call & Preview Agent"
               >
-                <Play className="size-3 fill-foreground/20 text-foreground" />
-                <span>Preview</span>
+                <PhoneCall className="size-3 text-emerald-400" />
+                <span>Test Call</span>
               </button>
 
               {/* Architect Button */}
