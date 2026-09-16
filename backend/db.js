@@ -310,6 +310,15 @@ async function initSqliteDb() {
     console.log('✓ Migrated: added campaign_id column to call_history');
   } catch (e) {}
 
+  // ── call_history migrations for inbound + detail tracking ──
+  try { db.run("ALTER TABLE call_history ADD COLUMN direction TEXT DEFAULT 'outbound'"); persistSync(); } catch (e) {}
+  try { db.run("ALTER TABLE call_history ADD COLUMN from_number TEXT"); persistSync(); } catch (e) {}
+  try { db.run("ALTER TABLE call_history ADD COLUMN end_reason TEXT"); persistSync(); } catch (e) {}
+  try { db.run("ALTER TABLE call_history ADD COLUMN recording_url TEXT"); persistSync(); } catch (e) {}
+  try { db.run("ALTER TABLE call_history ADD COLUMN cost REAL"); persistSync(); } catch (e) {}
+  try { db.run("ALTER TABLE call_history ADD COLUMN transcript TEXT"); persistSync(); } catch (e) {}
+  try { db.run("ALTER TABLE call_history ADD COLUMN updated_at TEXT"); persistSync(); } catch (e) {}
+
   db.run(`
     CREATE TABLE IF NOT EXISTS call_metrics (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -920,6 +929,15 @@ async function initPostgresDb() {
   await pool.query(`
     ALTER TABLE call_history ADD COLUMN IF NOT EXISTS campaign_id TEXT
   `);
+
+  // ── call_history PG migrations for inbound + detail tracking ──
+  await pool.query(`ALTER TABLE call_history ADD COLUMN IF NOT EXISTS direction TEXT DEFAULT 'outbound'`);
+  await pool.query(`ALTER TABLE call_history ADD COLUMN IF NOT EXISTS from_number TEXT`);
+  await pool.query(`ALTER TABLE call_history ADD COLUMN IF NOT EXISTS end_reason TEXT`);
+  await pool.query(`ALTER TABLE call_history ADD COLUMN IF NOT EXISTS recording_url TEXT`);
+  await pool.query(`ALTER TABLE call_history ADD COLUMN IF NOT EXISTS cost REAL`);
+  await pool.query(`ALTER TABLE call_history ADD COLUMN IF NOT EXISTS transcript TEXT`);
+  await pool.query(`ALTER TABLE call_history ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ`);
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS call_metrics (

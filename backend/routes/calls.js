@@ -631,4 +631,192 @@ router.get('/export/pdf', authenticate, async (req, res) => {
   }
 });
 
+// ═══════════════════════════════════════════════════════════════
+// INBOUND CALL WEBHOOK
+// When a phone number receives a call, the telephony provider
+// sends a webhook here. We look up which agent owns that number
+// and return the routing config.
+// ═══════════════════════════════════════════════════════════════
+
+const { run: dbRun, all: dbAll } = require('../db');
+const { sendWebhookEvent } = require('../lib/webhooks');
+
+/**
+ * POST /api/calls/inbound-webhook
+ * Handles inbound call routing. No auth — called by telephony providers.
+ * 
+ * The provider sends us the called number, and we tell it which agent to use.
+ * Think of it like a phone receptionist — it checks who the call is for
+ * and connects them to the right person (agent).
+ */
+router.post('/inbound-webhook', async (req, res) => {
+  try {
+    const { from_number, to_number, call_id, provider: incomingProvider } = req.body;
+
+    console.log(`[Inbound] Call from ${from_number} to ${to_number}, call_id=${call_id}`);
+
+    if (!to_number) {
+      return res.status(400).json({ error: 'to_number is required' });
+    }
+
+    // Find the phone number record and its assigned agent
+    const phoneRecord = await get(
+      `SELECT pn.*, ca.client_id, ca.agent_name, ca.provider AS agent_provider
+       FROM phone_numbers pn
+       LEFT JOIN client_agents ca ON pn.assigned_agent_id = ca.agent_id AND pn.client_id = ca.client_id
+       WHERE pn.phone_number = ?`,
+      [to_number]
+    );
+
+    if (!phoneRecord) {
+      console.warn(`[Inbound] No phone number record found for ${to_number}`);
+      return res.status(404).json({ error: 'Phone number not registered' });
+    }
+
+    if (!phoneRecord.assigned_agent_id) {
+      console.warn(`[Inbound] Phone ${to_number} has no assigned agent`);
+      return res.status(404).json({ error: 'No agent assigned to this number' });
+    }
+
+    // Log the inbound call
+    const conversationId = call_id || `inbound_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+    await dbRun(
+      `INSERT INTO call_history (client_id, agent_id, to_number, from_number, conversation_id, direction, status, created_at)
+       VALUES (?, ?, ?, ?, ?, 'inbound', 'initiated', datetime('now'))`,
+      [phoneRecord.client_id, phoneRecord.assigned_agent_id, to_number, from_number, conversationId]
+    );
+
+    // Fire webhook event for subscribers
+    sendWebhookEvent('call.inbound', {
+      conversation_id: conversationId,
+      agent_id: phoneRecord.assigned_agent_id,
+      agent_name: phoneRecord.agent_name,
+      from_number,
+      to_number,
+      direction: 'inbound',
+    }, phoneRecord.client_id);
+
+    // Return routing info to the telephony provider
+    res.json({
+      action: 'route_to_agent',
+      agent_id: phoneRecord.assigned_agent_id,
+      agent_provider: phoneRecord.agent_provider || 'elevenlabs',
+      conversation_id: conversationId,
+      phone_number_id: phoneRecord.elevenlabs_phone_number_id,
+    });
+  } catch (err) {
+    console.error('POST /api/calls/inbound-webhook error:', err);
+    res.status(500).json({ error: 'Failed to handle inbound call' });
+  }
+});
+
+/**
+ * POST /api/calls/status-webhook
+ * Receives call status updates from ElevenLabs/Vapi.
+ * Updates the call_history record and fires webhook events.
+ */
+router.post('/status-webhook', async (req, res) => {
+  try {
+    const {
+      conversation_id,
+      status,
+      duration,
+      ended_reason,
+      transcript,
+      recording_url,
+      cost,
+      provider: callProvider,
+    } = req.body;
+
+    if (!conversation_id) {
+      return res.status(400).json({ error: 'conversation_id is required' });
+    }
+
+    console.log(`[CallStatus] ${conversation_id} → ${status}, duration=${duration}s`);
+
+    // Map provider statuses to our internal statuses
+    const statusMap = {
+      'ringing': 'ringing',
+      'in-progress': 'in-progress',
+      'in-call': 'in-progress',
+      'completed': 'completed',
+      'done': 'completed',
+      'ended': 'completed',
+      'failed': 'failed',
+      'busy': 'failed',
+      'no-answer': 'failed',
+      'cancelled': 'failed',
+    };
+
+    const normalizedStatus = statusMap[status] || status;
+    const isCompleted = ['completed', 'failed'].includes(normalizedStatus);
+
+    // Update the call history record
+    const updateFields = ['status = ?', "updated_at = datetime('now')"];
+    const updateValues = [normalizedStatus];
+
+    if (duration != null) {
+      updateFields.push('duration = ?');
+      updateValues.push(duration);
+    }
+    if (ended_reason) {
+      updateFields.push('end_reason = ?');
+      updateValues.push(ended_reason);
+    }
+    if (transcript) {
+      updateFields.push('transcript = ?');
+      updateValues.push(typeof transcript === 'string' ? transcript : JSON.stringify(transcript));
+    }
+    if (recording_url) {
+      updateFields.push('recording_url = ?');
+      updateValues.push(recording_url);
+    }
+    if (cost != null) {
+      updateFields.push('cost = ?');
+      updateValues.push(cost);
+    }
+    if (isCompleted) {
+      updateFields.push("ended_at = datetime('now')");
+      // Determine success: consider a call successful if it lasted > 10 seconds
+      const isSuccess = duration > 10 ? 1 : 0;
+      updateFields.push('success = ?');
+      updateValues.push(isSuccess);
+    }
+
+    updateValues.push(conversation_id);
+
+    await dbRun(
+      `UPDATE call_history SET ${updateFields.join(', ')} WHERE conversation_id = ?`,
+      updateValues
+    );
+
+    // Fire appropriate webhook event
+    if (isCompleted) {
+      const callRecord = await get(
+        'SELECT client_id, agent_id, to_number, from_number, direction FROM call_history WHERE conversation_id = ?',
+        [conversation_id]
+      );
+      if (callRecord) {
+        const eventType = normalizedStatus === 'completed' ? 'call.completed' : 'call.failed';
+        sendWebhookEvent(eventType, {
+          conversation_id,
+          agent_id: callRecord.agent_id,
+          to_number: callRecord.to_number,
+          from_number: callRecord.from_number,
+          direction: callRecord.direction || 'outbound',
+          duration,
+          status: normalizedStatus,
+          ended_reason,
+          cost,
+        }, callRecord.client_id);
+      }
+    }
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('POST /api/calls/status-webhook error:', err);
+    res.status(500).json({ error: 'Failed to process call status' });
+  }
+});
+
 module.exports = router;
