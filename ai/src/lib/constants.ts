@@ -141,10 +141,15 @@ export const GEMINI_VOICES = [
 /* ─── Gemini — Models ──────────────────────────────────── */
 
 export const GEMINI_MODELS = [
+  { value: 'models/gemini-3.8-flash', label: 'Gemini 3.8 Flash (Latest)' },
+  { value: 'models/gemini-3.8-live', label: 'Gemini 3.8 Live (Live Audio)' },
   { value: 'models/gemini-2.5-flash-native-audio-latest', label: 'Gemini 2.5 Flash Native Audio (Live Audio)' },
   { value: 'models/gemini-3.5-transcribe-live', label: 'Gemini 3.5 Transcribe Live (Live Audio)' },
-  { value: 'models/gemini-2.5-flash-preview-tts', label: 'Gemini 2.5 Flash Preview TTS' },
   { value: 'models/gemini-3.1-flash-tts-preview', label: 'Gemini 3.1 Flash TTS Preview' },
+  { value: 'models/gemini-3.7-flash', label: 'Gemini 3.7 Flash' },
+  { value: 'models/gemini-3.5-flash', label: 'Gemini 3.5 Flash' },
+  { value: 'models/gemini-2.5-flash-preview-tts', label: 'Gemini 2.5 Flash Preview TTS' },
+  { value: 'models/gemini-2.5-pro-preview-tts', label: 'Gemini 2.5 Pro Preview TTS' },
 ];
 
 /* ─── Gemini — Thinking Levels ────────────────────────────── */
@@ -195,6 +200,9 @@ export const VAPI_LLM_OPTIONS: Record<string, { value: string; label: string }[]
     { value: 'claude-3-haiku-20240307', label: 'Claude 3 Haiku' },
   ],
   google: [
+    { value: 'gemini-3.8-flash', label: 'Gemini 3.8 Flash (Latest)' },
+    { value: 'gemini-3.7-flash', label: 'Gemini 3.7 Flash' },
+    { value: 'gemini-3.5-flash', label: 'Gemini 3.5 Flash' },
     { value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash' },
     { value: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro' },
     { value: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash' },

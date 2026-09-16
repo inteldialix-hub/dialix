@@ -605,11 +605,17 @@ router.get('/models', authenticate, async (req, res) => {
               const isTTS = name.includes('tts');
               const isNativeAudio = name.includes('native-audio');
               const isTranscribeLive = name.includes('transcribe-live');
-              return isVoiceLive || isNativeAudio || isTTS || isTranscribeLive;
+              const isGemini3 = name.includes('3.8') || name.includes('3.7') || name.includes('3.5') || name.includes('3.1');
+              const isFlagship = name.includes('flash') || name.includes('pro');
+              if (name.includes('veo') || name.includes('lyria') || name.includes('banana') || name.includes('image') || name.includes('robotics')) {
+                return false;
+              }
+              return isVoiceLive || isNativeAudio || isTTS || isTranscribeLive || (isGemini3 && isFlagship);
             })
             .map(m => {
               const isLive = (m.supportedGenerationMethods || []).includes('bidiGenerateContent');
-              const baseName = m.displayName || m.name.replace('models/', '');
+              let baseName = m.displayName || m.name.replace('models/', '');
+              if (m.name.includes('gemini-3.8')) baseName = 'Gemini 3.8 Flash (Latest)';
               return {
                 value: m.name,
                 label: baseName + (isLive ? ' (Live Audio)' : ''),
@@ -617,7 +623,11 @@ router.get('/models', authenticate, async (req, res) => {
                 is_live: isLive,
               };
             })
-            .sort((a, b) => (b.is_live ? 1 : 0) - (a.is_live ? 1 : 0));
+            .sort((a, b) => {
+              if (a.value.includes('3.8')) return -1;
+              if (b.value.includes('3.8')) return 1;
+              return (b.is_live ? 1 : 0) - (a.is_live ? 1 : 0);
+            });
         }
       } catch (gErr) {
         console.warn('Failed to fetch Gemini models from Google API:', gErr.message);
@@ -625,8 +635,15 @@ router.get('/models', authenticate, async (req, res) => {
     }
     if (geminiModels.length === 0) {
       geminiModels = [
+        { value: 'models/gemini-3.8-flash', label: 'Gemini 3.8 Flash (Latest)', is_live: false },
+        { value: 'models/gemini-3.8-live', label: 'Gemini 3.8 Live (Live Audio)', is_live: true },
         { value: 'models/gemini-2.5-flash-native-audio-latest', label: 'Gemini 2.5 Flash Native Audio (Live Audio)', is_live: true },
         { value: 'models/gemini-3.5-transcribe-live', label: 'Gemini 3.5 Transcribe Live (Live Audio)', is_live: true },
+        { value: 'models/gemini-3.1-flash-tts-preview', label: 'Gemini 3.1 Flash TTS Preview', is_live: false },
+        { value: 'models/gemini-3.7-flash', label: 'Gemini 3.7 Flash', is_live: false },
+        { value: 'models/gemini-3.5-flash', label: 'Gemini 3.5 Flash', is_live: false },
+        { value: 'models/gemini-2.5-flash-preview-tts', label: 'Gemini 2.5 Flash Preview TTS', is_live: false },
+        { value: 'models/gemini-2.5-pro-preview-tts', label: 'Gemini 2.5 Pro Preview TTS', is_live: false },
       ];
     }
 
@@ -660,6 +677,9 @@ router.get('/models', authenticate, async (req, res) => {
           { value: 'claude-3-opus-20240229', label: 'Claude 3 Opus' },
         ],
         google: [
+          { value: 'gemini-3.8-flash', label: 'Gemini 3.8 Flash (Latest)' },
+          { value: 'gemini-3.7-flash', label: 'Gemini 3.7 Flash' },
+          { value: 'gemini-3.5-flash', label: 'Gemini 3.5 Flash' },
           { value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash' },
           { value: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro' },
           { value: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash' },

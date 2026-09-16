@@ -52,10 +52,12 @@ class GeminiSession extends EventEmitter {
     this.closed = false;
     this.startTime = Date.now();
     this.transcript = [];
-    // Ensure model is valid for Gemini Live (bidiGenerateContent only supports native-audio models)
+    this._currentUserSpeech = '';
+    this._currentTurnSpokenText = '';
+    this._currentTurnModelText = '';
     let requestedModel = config.model || process.env.GEMINI_MODEL || DEFAULT_MODEL;
-    if (!requestedModel || !requestedModel.includes('native-audio')) {
-      console.warn(`[Gemini] Model "${requestedModel}" does not support live audio bidiGenerateContent. Falling back to "${DEFAULT_MODEL}".`);
+    if (!requestedModel || (!requestedModel.includes('native-audio') && !requestedModel.includes('transcribe-live') && !requestedModel.includes('3.8-live'))) {
+      console.warn(`[Gemini] Model "${requestedModel}" is not a native live-audio model. Falling back to "${DEFAULT_MODEL}".`);
       requestedModel = DEFAULT_MODEL;
     }
 
@@ -197,6 +199,14 @@ class GeminiSession extends EventEmitter {
     if (msg.serverContent) {
       const sc = msg.serverContent;
 
+      // User interruption signal (barge-in detected by Google's VAD)
+      if (sc.interrupted) {
+        console.log(`[Gemini] Barge-in interrupted in session ${this.sessionId}`);
+        this._currentTurnSpokenText = '';
+        this._currentTurnModelText = '';
+        this.emit('interrupted');
+      }
+
       // Accumulate output audio transcription (actual words spoken by model)
       if (sc.outputTranscription) {
         const chunk = sc.outputTranscription.text || (sc.outputTranscription.parts && sc.outputTranscription.parts.map(p => p.text).join('')) || '';
@@ -207,6 +217,14 @@ class GeminiSession extends EventEmitter {
 
       // Model turn — audio or text parts
       if (sc.modelTurn && sc.modelTurn.parts) {
+        // If user speech was pending, finalize user turn before agent responds
+        if (this._currentUserSpeech && this._currentUserSpeech.trim()) {
+          const userFinal = this._currentUserSpeech.trim();
+          this.emit('transcript', { text: userFinal, isFinal: true });
+          this.transcript.push({ role: 'user', text: userFinal, time: Date.now() });
+          this._currentUserSpeech = '';
+        }
+
         for (const part of sc.modelTurn.parts) {
           if (part.inlineData) {
             // Audio response
@@ -223,6 +241,14 @@ class GeminiSession extends EventEmitter {
 
       // Turn complete — emit the spoken agent text
       if (sc.turnComplete) {
+        // Finalize any lingering user speech
+        if (this._currentUserSpeech && this._currentUserSpeech.trim()) {
+          const userFinal = this._currentUserSpeech.trim();
+          this.emit('transcript', { text: userFinal, isFinal: true });
+          this.transcript.push({ role: 'user', text: userFinal, time: Date.now() });
+          this._currentUserSpeech = '';
+        }
+
         const spoken = (this._currentTurnSpokenText || this._currentTurnModelText || '').trim();
         if (spoken) {
           // If thoughts header was included, clean it
@@ -236,13 +262,16 @@ class GeminiSession extends EventEmitter {
         this.emit('turn_complete');
       }
 
-      // Input transcription (user speech → text)
+      // Input transcription (user speech streaming tokens → accumulated text)
       const inputTx = sc.inputTranscription || sc.interimInputTranscription;
       if (inputTx) {
-        const text = inputTx.text || (inputTx.parts && inputTx.parts.map(p => p.text).join('')) || '';
-        if (text.trim()) {
-          this.emit('transcript', text.trim());
-          this.transcript.push({ role: 'user', text: text.trim(), time: Date.now() });
+        const chunk = inputTx.text || (inputTx.parts && inputTx.parts.map(p => p.text).join('')) || '';
+        if (chunk) {
+          this._currentUserSpeech = (this._currentUserSpeech || '') + chunk;
+          const currentText = this._currentUserSpeech.trim();
+          if (currentText) {
+            this.emit('transcript', { text: currentText, isFinal: false });
+          }
         }
       }
     }
@@ -300,6 +329,15 @@ class GeminiSession extends EventEmitter {
     } catch (err) {
       console.error(`[Gemini] Session ${this.sessionId} send text error:`, err.message);
     }
+  }
+
+  /**
+   * Interrupt the current agent speech turn (client-side or VAD barge-in).
+   */
+  interrupt() {
+    this._currentTurnSpokenText = '';
+    this._currentTurnModelText = '';
+    this.emit('interrupted');
   }
 
   /**

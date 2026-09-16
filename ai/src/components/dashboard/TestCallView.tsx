@@ -118,6 +118,7 @@ export default function TestCallView({ agentId, agentName, leadName, token, prov
   const streamRef = useRef<MediaStream | null>(null);
   const micCtxRef = useRef<AudioContext | null>(null);
   const playCtxRef = useRef<AudioContext | null>(null);
+  const activeSourcesRef = useRef<AudioBufferSourceNode[]>([]);
   const processorRef = useRef<ScriptProcessorNode | null>(null);
   const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
   const outputSRRef = useRef(16000);
@@ -126,6 +127,24 @@ export default function TestCallView({ agentId, agentName, leadName, token, prov
   const transcriptEndRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => { isMutedRef.current = isMuted; }, [isMuted]);
+
+  // Immediate interruption / barge-in helper
+  const stopAgentPlayback = useCallback(() => {
+    if (activeSourcesRef.current.length > 0) {
+      activeSourcesRef.current.forEach(src => {
+        try {
+          src.stop();
+          src.disconnect();
+        } catch {}
+      });
+      activeSourcesRef.current = [];
+    }
+    const ctx = playCtxRef.current;
+    nextPlayTimeRef.current = ctx ? ctx.currentTime : 0;
+    playEndWallTimeRef.current = 0;
+    peakRmsRef.current = 0;
+    audioLevelRef.current = 0;
+  }, []);
 
   // Load history on mount
   useEffect(() => {
@@ -137,7 +156,7 @@ export default function TestCallView({ agentId, agentName, leadName, token, prov
     transcriptEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [transcript]);
 
-  // Real-time client-side speech recognition for user transcription
+  // Real-time client-side speech recognition for user transcription & instant barge-in
   useEffect(() => {
     if (status !== 'active' || isMuted) return;
     if (typeof window === 'undefined') return;
@@ -160,9 +179,22 @@ export default function TestCallView({ agentId, agentName, leadName, token, prov
         if (lastResult && lastResult.isFinal) {
           const userSpoken = lastResult[0]?.transcript?.trim();
           if (userSpoken) {
+            // Immediate barge-in if agent is speaking
+            if (playEndWallTimeRef.current > Date.now()) {
+              stopAgentPlayback();
+              if (wsRef.current?.readyState === WebSocket.OPEN) {
+                wsRef.current.send(JSON.stringify({ type: 'interrupt' }));
+              }
+            }
+
             setTranscript(prev => {
-              const last = [...prev].reverse().find(e => e.role === 'user');
-              if (last && (last.text.toLowerCase() === userSpoken.toLowerCase() || (Date.now() - last.time < 3000 && last.text.includes(userSpoken)))) {
+              const lastIdx = prev.length - 1;
+              if (lastIdx >= 0 && prev[lastIdx].role === 'user') {
+                if (userSpoken.length >= prev[lastIdx].text.length) {
+                  const updated = [...prev];
+                  updated[lastIdx] = { ...updated[lastIdx], text: userSpoken, time: Date.now() };
+                  return updated;
+                }
                 return prev;
               }
               return [...prev, { role: 'user', text: userSpoken, time: Date.now() }];
@@ -180,7 +212,7 @@ export default function TestCallView({ agentId, agentName, leadName, token, prov
         try { recognition.stop(); } catch {}
       }
     };
-  }, [status, isMuted]);
+  }, [status, isMuted, stopAgentPlayback]);
 
   // Save call when it ends
   useEffect(() => {
@@ -287,6 +319,11 @@ export default function TestCallView({ agentId, agentName, leadName, token, prov
       src.start(startAt);
       nextPlayTimeRef.current = startAt + buffer.duration;
 
+      activeSourcesRef.current.push(src);
+      src.onended = () => {
+        activeSourcesRef.current = activeSourcesRef.current.filter(s => s !== src);
+      };
+
       // Track when ALL buffered audio will finish in wall-clock time
       // This is the key: even though chunks arrive in a burst,
       // this tells us when playback actually ends
@@ -309,6 +346,18 @@ export default function TestCallView({ agentId, agentName, leadName, token, prov
     processor.onaudioprocess = (e) => {
       if (ws.readyState !== WebSocket.OPEN || isMutedRef.current) return;
       const input = e.inputBuffer.getChannelData(0);
+
+      // Instant local barge-in: detect user voice energy while agent is speaking
+      let sum = 0;
+      for (let i = 0; i < input.length; i++) sum += input[i] * input[i];
+      const micRms = Math.sqrt(sum / input.length);
+      if (micRms > 0.05 && playEndWallTimeRef.current > Date.now()) {
+        stopAgentPlayback();
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: 'interrupt' }));
+        }
+      }
+
       let samples: Float32Array;
       if (nativeSR === 16000) { samples = input; }
       else {
@@ -337,10 +386,11 @@ export default function TestCallView({ agentId, agentName, leadName, token, prov
     silentGain.gain.value = 0;
     processor.connect(silentGain);
     silentGain.connect(micCtx.destination);
-  }, []);
+  }, [stopAgentPlayback]);
 
   /* ── Cleanup all resources ── */
   const doCleanup = useCallback(() => {
+    stopAgentPlayback();
     if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
     // Vapi SDK cleanup
     if (vapiRef.current) { try { vapiRef.current.stop(); } catch {} vapiRef.current = null; }
@@ -462,16 +512,21 @@ export default function TestCallView({ agentId, agentName, leadName, token, prov
               const msg = JSON.parse(evt.data.toString());
               if (msg.type === 'audio') {
                 if (msg.data) playChunk(msg.data);
+              } else if (msg.type === 'interrupted') {
+                stopAgentPlayback();
               } else if (msg.type === 'text') {
                 if (msg.text) setTranscript(prev => [...prev, { role: 'agent', text: msg.text, time: Date.now() }]);
               } else if (msg.type === 'transcript') {
-                if (msg.text) {
+                const text = (msg.text || '').trim();
+                if (text) {
                   setTranscript(prev => {
-                    const lastUser = [...prev].reverse().find(e => e.role === 'user');
-                    if (lastUser && (lastUser.text.toLowerCase() === msg.text.toLowerCase() || (Date.now() - lastUser.time < 3500 && lastUser.text.includes(msg.text)))) {
-                      return prev;
+                    const lastIdx = prev.length - 1;
+                    if (lastIdx >= 0 && prev[lastIdx].role === 'user') {
+                      const updated = [...prev];
+                      updated[lastIdx] = { ...updated[lastIdx], text, time: Date.now() };
+                      return updated;
                     }
-                    return [...prev, { role: 'user', text: msg.text, time: Date.now() }];
+                    return [...prev, { role: 'user', text, time: Date.now() }];
                   });
                 }
               } else if (msg.type === 'error') {

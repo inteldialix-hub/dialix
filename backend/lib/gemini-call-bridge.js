@@ -121,9 +121,17 @@ function attachGeminiCallBridge(server) {
       });
 
       // Forward transcription to browser
-      session.on('transcript', (text) => {
+      session.on('transcript', (txData) => {
         if (ws.readyState === ws.OPEN) {
-          ws.send(JSON.stringify({ type: 'transcript', text }));
+          const payload = typeof txData === 'string' ? { type: 'transcript', text: txData, isFinal: true } : { type: 'transcript', ...txData };
+          ws.send(JSON.stringify(payload));
+        }
+      });
+
+      // Forward interruption signal to browser
+      session.on('interrupted', () => {
+        if (ws.readyState === ws.OPEN) {
+          ws.send(JSON.stringify({ type: 'interrupted' }));
         }
       });
 
@@ -184,6 +192,9 @@ function attachGeminiCallBridge(server) {
         } else if (msg.type === 'text' && session) {
           // Browser sends text
           session.sendText(msg.text);
+        } else if (msg.type === 'interrupt' && session) {
+          // Browser user interrupted current agent speech
+          session.interrupt();
         } else if (msg.type === 'end') {
           // Browser wants to end the call
           if (session) session.close('user_ended');
