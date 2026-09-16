@@ -836,9 +836,109 @@ export default function AgentDetailPage() {
                 </div>
               </div>
             </div>
-          </div>
-        )}
 
+          {/* Gemini Advanced Settings — only shown for Gemini agents */}
+          {provider === 'gemini' && (
+            <div className="rounded-lg border border-border bg-card p-6">
+              <h3 className="text-sm font-medium mb-1 flex items-center gap-2"><Sliders className="size-4" /> Gemini Advanced Settings</h3>
+              <p className="text-xs text-muted-foreground mb-5">Fine-tune how Gemini handles reasoning, context, and conversation features.</p>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Thinking Level */}
+                <div>
+                  <label className="text-sm font-medium text-foreground mb-1.5 block">Thinking Level</label>
+                  <p className="text-xs text-muted-foreground mb-2">Controls how much internal reasoning the model does before responding.</p>
+                  <select className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring" value={thinkingLevel} onChange={e => set(setThinkingLevel)(e.target.value)}>
+                    {GEMINI_THINKING_LEVELS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                  </select>
+                </div>
+
+                {/* Media Resolution */}
+                <div>
+                  <label className="text-sm font-medium text-foreground mb-1.5 block">Media Resolution</label>
+                  <p className="text-xs text-muted-foreground mb-2">Quality level for processing images and video input.</p>
+                  <select className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring" value={mediaResolution} onChange={e => set(setMediaResolution)(e.target.value)}>
+                    {GEMINI_MEDIA_RESOLUTIONS.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
+                  </select>
+                </div>
+
+                {/* Max Context Size */}
+                <div>
+                  <label className="text-sm font-medium text-foreground mb-1.5 block">Max Context Size: {maxContextSize.toLocaleString()} tokens</label>
+                  <p className="text-xs text-muted-foreground mb-2">Maximum conversation history the model can remember.</p>
+                  <input type="range" className="w-full accent-primary" min="8000" max="1000000" step="8000" value={maxContextSize} onChange={e => set(setMaxContextSize)(parseInt(e.target.value))} />
+                  <div className="flex justify-between text-[11px] text-muted-foreground mt-1"><span>8K</span><span>1M</span></div>
+                </div>
+
+                {/* Target Context Size */}
+                <div>
+                  <label className="text-sm font-medium text-foreground mb-1.5 block">Target Context Size: {targetContextSize.toLocaleString()} tokens</label>
+                  <p className="text-xs text-muted-foreground mb-2">Context is compressed down to this size when the max is reached.</p>
+                  <input type="range" className="w-full accent-primary" min="4000" max="500000" step="4000" value={targetContextSize} onChange={e => set(setTargetContextSize)(parseInt(e.target.value))} />
+                  <div className="flex justify-between text-[11px] text-muted-foreground mt-1"><span>4K</span><span>500K</span></div>
+                </div>
+              </div>
+
+              {/* Toggles */}
+              <div className="mt-6 space-y-4 border-t border-border pt-5">
+                {/* Google Search Grounding */}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="text-sm font-medium text-foreground">Google Search Grounding</span>
+                    <p className="text-xs text-muted-foreground mt-0.5">Let the model search Google to answer questions with up-to-date info.</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => set(setGroundingGoogleSearch)(!groundingGoogleSearch)}
+                    className={cn(
+                      "relative inline-flex h-6 w-11 items-center rounded-full transition-colors shrink-0",
+                      groundingGoogleSearch ? "bg-foreground" : "bg-muted"
+                    )}
+                  >
+                    <span className={cn("inline-block size-4 rounded-full bg-background transition-transform", groundingGoogleSearch ? "translate-x-6" : "translate-x-1")} />
+                  </button>
+                </div>
+
+                {/* Affective Dialog */}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="text-sm font-medium text-foreground">Affective Dialog</span>
+                    <p className="text-xs text-muted-foreground mt-0.5">Enables emotional understanding — the model detects and responds to the caller&apos;s tone and mood.</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => set(setAffectiveDialog)(!affectiveDialog)}
+                    className={cn(
+                      "relative inline-flex h-6 w-11 items-center rounded-full transition-colors shrink-0",
+                      affectiveDialog ? "bg-foreground" : "bg-muted"
+                    )}
+                  >
+                    <span className={cn("inline-block size-4 rounded-full bg-background transition-transform", affectiveDialog ? "translate-x-6" : "translate-x-1")} />
+                  </button>
+                </div>
+
+                {/* Proactive Audio */}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="text-sm font-medium text-foreground">Proactive Audio</span>
+                    <p className="text-xs text-muted-foreground mt-0.5">Allow the model to speak unprompted — e.g. follow-up questions or reminders after silence.</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => set(setProactiveAudio)(!proactiveAudio)}
+                    className={cn(
+                      "relative inline-flex h-6 w-11 items-center rounded-full transition-colors shrink-0",
+                      proactiveAudio ? "bg-foreground" : "bg-muted"
+                    )}
+                  >
+                    <span className={cn("inline-block size-4 rounded-full bg-background transition-transform", proactiveAudio ? "translate-x-6" : "translate-x-1")} />
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+        )}
         {activeTab === 'voice' && (
           <div className="space-y-6">
             {/* TTS Model Family — ElevenLabs only */}

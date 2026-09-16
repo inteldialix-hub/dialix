@@ -128,28 +128,49 @@ export const AGENT_PROVIDERS = [
 /* ─── Gemini — Built-in Voices ─────────────────────────── */
 
 export const GEMINI_VOICES = [
+  { value: 'Achernar', label: 'Achernar' },
+  { value: 'Achird', label: 'Achird' },
+  { value: 'Algenib', label: 'Algenib' },
+  { value: 'Algieba', label: 'Algieba' },
+  { value: 'Alnilam', label: 'Alnilam' },
   { value: 'Aoede', label: 'Aoede' },
+  { value: 'Autonoe', label: 'Autonoe' },
+  { value: 'Callirrhoe', label: 'Callirrhoe' },
   { value: 'Charon', label: 'Charon' },
+  { value: 'Despina', label: 'Despina' },
+  { value: 'Enceladus', label: 'Enceladus' },
+  { value: 'Erinome', label: 'Erinome' },
   { value: 'Fenrir', label: 'Fenrir' },
+  { value: 'Gacrux', label: 'Gacrux' },
+  { value: 'Iapetus', label: 'Iapetus' },
   { value: 'Kore', label: 'Kore' },
-  { value: 'Puck', label: 'Puck' },
+  { value: 'Laomedeia', label: 'Laomedeia' },
   { value: 'Leda', label: 'Leda' },
   { value: 'Orus', label: 'Orus' },
+  { value: 'Puck', label: 'Puck' },
+  { value: 'Pulcherrima', label: 'Pulcherrima' },
+  { value: 'Rasalgethi', label: 'Rasalgethi' },
+  { value: 'Sadachbia', label: 'Sadachbia' },
+  { value: 'Sadaltager', label: 'Sadaltager' },
+  { value: 'Schedar', label: 'Schedar' },
+  { value: 'Sulafat', label: 'Sulafat' },
+  { value: 'Umbriel', label: 'Umbriel' },
+  { value: 'Vindemiatrix', label: 'Vindemiatrix' },
   { value: 'Zephyr', label: 'Zephyr' },
+  { value: 'Zubenelgenubi', label: 'Zubenelgenubi' },
 ];
 
 /* ─── Gemini — Models ──────────────────────────────────── */
 
 export const GEMINI_MODELS = [
-  { value: 'models/gemini-3.8-flash', label: 'Gemini 3.8 Flash (Latest Flagship)' },
-  { value: 'models/gemini-3.8-live', label: 'Gemini 3.8 Live (Live Audio & Interruption)' },
+  { value: 'models/gemini-3.8-live', label: 'Gemini 3.8 Live (Recommended — Live Audio)' },
   { value: 'models/gemini-3.8-live-extended-thinking', label: 'Gemini 3.8 Live Extended Thinking (Live Audio)' },
   { value: 'models/gemini-2.5-flash-native-audio-latest', label: 'Gemini 2.5 Flash Native Audio (Live Audio)' },
+  { value: 'models/gemini-3.8-flash', label: 'Gemini 3.8 Flash (Text Only — Not Live)' },
   { value: 'models/gemini-3.1-flash-tts-preview', label: 'Gemini 3.1 Flash TTS Preview (Expressive)' },
   { value: 'models/gemini-2.5-pro-preview-tts', label: 'Gemini 2.5 Pro Preview TTS (High Fidelity)' },
   { value: 'models/gemini-2.5-flash-preview-tts', label: 'Gemini 2.5 Flash Preview TTS' },
   { value: 'models/gemini-2.5-flash-lite-preview-tts', label: 'Gemini 2.5 Flash Lite Preview TTS' },
-  { value: 'models/gemini-3.5-transcribe-live', label: 'Gemini 3.5 Transcribe Live' },
 ];
 
 /* ─── Gemini — Thinking Levels ────────────────────────────── */
