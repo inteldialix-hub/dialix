@@ -20,7 +20,7 @@ const WebSocket = require('ws');
 const { EventEmitter } = require('events');
 
 const GEMINI_WS_URL = 'wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent';
-const DEFAULT_MODEL = 'models/gemini-2.5-flash-native-audio-latest';
+const DEFAULT_MODEL = 'models/gemini-3.8-live';
 const SESSION_TIMEOUT = 600000; // 10 minutes max session
 
 // Built-in Gemini voices
@@ -35,13 +35,15 @@ const activeSessions = new Map();
 /**
  * GeminiSession — manages a single Gemini Live WebSocket session.
  * Extends EventEmitter:
- *   - 'ready'        : session setup complete
- *   - 'audio'        : audio chunk received (base64 PCM16)
- *   - 'text'         : text response received
- *   - 'transcript'   : user speech transcribed
- *   - 'turn_complete': model finished speaking
- *   - 'error'        : error occurred
- *   - 'closed'       : session ended
+ *   - 'ready'          : session setup complete
+ *   - 'audio'          : audio chunk received (base64 PCM16)
+ *   - 'text'           : text response received
+ *   - 'user_transcript': user complete turn speech
+ *   - 'agent_response' : agent complete turn speech
+ *   - 'interrupted'    : barge-in detected, agent interrupted
+ *   - 'turn_complete'  : model finished speaking
+ *   - 'error'          : error occurred
+ *   - 'closed'         : session ended
  */
 class GeminiSession extends EventEmitter {
   constructor(sessionId, config = {}) {
@@ -55,10 +57,21 @@ class GeminiSession extends EventEmitter {
     this._currentUserSpeech = '';
     this._currentTurnSpokenText = '';
     this._currentTurnModelText = '';
+    this._isTurnInterrupted = false;
+
     let requestedModel = config.model || process.env.GEMINI_MODEL || DEFAULT_MODEL;
-    if (!requestedModel || (!requestedModel.includes('native-audio') && !requestedModel.includes('transcribe-live') && !requestedModel.includes('3.8-live'))) {
-      console.warn(`[Gemini] Model "${requestedModel}" is not a native live-audio model. Falling back to "${DEFAULT_MODEL}".`);
-      requestedModel = DEFAULT_MODEL;
+    // If model is a TTS-only model or 3.8-flash (REST), use gemini-3.8-live for bidirectional live calls
+    if (!requestedModel || requestedModel.includes('tts') || requestedModel.includes('3.8-flash')) {
+      requestedModel = 'models/gemini-3.8-live';
+    } else if (!requestedModel.includes('native-audio') && !requestedModel.includes('transcribe-live') && !requestedModel.includes('3.8-live')) {
+      console.warn(`[Gemini] Model "${requestedModel}" is not a native live-audio model. Using "models/gemini-3.8-live".`);
+      requestedModel = 'models/gemini-3.8-live';
+    }
+
+    // Extended thinking model requires thinkingConfig
+    let thinkingConfig = config.thinkingConfig;
+    if (requestedModel.includes('extended-thinking') && !thinkingConfig) {
+      thinkingConfig = { thinkingLevel: 'medium' };
     }
 
     this.config = {
@@ -68,6 +81,7 @@ class GeminiSession extends EventEmitter {
       temperature: config.temperature ?? 1.0,
       language: config.language || 'en',
       responseModalities: config.responseModalities || ['AUDIO'],
+      thinkingConfig,
       ...config,
       model: requestedModel,
     };
@@ -151,29 +165,34 @@ class GeminiSession extends EventEmitter {
       generationConfig.thinkingConfig = this.config.thinkingConfig;
     }
 
+    const voiceDirectives = 
+      '\n\n[NATURAL CONVERSATIONAL VOICE & INTERRUPTION GUIDELINES]' +
+      '\n- You are having a real-time spoken telephone conversation. You MUST sound like a real, warm, spontaneous human speaker—not a formal AI reading text.' +
+      '\n- Use natural casual filler words, hesitation sounds, and conversational vocal nods throughout your speech: "Hmm...", "Uh-huh", "Yeah", "Right", "Gotcha", "Mm-hmm", "Well...", "Ah, sure".' +
+      '\n- CRITICAL: WHEN THE CALLER INTERRUPTS YOU (BARGE-IN):' +
+      '\n  * The caller may speak or interrupt you mid-sentence. When this happens, STOP immediately and yield.' +
+      '\n  * When you respond to the interruption, you MUST ALWAYS start naturally with a casual filler word or conversational acknowledgment like:' +
+      '\n    "Hmm, yeah, go ahead...", "Ah, got it, sure...", "Mm-hmm, right...", "Hmm, yeah so...", "Oh, gotcha, yeah...", or "Well, sure...".' +
+      '\n  * Never sound startled, defensive, or annoyed by interruptions. Treat interruptions smoothly and naturally like a real human telephone conversation.' +
+      '\n- Turn length: Keep your spoken answers concise and punchy (1 to 2 spoken sentences per turn) so the conversation flows back and forth effortlessly.' +
+      '\n- ABSOLUTE PROHIBITION ON WRITTEN ARTIFACTS:' +
+      '\n  * NO asterisks (*), NO markdown formatting, NO bullet points, NO numbered lists, NO emojis.' +
+      '\n  * NO stage directions or parenthetical tags like (laughs) or [clears throat].' +
+      '\n  * Speak strictly natural English words that can be pronounced aloud over the telephone.';
+
     const setup = {
       model: this.config.model,
       generationConfig,
       inputAudioTranscription: {},
       outputAudioTranscription: {},
       systemInstruction: {
-        parts: [{ text: this.config.systemPrompt }],
+        parts: [{ text: (this.config.systemPrompt || 'You are a helpful AI voice assistant.') + voiceDirectives }],
       },
     };
 
     // Tools (e.g. Google Search grounding)
     if (this.config.tools && this.config.tools.length > 0) {
       setup.tools = this.config.tools;
-    }
-
-    // Affective dialog
-    if (this.config.enableAffectiveDialog) {
-      setup.enableAffectiveDialog = true;
-    }
-
-    // Proactive audio
-    if (this.config.proactivity) {
-      setup.proactivity = this.config.proactivity;
     }
 
     // Context window compression
@@ -202,6 +221,7 @@ class GeminiSession extends EventEmitter {
       // User interruption signal (barge-in detected by Google's VAD)
       if (sc.interrupted) {
         console.log(`[Gemini] Barge-in interrupted in session ${this.sessionId}`);
+        this._isTurnInterrupted = true;
         this._currentTurnSpokenText = '';
         this._currentTurnModelText = '';
         this.emit('interrupted');
@@ -210,23 +230,26 @@ class GeminiSession extends EventEmitter {
       // Accumulate output audio transcription (actual words spoken by model)
       if (sc.outputTranscription) {
         const chunk = sc.outputTranscription.text || (sc.outputTranscription.parts && sc.outputTranscription.parts.map(p => p.text).join('')) || '';
-        if (chunk) {
+        if (chunk && !this._isTurnInterrupted) {
           this._currentTurnSpokenText = (this._currentTurnSpokenText || '') + chunk;
         }
       }
 
       // Model turn — audio or text parts
       if (sc.modelTurn && sc.modelTurn.parts) {
-        // If user speech was pending, finalize user turn before agent responds
+        // If turn was interrupted, reset flag on the fresh model turn
+        this._isTurnInterrupted = false;
+
+        // Finalize user transcript now that model is answering
         if (this._currentUserSpeech && this._currentUserSpeech.trim()) {
           const userFinal = this._currentUserSpeech.trim();
-          this.emit('transcript', { text: userFinal, isFinal: true });
+          this.emit('user_transcript', userFinal);
           this.transcript.push({ role: 'user', text: userFinal, time: Date.now() });
           this._currentUserSpeech = '';
         }
 
         for (const part of sc.modelTurn.parts) {
-          if (part.inlineData) {
+          if (part.inlineData && !this._isTurnInterrupted) {
             // Audio response
             this.emit('audio', {
               data: part.inlineData.data, // base64-encoded PCM16
@@ -241,20 +264,18 @@ class GeminiSession extends EventEmitter {
 
       // Turn complete — emit the spoken agent text
       if (sc.turnComplete) {
-        // Finalize any lingering user speech
         if (this._currentUserSpeech && this._currentUserSpeech.trim()) {
           const userFinal = this._currentUserSpeech.trim();
-          this.emit('transcript', { text: userFinal, isFinal: true });
+          this.emit('user_transcript', userFinal);
           this.transcript.push({ role: 'user', text: userFinal, time: Date.now() });
           this._currentUserSpeech = '';
         }
 
         const spoken = (this._currentTurnSpokenText || this._currentTurnModelText || '').trim();
         if (spoken) {
-          // If thoughts header was included, clean it
           const cleaned = spoken.replace(/^\*\*.*?\*\*\s*/s, '').trim();
           const finalAgentText = cleaned || spoken;
-          this.emit('text', finalAgentText);
+          this.emit('agent_response', finalAgentText);
           this.transcript.push({ role: 'agent', text: finalAgentText, time: Date.now() });
         }
         this._currentTurnSpokenText = '';
@@ -262,16 +283,12 @@ class GeminiSession extends EventEmitter {
         this.emit('turn_complete');
       }
 
-      // Input transcription (user speech streaming tokens → accumulated text)
+      // Input transcription (user speech streaming tokens → accumulated silently)
       const inputTx = sc.inputTranscription || sc.interimInputTranscription;
       if (inputTx) {
         const chunk = inputTx.text || (inputTx.parts && inputTx.parts.map(p => p.text).join('')) || '';
         if (chunk) {
           this._currentUserSpeech = (this._currentUserSpeech || '') + chunk;
-          const currentText = this._currentUserSpeech.trim();
-          if (currentText) {
-            this.emit('transcript', { text: currentText, isFinal: false });
-          }
         }
       }
     }
@@ -335,6 +352,7 @@ class GeminiSession extends EventEmitter {
    * Interrupt the current agent speech turn (client-side or VAD barge-in).
    */
   interrupt() {
+    this._isTurnInterrupted = true;
     this._currentTurnSpokenText = '';
     this._currentTurnModelText = '';
     this.emit('interrupted');

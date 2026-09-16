@@ -57,9 +57,9 @@ function attachGeminiCallBridge(server) {
 
     try {
       // Build Gemini session config from agent settings
-      let model = agentConfig.model;
-      if (!model || !model.includes('native-audio')) {
-        model = 'models/gemini-2.5-flash-native-audio-latest';
+      let model = agentConfig.model || 'models/gemini-3.8-live';
+      if (model.includes('tts') || model.includes('3.8-flash')) {
+        model = 'models/gemini-3.8-live';
       }
 
       const sessionOpts = {
@@ -113,6 +113,19 @@ function attachGeminiCallBridge(server) {
         }
       });
 
+      // Forward clean turn-based transcripts to browser (matching ElevenLabs & Vapi)
+      session.on('user_transcript', (text) => {
+        if (ws.readyState === ws.OPEN && text) {
+          ws.send(JSON.stringify({ type: 'user_transcript', text }));
+        }
+      });
+
+      session.on('agent_response', (text) => {
+        if (ws.readyState === ws.OPEN && text) {
+          ws.send(JSON.stringify({ type: 'agent_response', text }));
+        }
+      });
+
       // Forward Gemini text to browser
       session.on('text', (text) => {
         if (ws.readyState === ws.OPEN) {
@@ -120,7 +133,7 @@ function attachGeminiCallBridge(server) {
         }
       });
 
-      // Forward transcription to browser
+      // Forward transcription to browser (legacy fallback)
       session.on('transcript', (txData) => {
         if (ws.readyState === ws.OPEN) {
           const payload = typeof txData === 'string' ? { type: 'transcript', text: txData, isFinal: true } : { type: 'transcript', ...txData };

@@ -590,61 +590,52 @@ router.get('/models', authenticate, async (req, res) => {
       ];
     }
 
-    // ── Dynamic Gemini Models Discovery ──
-    let geminiModels = [];
+    // ── Curated Gemini Speech & Live Audio Models (Google AI Studio & Speech Docs) ──
+    const OFFICIAL_GEMINI_SPEECH_MODELS = [
+      { value: 'models/gemini-3.8-flash', label: 'Gemini 3.8 Flash (Latest Flagship)', is_live: false, description: 'Latest ultra-fast model with state-of-the-art conversational reasoning.' },
+      { value: 'models/gemini-3.8-live', label: 'Gemini 3.8 Live (Live Audio & Interruption)', is_live: true, description: 'Low-latency bidirectional conversational speech with natural barge-in.' },
+      { value: 'models/gemini-3.8-live-extended-thinking', label: 'Gemini 3.8 Live Extended Thinking (Live Audio)', is_live: true, description: 'Live audio model with deep reasoning and realistic conversational flow.' },
+      { value: 'models/gemini-2.5-flash-native-audio-latest', label: 'Gemini 2.5 Flash Native Audio (Live Audio)', is_live: true, description: 'Native audio live stream model with instant voice response.' },
+      { value: 'models/gemini-3.1-flash-tts-preview', label: 'Gemini 3.1 Flash TTS Preview (Expressive)', is_live: false, description: 'Advanced speech generation with fine-grained emotional and vocal control.' },
+      { value: 'models/gemini-2.5-pro-preview-tts', label: 'Gemini 2.5 Pro Preview TTS (High Fidelity)', is_live: false, description: 'High-fidelity audio generation for studio-grade realism.' },
+      { value: 'models/gemini-2.5-flash-preview-tts', label: 'Gemini 2.5 Flash Preview TTS', is_live: false, description: 'Cost-efficient, low-latency text-to-speech generation.' },
+      { value: 'models/gemini-2.5-flash-lite-preview-tts', label: 'Gemini 2.5 Flash Lite Preview TTS', is_live: false, description: 'Lightweight, ultra-fast speech synthesis.' },
+      { value: 'models/gemini-3.5-transcribe-live', label: 'Gemini 3.5 Transcribe Live', is_live: true, description: 'Optimized for live transcription and real-time dialog.' },
+    ];
+
+    let geminiModels = [...OFFICIAL_GEMINI_SPEECH_MODELS];
+
     if (process.env.GOOGLE_API_KEY) {
       try {
         const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${process.env.GOOGLE_API_KEY}`);
         if (geminiRes.ok) {
           const gData = await geminiRes.json();
-          geminiModels = (gData.models || [])
-            .filter(m => {
-              const name = m.name.toLowerCase();
-              const methods = m.supportedGenerationMethods || [];
-              const isVoiceLive = methods.includes('bidiGenerateContent');
-              const isTTS = name.includes('tts');
-              const isNativeAudio = name.includes('native-audio');
-              const isTranscribeLive = name.includes('transcribe-live');
-              const isGemini3 = name.includes('3.8') || name.includes('3.7') || name.includes('3.5') || name.includes('3.1');
-              const isFlagship = name.includes('flash') || name.includes('pro');
-              if (name.includes('veo') || name.includes('lyria') || name.includes('banana') || name.includes('image') || name.includes('robotics')) {
-                return false;
-              }
-              return isVoiceLive || isNativeAudio || isTTS || isTranscribeLive || (isGemini3 && isFlagship);
-            })
-            .map(m => {
-              const isLive = (m.supportedGenerationMethods || []).includes('bidiGenerateContent');
+          const existingValues = new Set(geminiModels.map(m => m.value));
+          for (const m of (gData.models || [])) {
+            const name = m.name.toLowerCase();
+            const methods = m.supportedGenerationMethods || [];
+            const isVoiceLive = methods.includes('bidiGenerateContent');
+            const isTTS = name.includes('tts');
+            const isNativeAudio = name.includes('native-audio');
+            const isTranscribeLive = name.includes('transcribe-live');
+            const isSpeechRelated = isVoiceLive || isTTS || isNativeAudio || isTranscribeLive;
+
+            // Only append genuinely new speech-capable models from the API without duplicating
+            if (isSpeechRelated && !existingValues.has(m.name)) {
               let baseName = m.displayName || m.name.replace('models/', '');
-              if (m.name.includes('gemini-3.8')) baseName = 'Gemini 3.8 Flash (Latest)';
-              return {
+              geminiModels.push({
                 value: m.name,
-                label: baseName + (isLive ? ' (Live Audio)' : ''),
+                label: baseName + (isVoiceLive ? ' (Live Audio)' : ''),
                 description: m.description,
-                is_live: isLive,
-              };
-            })
-            .sort((a, b) => {
-              if (a.value.includes('3.8')) return -1;
-              if (b.value.includes('3.8')) return 1;
-              return (b.is_live ? 1 : 0) - (a.is_live ? 1 : 0);
-            });
+                is_live: isVoiceLive,
+              });
+              existingValues.add(m.name);
+            }
+          }
         }
       } catch (gErr) {
         console.warn('Failed to fetch Gemini models from Google API:', gErr.message);
       }
-    }
-    if (geminiModels.length === 0) {
-      geminiModels = [
-        { value: 'models/gemini-3.8-flash', label: 'Gemini 3.8 Flash (Latest)', is_live: false },
-        { value: 'models/gemini-3.8-live', label: 'Gemini 3.8 Live (Live Audio)', is_live: true },
-        { value: 'models/gemini-2.5-flash-native-audio-latest', label: 'Gemini 2.5 Flash Native Audio (Live Audio)', is_live: true },
-        { value: 'models/gemini-3.5-transcribe-live', label: 'Gemini 3.5 Transcribe Live (Live Audio)', is_live: true },
-        { value: 'models/gemini-3.1-flash-tts-preview', label: 'Gemini 3.1 Flash TTS Preview', is_live: false },
-        { value: 'models/gemini-3.7-flash', label: 'Gemini 3.7 Flash', is_live: false },
-        { value: 'models/gemini-3.5-flash', label: 'Gemini 3.5 Flash', is_live: false },
-        { value: 'models/gemini-2.5-flash-preview-tts', label: 'Gemini 2.5 Flash Preview TTS', is_live: false },
-        { value: 'models/gemini-2.5-pro-preview-tts', label: 'Gemini 2.5 Pro Preview TTS', is_live: false },
-      ];
     }
 
     // ── Multi-Provider Vapi Catalog ──
@@ -1592,7 +1583,10 @@ router.patch('/:agent_id', authenticate, async (req, res) => {
       if (body.gemini_voice !== undefined || body.voice_id !== undefined) {
         updates.push('voice = ?'); params.push(body.gemini_voice || body.voice_id);
       }
-      if (body.gemini_model !== undefined) { updates.push('model = ?'); params.push(body.gemini_model); }
+      if (body.gemini_model !== undefined || body.llm !== undefined) {
+        updates.push('model = ?');
+        params.push(body.gemini_model || body.llm);
+      }
       if (body.temperature !== undefined) { updates.push('temperature = ?'); params.push(parseFloat(body.temperature)); }
       if (body.language !== undefined) { updates.push('language = ?'); params.push(body.language); }
       if (body.max_duration_seconds !== undefined) { updates.push('max_duration_seconds = ?'); params.push(parseInt(body.max_duration_seconds, 10)); }

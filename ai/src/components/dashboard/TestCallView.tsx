@@ -156,63 +156,7 @@ export default function TestCallView({ agentId, agentName, leadName, token, prov
     transcriptEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [transcript]);
 
-  // Real-time client-side speech recognition for user transcription & instant barge-in
-  useEffect(() => {
-    if (status !== 'active' || isMuted) return;
-    if (typeof window === 'undefined') return;
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognition) return;
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let recognition: any = null;
-    try {
-      recognition = new SpeechRecognition();
-      recognition.continuous = true;
-      recognition.interimResults = false;
-      recognition.lang = 'en-US';
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      recognition.onresult = (event: any) => {
-        const lastResult = event.results[event.results.length - 1];
-        if (lastResult && lastResult.isFinal) {
-          const userSpoken = lastResult[0]?.transcript?.trim();
-          if (userSpoken) {
-            // Immediate barge-in if agent is speaking
-            if (playEndWallTimeRef.current > Date.now()) {
-              stopAgentPlayback();
-              if (wsRef.current?.readyState === WebSocket.OPEN) {
-                wsRef.current.send(JSON.stringify({ type: 'interrupt' }));
-              }
-            }
-
-            setTranscript(prev => {
-              const lastIdx = prev.length - 1;
-              if (lastIdx >= 0 && prev[lastIdx].role === 'user') {
-                if (userSpoken.length >= prev[lastIdx].text.length) {
-                  const updated = [...prev];
-                  updated[lastIdx] = { ...updated[lastIdx], text: userSpoken, time: Date.now() };
-                  return updated;
-                }
-                return prev;
-              }
-              return [...prev, { role: 'user', text: userSpoken, time: Date.now() }];
-            });
-          }
-        }
-      };
-
-      recognition.onerror = () => {};
-      recognition.start();
-    } catch {}
-
-    return () => {
-      if (recognition) {
-        try { recognition.stop(); } catch {}
-      }
-    };
-  }, [status, isMuted, stopAgentPlayback]);
 
   // Save call when it ends
   useEffect(() => {
@@ -347,11 +291,11 @@ export default function TestCallView({ agentId, agentName, leadName, token, prov
       if (ws.readyState !== WebSocket.OPEN || isMutedRef.current) return;
       const input = e.inputBuffer.getChannelData(0);
 
-      // Instant local barge-in: detect user voice energy while agent is speaking
+      // Instant local barge-in: detect clear user speech while agent is speaking
       let sum = 0;
       for (let i = 0; i < input.length; i++) sum += input[i] * input[i];
       const micRms = Math.sqrt(sum / input.length);
-      if (micRms > 0.05 && playEndWallTimeRef.current > Date.now()) {
+      if (micRms > 0.09 && playEndWallTimeRef.current > Date.now()) {
         stopAgentPlayback();
         if (ws.readyState === WebSocket.OPEN) {
           ws.send(JSON.stringify({ type: 'interrupt' }));
@@ -514,20 +458,22 @@ export default function TestCallView({ agentId, agentName, leadName, token, prov
                 if (msg.data) playChunk(msg.data);
               } else if (msg.type === 'interrupted') {
                 stopAgentPlayback();
+              } else if (msg.type === 'user_transcript') {
+                const text = (msg.text || '').trim();
+                if (text) {
+                  setTranscript(prev => [...prev, { role: 'user', text, time: Date.now() }]);
+                }
+              } else if (msg.type === 'agent_response') {
+                const text = (msg.text || '').trim();
+                if (text) {
+                  setTranscript(prev => [...prev, { role: 'agent', text, time: Date.now() }]);
+                }
               } else if (msg.type === 'text') {
                 if (msg.text) setTranscript(prev => [...prev, { role: 'agent', text: msg.text, time: Date.now() }]);
               } else if (msg.type === 'transcript') {
                 const text = (msg.text || '').trim();
                 if (text) {
-                  setTranscript(prev => {
-                    const lastIdx = prev.length - 1;
-                    if (lastIdx >= 0 && prev[lastIdx].role === 'user') {
-                      const updated = [...prev];
-                      updated[lastIdx] = { ...updated[lastIdx], text, time: Date.now() };
-                      return updated;
-                    }
-                    return [...prev, { role: 'user', text, time: Date.now() }];
-                  });
+                  setTranscript(prev => [...prev, { role: 'user', text, time: Date.now() }]);
                 }
               } else if (msg.type === 'error') {
                 console.error('[Gemini] Error:', msg.message);

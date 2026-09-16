@@ -453,7 +453,7 @@ function CreateAgentModal({ token, voices, templates, onClose, onCreated }: {
   const [transcriberProvider, setTranscriberProvider] = useState('deepgram');
 
   const [geminiVoice, setGeminiVoice] = useState('Kore');
-  const [geminiModel, setGeminiModel] = useState('models/gemini-2.5-flash-native-audio-latest');
+  const [geminiModel, setGeminiModel] = useState('models/gemini-3.8-flash');
   const [customGeminiModel, setCustomGeminiModel] = useState('');
   const [isCustomGeminiModel, setIsCustomGeminiModel] = useState(false);
   const [geminiThinkingLevel, setGeminiThinkingLevel] = useState('none');
