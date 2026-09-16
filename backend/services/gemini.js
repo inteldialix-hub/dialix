@@ -205,16 +205,17 @@ class GeminiSession extends EventEmitter {
       };
     }
 
-    // Affective dialog & proactive audio — only supported by gemini-3.8-live models
-    const supports38Features = this.config.model && this.config.model.includes('3.8-live');
-    if (supports38Features) {
-      if (this.config.enableAffectiveDialog) {
-        setup.enableAffectiveDialog = true;
-      }
-      if (this.config.proactivity) {
-        setup.proactivity = this.config.proactivity;
-      }
-    }
+    // NOTE: enableAffectiveDialog and proactivity are documented in Google's
+    // API docs but the production endpoint currently rejects them with
+    // "Unknown name" errors (even on gemini-3.8-live models). Disabled until
+    // Google enables these fields in the v1beta proto definition.
+    //
+    // if (this.config.enableAffectiveDialog) {
+    //   setup.enableAffectiveDialog = true;
+    // }
+    // if (this.config.proactivity) {
+    //   setup.proactivity = this.config.proactivity;
+    // }
 
     this.ws.send(JSON.stringify({ setup }));
   }
