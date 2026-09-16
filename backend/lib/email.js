@@ -54,7 +54,7 @@ async function sendGenericEmail(to, subject, htmlBody) {
 
   try {
     const info = await transporter.sendMail({
-      from: \`"\${APP_NAME}" <\${process.env.SMTP_FROM || process.env.SMTP_USER}>\`,
+      from: `"${APP_NAME}" <${process.env.SMTP_FROM || process.env.SMTP_USER}>`,
       to,
       subject,
       html: getBaseTemplate(htmlBody),
@@ -68,74 +68,74 @@ async function sendGenericEmail(to, subject, htmlBody) {
 }
 
 async function sendVerificationEmail(email, token, name) {
-  const verifyUrl = \`\${FRONTEND_URL}/verify-email?token=\${token}&email=\${encodeURIComponent(email)}\`;
-  const content = \`
-    <h2>Welcome to \${APP_NAME}, \${name}!</h2>
+  const verifyUrl = `${FRONTEND_URL}/verify-email?token=${token}&email=${encodeURIComponent(email)}`;
+  const content = `
+    <h2>Welcome to ${APP_NAME}, ${name}!</h2>
     <p>Please verify your email address by clicking the button below.</p>
     <div style="text-align: center;">
-      <a href="\${verifyUrl}" class="button">Verify Email Address</a>
+      <a href="${verifyUrl}" class="button">Verify Email Address</a>
     </div>
     <p>Or copy and paste this link into your browser:</p>
-    <p style="word-break: break-all; color: #3b82f6;">\${verifyUrl}</p>
+    <p style="word-break: break-all; color: #3b82f6;">${verifyUrl}</p>
     <p>This link will expire in 24 hours.</p>
-  \`;
+  `;
   return sendGenericEmail(email, 'Verify your email address', content);
 }
 
 async function sendPasswordResetEmail(email, token, name) {
-  const resetUrl = \`\${FRONTEND_URL}/reset-password?token=\${token}&email=\${encodeURIComponent(email)}\`;
-  const content = \`
-    <h2>Hello \${name || 'there'},</h2>
-    <p>We received a request to reset your password for your \${APP_NAME} account.</p>
+  const resetUrl = `${FRONTEND_URL}/reset-password?token=${token}&email=${encodeURIComponent(email)}`;
+  const content = `
+    <h2>Hello ${name || 'there'},</h2>
+    <p>We received a request to reset your password for your ${APP_NAME} account.</p>
     <div style="text-align: center;">
-      <a href="\${resetUrl}" class="button">Reset Password</a>
+      <a href="${resetUrl}" class="button">Reset Password</a>
     </div>
     <p>Or copy and paste this link into your browser:</p>
-    <p style="word-break: break-all; color: #3b82f6;">\${resetUrl}</p>
+    <p style="word-break: break-all; color: #3b82f6;">${resetUrl}</p>
     <p>This link will expire in 1 hour.</p>
     <p>If you didn't request this, you can safely ignore this email.</p>
-  \`;
+  `;
   return sendGenericEmail(email, 'Reset your password', content);
 }
 
 async function sendTeamInviteEmail(email, inviterName, orgName, inviteToken) {
-  const inviteUrl = \`\${FRONTEND_URL}/register?invite=\${inviteToken}&email=\${encodeURIComponent(email)}\`;
-  const content = \`
+  const inviteUrl = `${FRONTEND_URL}/register?invite=${inviteToken}&email=${encodeURIComponent(email)}`;
+  const content = `
     <h2>You've been invited!</h2>
-    <p><strong>\${inviterName}</strong> has invited you to join their team at <strong>\${orgName}</strong> on \${APP_NAME}.</p>
+    <p><strong>${inviterName}</strong> has invited you to join their team at <strong>${orgName}</strong> on ${APP_NAME}.</p>
     <div style="text-align: center;">
-      <a href="\${inviteUrl}" class="button">Accept Invitation</a>
+      <a href="${inviteUrl}" class="button">Accept Invitation</a>
     </div>
-    <p>If you already have an account, make sure to register using this exact email address (\${email}) to automatically join the team.</p>
-  \`;
-  return sendGenericEmail(email, \`Join \${orgName} on \${APP_NAME}\`, content);
+    <p>If you already have an account, make sure to register using this exact email address (${email}) to automatically join the team.</p>
+  `;
+  return sendGenericEmail(email, `Join ${orgName} on ${APP_NAME}`, content);
 }
 
 async function sendPaymentFailedEmail(email, name, planName) {
-  const updateBillingUrl = \`\${FRONTEND_URL}/settings/billing\`;
-  const content = \`
+  const updateBillingUrl = `${FRONTEND_URL}/settings/billing`;
+  const content = `
     <h2>Payment Failed</h2>
-    <p>Hello \${name},</p>
-    <p>We were unable to process your recent payment for your <strong>\${planName}</strong> plan.</p>
+    <p>Hello ${name},</p>
+    <p>We were unable to process your recent payment for your <strong>${planName}</strong> plan.</p>
     <p>To avoid any interruption to your service, please update your payment method.</p>
     <div style="text-align: center;">
-      <a href="\${updateBillingUrl}" class="button">Update Payment Method</a>
+      <a href="${updateBillingUrl}" class="button">Update Payment Method</a>
     </div>
-  \`;
+  `;
   return sendGenericEmail(email, 'Action Required: Payment Failed', content);
 }
 
 async function sendSubscriptionConfirmEmail(email, name, planName) {
-  const content = \`
+  const content = `
     <h2>Subscription Confirmed</h2>
-    <p>Hello \${name},</p>
-    <p>Thank you for subscribing to the <strong>\${planName}</strong> plan!</p>
+    <p>Hello ${name},</p>
+    <p>Thank you for subscribing to the <strong>${planName}</strong> plan!</p>
     <p>Your account has been upgraded and you now have access to all the features in your plan.</p>
     <div style="text-align: center;">
-      <a href="\${FRONTEND_URL}/dashboard" class="button">Go to Dashboard</a>
+      <a href="${FRONTEND_URL}/dashboard" class="button">Go to Dashboard</a>
     </div>
-  \`;
-  return sendGenericEmail(email, \`Welcome to \${APP_NAME} \${planName}\`, content);
+  `;
+  return sendGenericEmail(email, `Welcome to ${APP_NAME} ${planName}`, content);
 }
 
 module.exports = {
