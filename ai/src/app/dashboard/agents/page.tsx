@@ -23,7 +23,6 @@ import {
   VAPI_TRANSCRIBER_PROVIDERS,
   GEMINI_VOICES,
   GEMINI_MODELS,
-  GEMINI_THINKING_LEVELS,
 } from '@/lib/constants';
 
 interface Agent {
@@ -758,10 +757,6 @@ function CreateAgentModal({ token, voices, templates, onClose, onCreated }: {
                           autoFocus
                         />
                       )}
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">Thinking level</label>
-                      <CustomSelect value={geminiThinkingLevel} onChange={e => setGeminiThinkingLevel(e.target.value)} options={GEMINI_THINKING_LEVELS} placeholder="Select thinking level" />
                     </div>
                   </div>
                   <div className="space-y-2">

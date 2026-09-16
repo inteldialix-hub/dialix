@@ -161,13 +161,6 @@ class GeminiSession extends EventEmitter {
       },
     };
 
-    // NOTE: thinkingConfig is rejected by the Live API with "Thinking level
-    // is not supported for this model" — even on gemini-3.8-live-extended-thinking.
-    // The extended-thinking model handles reasoning internally without this field.
-    // if (this.config.thinkingConfig) {
-    //   generationConfig.thinkingConfig = this.config.thinkingConfig;
-    // }
-
     const voiceDirectives = 
       '\n\n[NATURAL CONVERSATIONAL VOICE & INTERRUPTION GUIDELINES]' +
       '\n- You are having a real-time spoken telephone conversation. You MUST sound like a real, warm, spontaneous human speaker—not a formal AI reading text.' +
@@ -198,28 +191,16 @@ class GeminiSession extends EventEmitter {
       setup.tools = this.config.tools;
     }
 
-    // Context window compression
+    // Context window compression — triggerTokens is required at top level
     if (this.config.contextWindowCompression) {
+      const targetTokens = this.config.contextWindowCompression.targetTokens;
       setup.contextWindowCompression = {
-        slidingWindow: {
-          targetTokens: this.config.contextWindowCompression.targetTokens,
-        },
+        triggerTokens: this.config.contextWindowCompression.triggerTokens || (targetTokens * 2),
+        slidingWindow: { targetTokens },
       };
     }
 
-    // NOTE: enableAffectiveDialog and proactivity are documented in Google's
-    // API docs but the production endpoint currently rejects them with
-    // "Unknown name" errors (even on gemini-3.8-live models). Disabled until
-    // Google enables these fields in the v1beta proto definition.
-    //
-    // if (this.config.enableAffectiveDialog) {
-    //   setup.enableAffectiveDialog = true;
-    // }
-    // if (this.config.proactivity) {
-    //   setup.proactivity = this.config.proactivity;
-    // }
-
-    console.log('[Gemini] Sending setup:', JSON.stringify(setup, null, 2).substring(0, 500));
+    console.log(`[Gemini] Setup for ${this.config.model}: voice=${this.config.voice}, temp=${this.config.temperature}, tools=${this.config.tools?.length || 0}`);
     this.ws.send(JSON.stringify({ setup }));
   }
 

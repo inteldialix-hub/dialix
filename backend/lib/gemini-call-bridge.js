@@ -71,31 +71,17 @@ function attachGeminiCallBridge(server) {
         responseModalities: ['AUDIO'],
       };
 
-      // Thinking level — API expects UPPERCASE enum values
-      const tl = agentConfig.thinking_level || 'none';
-      if (tl !== 'none') {
-        sessionOpts.thinkingConfig = { thinkingLevel: tl.toUpperCase() };
-      }
-
-      // Affective dialog
-      if (agentConfig.affective_dialog) {
-        sessionOpts.enableAffectiveDialog = true;
-      }
-
-      // Proactive audio
-      if (agentConfig.proactive_audio) {
-        sessionOpts.proactivity = { proactive_audio: true };
-      }
-
       // Grounding with Google Search
       if (agentConfig.grounding_google_search) {
         sessionOpts.tools = [{ google_search: {} }];
       }
 
-      // Context window
+      // Context window compression — triggerTokens + slidingWindow.targetTokens
       if (agentConfig.max_context_size) {
+        const targetTokens = agentConfig.target_context_size || Math.floor(agentConfig.max_context_size / 2);
         sessionOpts.contextWindowCompression = {
-          targetTokens: agentConfig.target_context_size || Math.floor(agentConfig.max_context_size / 2),
+          triggerTokens: agentConfig.max_context_size,
+          targetTokens,
         };
       }
 

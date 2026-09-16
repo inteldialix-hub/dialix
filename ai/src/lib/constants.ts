@@ -173,22 +173,7 @@ export const GEMINI_MODELS = [
   { value: 'models/gemini-2.5-flash-lite-preview-tts', label: 'Gemini 2.5 Flash Lite Preview TTS' },
 ];
 
-/* ─── Gemini — Thinking Levels ────────────────────────────── */
 
-export const GEMINI_THINKING_LEVELS = [
-  { value: 'none', label: 'No Thinking' },
-  { value: 'low', label: 'Low' },
-  { value: 'medium', label: 'Medium' },
-  { value: 'high', label: 'High' },
-];
-
-/* ─── Gemini — Media Resolution ──────────────────────────── */
-
-export const GEMINI_MEDIA_RESOLUTIONS = [
-  { value: 'low', label: 'Low (64 tokens/image)' },
-  { value: 'medium', label: 'Medium (258 tokens/image)' },
-  { value: 'high', label: 'High (768 tokens/image)' },
-];
 
 /* ─── Vapi — Model Providers ─────────────────────────────── */
 
