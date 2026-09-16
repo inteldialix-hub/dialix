@@ -156,6 +156,26 @@ export default function TestCallView({ agentId, agentName, leadName, token, prov
     transcriptEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [transcript]);
 
+  // Unlock audio context on user interaction (resolves browser autoplay policy)
+  useEffect(() => {
+    const unlock = () => {
+      if (micCtxRef.current && micCtxRef.current.state === 'suspended') {
+        micCtxRef.current.resume().catch(() => {});
+      }
+      if (playCtxRef.current && playCtxRef.current.state === 'suspended') {
+        playCtxRef.current.resume().catch(() => {});
+      }
+    };
+    window.addEventListener('click', unlock);
+    window.addEventListener('touchstart', unlock);
+    window.addEventListener('keydown', unlock);
+    return () => {
+      window.removeEventListener('click', unlock);
+      window.removeEventListener('touchstart', unlock);
+      window.removeEventListener('keydown', unlock);
+    };
+  }, []);
+
 
 
   // Save call when it ends
@@ -240,6 +260,9 @@ export default function TestCallView({ agentId, agentName, leadName, token, prov
   const playChunk = useCallback((b64: string) => {
     const ctx = playCtxRef.current;
     if (!b64 || !ctx) return;
+    if (ctx.state === 'suspended') {
+      ctx.resume().catch(() => {});
+    }
     try {
       // Mark that chunks are arriving
       lastChunkTimeRef.current = Date.now();
@@ -282,6 +305,9 @@ export default function TestCallView({ agentId, agentName, leadName, token, prov
 
   /* ── Setup microphone ── */
   const setupMic = useCallback((stream: MediaStream, micCtx: AudioContext, ws: WebSocket) => {
+    if (micCtx.state === 'suspended') {
+      micCtx.resume().catch(() => {});
+    }
     const source = micCtx.createMediaStreamSource(stream);
     sourceRef.current = source;
     const nativeSR = micCtx.sampleRate;
@@ -289,13 +315,16 @@ export default function TestCallView({ agentId, agentName, leadName, token, prov
     processorRef.current = processor;
     processor.onaudioprocess = (e) => {
       if (ws.readyState !== WebSocket.OPEN || isMutedRef.current) return;
+      if (micCtx.state === 'suspended') {
+        micCtx.resume().catch(() => {});
+      }
       const input = e.inputBuffer.getChannelData(0);
 
       // Instant local barge-in: detect clear user speech while agent is speaking
       let sum = 0;
       for (let i = 0; i < input.length; i++) sum += input[i] * input[i];
       const micRms = Math.sqrt(sum / input.length);
-      if (micRms > 0.09 && playEndWallTimeRef.current > Date.now()) {
+      if (micRms > 0.04 && playEndWallTimeRef.current > Date.now()) {
         stopAgentPlayback();
         if (ws.readyState === WebSocket.OPEN) {
           ws.send(JSON.stringify({ type: 'interrupt' }));
@@ -323,6 +352,7 @@ export default function TestCallView({ agentId, agentName, leadName, token, prov
         type: 'user_audio_chunk',
         user_audio_chunk: b64Data,
         data: b64Data,
+        mimeType: 'audio/pcm;rate=16000',
       }));
     };
     source.connect(processor);
@@ -433,18 +463,29 @@ export default function TestCallView({ agentId, agentName, leadName, token, prov
           if (cancelled) { stream.getTracks().forEach(t => t.stop()); return; }
           streamRef.current = stream;
 
-          const micCtx = new AudioContext({ sampleRate: 16000 });
+          // Audio contexts with standard Web Audio API constructor
+          const AudioContextClass = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+          const micCtx = new AudioContextClass();
           micCtxRef.current = micCtx;
-          const playCtx = new AudioContext({ sampleRate: 24000 });
+          const playCtx = new AudioContextClass();
           playCtxRef.current = playCtx;
           outputSRRef.current = 24000;
           nextPlayTimeRef.current = 0;
 
+          if (micCtx.state === 'suspended') {
+            await micCtx.resume().catch(() => {});
+          }
+          if (playCtx.state === 'suspended') {
+            await playCtx.resume().catch(() => {});
+          }
+
           const ws = new WebSocket(geminiWsUrl);
           wsRef.current = ws;
 
-          ws.onopen = () => {
+          ws.onopen = async () => {
             if (cancelled) return;
+            if (micCtx.state === 'suspended') await micCtx.resume().catch(() => {});
+            if (playCtx.state === 'suspended') await playCtx.resume().catch(() => {});
             setStatus('active');
             setTranscript(prev => [...prev, { role: 'system', text: 'Gemini call started', time: Date.now() }]);
             timerRef.current = setInterval(() => setCallTime(t => t + 1), 1000);
@@ -507,18 +548,28 @@ export default function TestCallView({ agentId, agentName, leadName, token, prov
         streamRef.current = stream;
 
         // 2. Audio contexts
-        const micCtx = new AudioContext();
+        const AudioContextClass = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+        const micCtx = new AudioContextClass();
         micCtxRef.current = micCtx;
-        const playCtx = new AudioContext();
+        const playCtx = new AudioContextClass();
         playCtxRef.current = playCtx;
         nextPlayTimeRef.current = 0;
+
+        if (micCtx.state === 'suspended') {
+          await micCtx.resume().catch(() => {});
+        }
+        if (playCtx.state === 'suspended') {
+          await playCtx.resume().catch(() => {});
+        }
 
         // 3. WebSocket
         const ws = new WebSocket(data.signed_url);
         wsRef.current = ws;
 
-        ws.onopen = () => {
+        ws.onopen = async () => {
           if (cancelled) return;
+          if (micCtx.state === 'suspended') await micCtx.resume().catch(() => {});
+          if (playCtx.state === 'suspended') await playCtx.resume().catch(() => {});
           ws.send(JSON.stringify({
             type: 'conversation_initiation_client_data',
             dynamic_variables: { lead_name: leadName, LEAD_NAME: leadName },

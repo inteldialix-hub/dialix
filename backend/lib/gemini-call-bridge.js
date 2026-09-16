@@ -57,9 +57,10 @@ function attachGeminiCallBridge(server) {
 
     try {
       // Build Gemini session config from agent settings
-      let model = agentConfig.model || 'models/gemini-3.8-live';
-      if (model.includes('tts') || model.includes('3.8-flash')) {
-        model = 'models/gemini-3.8-live';
+      // For real-time bidirectional audio calls, Google requires the native-audio engine
+      let model = agentConfig.model;
+      if (!model || !model.includes('native-audio')) {
+        model = 'models/gemini-2.5-flash-native-audio-latest';
       }
 
       const sessionOpts = {

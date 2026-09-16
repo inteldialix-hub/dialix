@@ -20,7 +20,7 @@ const WebSocket = require('ws');
 const { EventEmitter } = require('events');
 
 const GEMINI_WS_URL = 'wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent';
-const DEFAULT_MODEL = 'models/gemini-3.8-live';
+const DEFAULT_MODEL = 'models/gemini-2.5-flash-native-audio-latest';
 const SESSION_TIMEOUT = 600000; // 10 minutes max session
 
 // Built-in Gemini voices
@@ -60,12 +60,9 @@ class GeminiSession extends EventEmitter {
     this._isTurnInterrupted = false;
 
     let requestedModel = config.model || process.env.GEMINI_MODEL || DEFAULT_MODEL;
-    // If model is a TTS-only model or 3.8-flash (REST), use gemini-3.8-live for bidirectional live calls
-    if (!requestedModel || requestedModel.includes('tts') || requestedModel.includes('3.8-flash')) {
-      requestedModel = 'models/gemini-3.8-live';
-    } else if (!requestedModel.includes('native-audio') && !requestedModel.includes('transcribe-live') && !requestedModel.includes('3.8-live')) {
-      console.warn(`[Gemini] Model "${requestedModel}" is not a native live-audio model. Using "models/gemini-3.8-live".`);
-      requestedModel = 'models/gemini-3.8-live';
+    // For real-time bidirectional phone calls, Google requires the native-audio model
+    if (!requestedModel || !requestedModel.includes('native-audio')) {
+      requestedModel = DEFAULT_MODEL;
     }
 
     // Extended thinking model requires thinkingConfig
