@@ -423,7 +423,7 @@ router.get('/:agent_id/test-call/signed-url', authenticate, async (req, res) => 
         return res.status(404).json({ error: 'Gemini agent not found' });
       }
       let model = geminiData.model || 'models/gemini-2.5-flash-native-audio-latest';
-      if (!model.includes('native-audio')) {
+      if (!model.includes('native-audio') && !model.includes('live')) {
         model = 'models/gemini-2.5-flash-native-audio-latest';
       }
       return res.json({
@@ -592,15 +592,14 @@ router.get('/models', authenticate, async (req, res) => {
 
     // ── Curated Gemini Speech & Live Audio Models (Google AI Studio & Speech Docs) ──
     const OFFICIAL_GEMINI_SPEECH_MODELS = [
-      { value: 'models/gemini-3.8-flash', label: 'Gemini 3.8 Flash (Latest Flagship)', is_live: false, description: 'Latest ultra-fast model with state-of-the-art conversational reasoning.' },
-      { value: 'models/gemini-3.8-live', label: 'Gemini 3.8 Live (Live Audio & Interruption)', is_live: true, description: 'Low-latency bidirectional conversational speech with natural barge-in.' },
+      { value: 'models/gemini-3.8-live', label: 'Gemini 3.8 Live (Recommended — Live Audio)', is_live: true, description: 'Default low-latency voice agent with interleaved reasoning and natural barge-in.' },
       { value: 'models/gemini-3.8-live-extended-thinking', label: 'Gemini 3.8 Live Extended Thinking (Live Audio)', is_live: true, description: 'Live audio model with deep reasoning and realistic conversational flow.' },
       { value: 'models/gemini-2.5-flash-native-audio-latest', label: 'Gemini 2.5 Flash Native Audio (Live Audio)', is_live: true, description: 'Native audio live stream model with instant voice response.' },
+      { value: 'models/gemini-3.8-flash', label: 'Gemini 3.8 Flash (Text Only — Not Live)', is_live: false, description: 'Latest ultra-fast flagship model for text generation (not for live audio calls).' },
       { value: 'models/gemini-3.1-flash-tts-preview', label: 'Gemini 3.1 Flash TTS Preview (Expressive)', is_live: false, description: 'Advanced speech generation with fine-grained emotional and vocal control.' },
       { value: 'models/gemini-2.5-pro-preview-tts', label: 'Gemini 2.5 Pro Preview TTS (High Fidelity)', is_live: false, description: 'High-fidelity audio generation for studio-grade realism.' },
       { value: 'models/gemini-2.5-flash-preview-tts', label: 'Gemini 2.5 Flash Preview TTS', is_live: false, description: 'Cost-efficient, low-latency text-to-speech generation.' },
       { value: 'models/gemini-2.5-flash-lite-preview-tts', label: 'Gemini 2.5 Flash Lite Preview TTS', is_live: false, description: 'Lightweight, ultra-fast speech synthesis.' },
-      { value: 'models/gemini-3.5-transcribe-live', label: 'Gemini 3.5 Transcribe Live', is_live: true, description: 'Optimized for live transcription and real-time dialog.' },
     ];
 
     let geminiModels = [...OFFICIAL_GEMINI_SPEECH_MODELS];
@@ -710,7 +709,15 @@ router.get('/models', authenticate, async (req, res) => {
       llms: llmModels,
       gemini: {
         models: geminiModels,
-        voices: ['Aoede', 'Charon', 'Fenrir', 'Kore', 'Puck', 'Leda', 'Orus', 'Zephyr'],
+        voices: [
+          'Achernar', 'Achird', 'Algenib', 'Algieba', 'Alnilam',
+          'Aoede', 'Autonoe', 'Callirrhoe', 'Charon', 'Despina',
+          'Enceladus', 'Erinome', 'Fenrir', 'Gacrux', 'Iapetus',
+          'Kore', 'Laomedeia', 'Leda', 'Orus', 'Puck',
+          'Pulcherrima', 'Rasalgethi', 'Sadachbia', 'Sadaltager',
+          'Schedar', 'Sulafat', 'Umbriel', 'Vindemiatrix', 'Zephyr',
+          'Zubenelgenubi',
+        ],
       },
       vapi: vapiCatalog,
     });

@@ -381,7 +381,7 @@ export default function TestCallView({ agentId, agentName, leadName, token, prov
     lastChunkTimeRef.current = 0;
     playEndWallTimeRef.current = 0;
     nextPlayTimeRef.current = 0;
-  }, []);
+  }, [stopAgentPlayback]);
 
   /* ── Start the call on mount ── */
   useEffect(() => {

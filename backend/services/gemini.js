@@ -23,10 +23,15 @@ const GEMINI_WS_URL = 'wss://generativelanguage.googleapis.com/ws/google.ai.gene
 const DEFAULT_MODEL = 'models/gemini-2.5-flash-native-audio-latest';
 const SESSION_TIMEOUT = 600000; // 10 minutes max session
 
-// Built-in Gemini voices
+// Built-in Gemini voices (30 HD voices from Google AI Studio Voice Library)
 const GEMINI_VOICES = [
-  'Aoede', 'Charon', 'Fenrir', 'Kore', 'Puck',
-  'Leda', 'Orus', 'Zephyr',
+  'Achernar', 'Achird', 'Algenib', 'Algieba', 'Alnilam',
+  'Aoede', 'Autonoe', 'Callirrhoe', 'Charon', 'Despina',
+  'Enceladus', 'Erinome', 'Fenrir', 'Gacrux', 'Iapetus',
+  'Kore', 'Laomedeia', 'Leda', 'Orus', 'Puck',
+  'Pulcherrima', 'Rasalgethi', 'Sadachbia', 'Sadaltager',
+  'Schedar', 'Sulafat', 'Umbriel', 'Vindemiatrix', 'Zephyr',
+  'Zubenelgenubi',
 ];
 
 // Active sessions map: sessionId -> GeminiSession
@@ -60,8 +65,8 @@ class GeminiSession extends EventEmitter {
     this._isTurnInterrupted = false;
 
     let requestedModel = config.model || process.env.GEMINI_MODEL || DEFAULT_MODEL;
-    // For real-time bidirectional phone calls, Google requires the native-audio model
-    if (!requestedModel || !requestedModel.includes('native-audio')) {
+    // For real-time bidirectional calls, only live-capable models work
+    if (!requestedModel || (!requestedModel.includes('native-audio') && !requestedModel.includes('live'))) {
       requestedModel = DEFAULT_MODEL;
     }
 
@@ -72,7 +77,6 @@ class GeminiSession extends EventEmitter {
     }
 
     this.config = {
-      model: requestedModel,
       voice: config.voice || 'Kore',
       systemPrompt: config.systemPrompt || 'You are a helpful AI assistant.',
       temperature: config.temperature ?? 1.0,
@@ -201,6 +205,16 @@ class GeminiSession extends EventEmitter {
       };
     }
 
+    // Affective dialog (emotional understanding)
+    if (this.config.enableAffectiveDialog) {
+      setup.enableAffectiveDialog = true;
+    }
+
+    // Proactive audio (model can speak unprompted)
+    if (this.config.proactivity) {
+      setup.proactivity = this.config.proactivity;
+    }
+
     this.ws.send(JSON.stringify({ setup }));
   }
 
@@ -234,9 +248,6 @@ class GeminiSession extends EventEmitter {
 
       // Model turn — audio or text parts
       if (sc.modelTurn && sc.modelTurn.parts) {
-        // If turn was interrupted, reset flag on the fresh model turn
-        this._isTurnInterrupted = false;
-
         // Finalize user transcript now that model is answering
         if (this._currentUserSpeech && this._currentUserSpeech.trim()) {
           const userFinal = this._currentUserSpeech.trim();
@@ -277,6 +288,7 @@ class GeminiSession extends EventEmitter {
         }
         this._currentTurnSpokenText = '';
         this._currentTurnModelText = '';
+        this._isTurnInterrupted = false;
         this.emit('turn_complete');
       }
 
@@ -306,10 +318,10 @@ class GeminiSession extends EventEmitter {
 
     const msg = {
       realtimeInput: {
-        mediaChunks: [{
+        audio: {
           data: base64Audio,
           mimeType,
-        }],
+        },
       },
     };
 

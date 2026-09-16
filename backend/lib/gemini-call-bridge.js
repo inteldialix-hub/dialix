@@ -57,9 +57,9 @@ function attachGeminiCallBridge(server) {
 
     try {
       // Build Gemini session config from agent settings
-      // For real-time bidirectional audio calls, Google requires the native-audio engine
+      // For real-time bidirectional audio calls, only live-capable models work
       let model = agentConfig.model;
-      if (!model || !model.includes('native-audio')) {
+      if (!model || (!model.includes('native-audio') && !model.includes('live'))) {
         model = 'models/gemini-2.5-flash-native-audio-latest';
       }
 
@@ -95,7 +95,6 @@ function attachGeminiCallBridge(server) {
       // Context window
       if (agentConfig.max_context_size) {
         sessionOpts.contextWindowCompression = {
-          maxTokens: agentConfig.max_context_size,
           targetTokens: agentConfig.target_context_size || Math.floor(agentConfig.max_context_size / 2),
         };
       }
