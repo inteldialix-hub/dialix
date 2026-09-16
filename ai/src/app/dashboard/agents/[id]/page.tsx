@@ -238,7 +238,7 @@ export default function AgentDetailPage() {
       }
       
       if (a.provider === 'gemini') {
-        setLlm((a.gemini_model as string) || 'models/gemini-3.1-flash-live-preview');
+        setLlm((a.gemini_model as string) || 'models/gemini-2.5-flash-native-audio-latest');
         setVoiceId((a.gemini_voice as string) || 'Kore');
         setThinkingLevel((a.thinking_level as string) || 'none');
         setMediaResolution((a.media_resolution as string) || 'medium');
@@ -600,7 +600,7 @@ export default function AgentDetailPage() {
         ? {
             ...commonFields,
             gemini_voice: voiceId || config?.gemini_voice || 'Kore',
-            gemini_model: llm || config?.gemini_model || 'models/gemini-3.1-flash-live-preview',
+            gemini_model: llm || config?.gemini_model || 'models/gemini-2.5-flash-native-audio-latest',
             language,
             max_duration_seconds: maxDuration,
             thinking_level: thinkingLevel,

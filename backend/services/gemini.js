@@ -20,7 +20,7 @@ const WebSocket = require('ws');
 const { EventEmitter } = require('events');
 
 const GEMINI_WS_URL = 'wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent';
-const DEFAULT_MODEL = 'models/gemini-3.1-flash-live-preview';
+const DEFAULT_MODEL = 'models/gemini-2.5-flash-native-audio-latest';
 const SESSION_TIMEOUT = 600000; // 10 minutes max session
 
 // Built-in Gemini voices

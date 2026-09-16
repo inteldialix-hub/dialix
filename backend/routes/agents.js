@@ -225,7 +225,7 @@ router.get('/', authenticate, async (req, res) => {
               name: geminiData?.name || a.agent_name,
               voice_id: geminiData?.voice || 'kore',
               language: geminiData?.language || 'en',
-              llm: geminiData?.model || 'gemini-3.1-flash-live-preview',
+              llm: geminiData?.model || 'models/gemini-2.5-flash-native-audio-latest',
               status: 'active',
               can_edit: a.can_edit ?? 1,
               provider: 'gemini',
@@ -426,7 +426,7 @@ router.get('/:agent_id/test-call/signed-url', authenticate, async (req, res) => 
         provider: 'gemini',
         agent_id,
         voice: geminiData.voice || 'Kore',
-        model: geminiData.model || 'models/gemini-3.1-flash-live-preview',
+        model: geminiData.model || 'models/gemini-2.5-flash-native-audio-latest',
       });
     }
 
@@ -759,7 +759,7 @@ router.post('/', authenticate, validateSchema(createAgentSchema), async (req, re
         name,
         system_prompt: prompt || `You are ${name}, a helpful AI assistant.`,
         voice: gemini_voice || voice_id || 'Kore',
-        model: gemini_model || 'models/gemini-3.1-flash-live-preview',
+        model: gemini_model || 'models/gemini-2.5-flash-native-audio-latest',
         temperature: parseFloat(temperature) || 1.0,
         language: language || 'en',
         max_duration_seconds: parseInt(max_duration_seconds, 10) || 600,
@@ -1173,13 +1173,13 @@ router.get('/:agent_id', authenticate, async (req, res) => {
 
         // Prompt / Model
         prompt: geminiData.system_prompt || '',
-        llm: geminiData.model || 'models/gemini-3.1-flash-live-preview',
+        llm: geminiData.model || 'models/gemini-2.5-flash-native-audio-latest',
         temperature: geminiData.temperature ?? 1.0,
 
         // Voice (built-in Gemini voices)
         voice_id: geminiData.voice || 'Kore',
         gemini_voice: geminiData.voice || 'Kore',
-        gemini_model: geminiData.model || 'models/gemini-3.1-flash-live-preview',
+        gemini_model: geminiData.model || 'models/gemini-2.5-flash-native-audio-latest',
 
         // Call behavior
         max_duration_seconds: geminiData.max_duration_seconds ?? 600,
@@ -2146,7 +2146,7 @@ router.post('/:agent_id/sync', authenticate, async (req, res) => {
           first_message: geminiData.first_message || '',
           language: geminiData.language || 'en',
           prompt: geminiData.system_prompt || '',
-          llm: geminiData.model || 'models/gemini-3.1-flash-live-preview',
+          llm: geminiData.model || 'models/gemini-2.5-flash-native-audio-latest',
           gemini_model: geminiData.model,
           voice_id: geminiData.voice || 'Kore',
           gemini_voice: geminiData.voice,

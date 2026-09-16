@@ -124,16 +124,22 @@ async function pgGet(sql, params = []) {
 async function pgRun(sql, params = []) {
   let { text, values } = mapQuery(sql, params);
   
-  // For INSERT statements, add RETURNING id to get the inserted row ID
+  // For INSERT statements, add RETURNING clause to get the inserted row identifier
   // (only if not already present to avoid double RETURNING)
   if (text.trim().toUpperCase().startsWith('INSERT') && !/RETURNING\s/i.test(text)) {
-    text += ' RETURNING id';
+    const tableMatch = text.match(/INSERT\s+(?:OR\s+\w+\s+)?INTO\s+([a-zA-Z0-9_]+)/i);
+    const table = tableMatch ? tableMatch[1].toLowerCase() : '';
+    if (['gemini_agents', 'agent_settings'].includes(table)) {
+      text += ' RETURNING agent_id';
+    } else {
+      text += ' RETURNING id';
+    }
   }
   
   const result = await pool.query(text, values);
   return {
     changes: result.rowCount,
-    lastInsertRowid: result.rows[0]?.id || 0,
+    lastInsertRowid: result.rows[0]?.id || result.rows[0]?.agent_id || 0,
   };
 }
 
@@ -400,6 +406,7 @@ async function initSqliteDb() {
   `);
   // Migrate existing gemini_agents tables missing new columns
   const geminiNewCols = [
+    ["client_id", "INTEGER"],
     ["thinking_level", "TEXT DEFAULT 'none'"],
     ["media_resolution", "TEXT DEFAULT 'medium'"],
     ["max_context_size", "INTEGER DEFAULT 128000"],
@@ -894,6 +901,14 @@ async function initPostgresDb() {
     )
   `);
 
+  // ── agent_settings PG migrations ──
+  await pool.query(`ALTER TABLE agent_settings ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'active'`);
+  await pool.query(`ALTER TABLE agent_settings ADD COLUMN IF NOT EXISTS tts_model_id TEXT`);
+  await pool.query(`ALTER TABLE agent_settings ADD COLUMN IF NOT EXISTS stability REAL DEFAULT 0.5`);
+  await pool.query(`ALTER TABLE agent_settings ADD COLUMN IF NOT EXISTS similarity_boost REAL DEFAULT 0.75`);
+  await pool.query(`ALTER TABLE agent_settings ADD COLUMN IF NOT EXISTS speed REAL DEFAULT 1.0`);
+  await pool.query(`ALTER TABLE agent_settings ADD COLUMN IF NOT EXISTS streaming_latency INTEGER DEFAULT 3`);
+
   await pool.query(`
     CREATE TABLE IF NOT EXISTS webhook_subscriptions (
       id SERIAL PRIMARY KEY,
@@ -1022,6 +1037,7 @@ async function initPostgresDb() {
   `);
   // Migrate existing gemini_agents tables
   const pgGeminiCols = [
+    ['client_id', 'INTEGER'],
     ['thinking_level', "TEXT DEFAULT 'none'"],
     ['media_resolution', "TEXT DEFAULT 'medium'"],
     ['max_context_size', 'INTEGER DEFAULT 128000'],

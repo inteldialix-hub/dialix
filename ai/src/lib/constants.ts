@@ -141,9 +141,9 @@ export const GEMINI_VOICES = [
 /* ─── Gemini — Models ──────────────────────────────────── */
 
 export const GEMINI_MODELS = [
-  { value: 'models/gemini-3.1-flash-live-preview', label: 'Gemini 3.1 Flash Live Preview' },
-  { value: 'models/gemini-2.5-flash-exp-native-audio-thinking-dialog', label: 'Gemini 2.5 Flash Native Audio' },
-  { value: 'models/gemini-2.0-flash-live-001', label: 'Gemini 2.0 Flash Live' },
+  { value: 'models/gemini-2.5-flash-native-audio-latest', label: 'Gemini 2.5 Flash Native Audio (Live)' },
+  { value: 'models/gemini-2.5-flash', label: 'Gemini 2.5 Flash' },
+  { value: 'models/gemini-2.5-pro', label: 'Gemini 2.5 Pro' },
 ];
 
 /* ─── Gemini — Thinking Levels ────────────────────────────── */
