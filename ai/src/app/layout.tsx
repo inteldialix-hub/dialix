@@ -3,6 +3,9 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import ClientBody from "./ClientBody";
 import { ThemeProvider } from "@/components/theme-provider";
+import Script from "next/script";
+
+const GA_MEASUREMENT_ID = process.env.NEXT_PUBLIC_GA_ID || "G-EEGF2XL6BC";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -55,6 +58,18 @@ export default function RootLayout({
         suppressHydrationWarning
         className="antialiased font-[family-name:var(--font-geist-sans)]"
       >
+        <Script
+          src={`https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`}
+          strategy="afterInteractive"
+        />
+        <Script id="google-analytics" strategy="afterInteractive">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', '${GA_MEASUREMENT_ID}');
+          `}
+        </Script>
         <a
           href="#main-content"
           className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[9999] focus:px-4 focus:py-2 focus:bg-[var(--brand-accent,#5E6AD2)] focus:text-white focus:rounded-md focus:text-sm focus:font-medium"

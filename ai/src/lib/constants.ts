@@ -173,6 +173,13 @@ export const GEMINI_MODELS = [
   { value: 'models/gemini-2.5-flash-lite-preview-tts', label: 'Gemini 2.5 Flash Lite Preview TTS' },
 ];
 
+/* ─── Gemini — Thinking Levels (only for extended-thinking models) ── */
+
+export const GEMINI_THINKING_LEVELS = [
+  { value: 'low', label: 'Low — Faster responses' },
+  { value: 'medium', label: 'Medium — Balanced' },
+  { value: 'high', label: 'High — Deepest reasoning' },
+];
 
 
 /* ─── Vapi — Model Providers ─────────────────────────────── */

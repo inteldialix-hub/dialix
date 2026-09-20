@@ -149,6 +149,8 @@ class GeminiSession extends EventEmitter {
    * Send the initial setup message to configure the model.
    */
   _sendSetup() {
+    const isExtendedThinking = (this.config.model || '').includes('extended-thinking');
+
     const generationConfig = {
       responseModalities: this.config.responseModalities,
       temperature: this.config.temperature,
@@ -159,6 +161,14 @@ class GeminiSession extends EventEmitter {
           },
         },
       },
+      // Extended-thinking models REQUIRE thinkingConfig (LOW, MEDIUM, or HIGH); base models REJECT it
+      ...(isExtendedThinking && {
+        thinkingConfig: {
+          thinkingLevel: ['LOW', 'MEDIUM', 'HIGH'].includes((this.config.thinkingLevel || '').toUpperCase())
+            ? this.config.thinkingLevel.toUpperCase()
+            : 'LOW',
+        },
+      }),
     };
 
     const voiceDirectives = 

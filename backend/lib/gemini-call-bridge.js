@@ -63,12 +63,16 @@ function attachGeminiCallBridge(server) {
         model = 'models/gemini-2.5-flash-native-audio-latest';
       }
 
+      const rawThinkingLevel = (agentConfig.thinking_level || '').toLowerCase();
+      const thinkingLevel = ['low', 'medium', 'high'].includes(rawThinkingLevel) ? rawThinkingLevel : 'low';
+
       const sessionOpts = {
         model,
         voice: agentConfig.voice || 'Kore',
         systemPrompt: agentConfig.system_prompt || 'You are a helpful AI assistant.',
         temperature: agentConfig.temperature ?? 1.0,
         responseModalities: ['AUDIO'],
+        thinkingLevel,
       };
 
       // Grounding with Google Search

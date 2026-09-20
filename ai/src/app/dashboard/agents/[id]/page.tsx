@@ -21,7 +21,7 @@ import {
   VAPI_MODEL_PROVIDERS, VAPI_LLM_OPTIONS, VAPI_VOICE_PROVIDERS, VAPI_TRANSCRIBER_PROVIDERS,
   VAPI_FIRST_MESSAGE_MODES, VAPI_BACKGROUND_SOUNDS, VAPI_TRANSCRIBER_MODELS,
   VAPI_VOICEMAIL_DETECTION, VAPI_VOICE_MODELS, VAPI_VOICE_SPEED_PROVIDERS,
-  GEMINI_VOICES, GEMINI_MODELS
+  GEMINI_VOICES, GEMINI_MODELS, GEMINI_THINKING_LEVELS
 } from '@/lib/constants';
 import TestCallView from '@/components/dashboard/TestCallView';
 
@@ -612,7 +612,7 @@ export default function AgentDetailPage() {
             gemini_model: llm || config?.gemini_model || 'models/gemini-2.5-flash-native-audio-latest',
             language,
             max_duration_seconds: maxDuration,
-            thinking_level: thinkingLevel,
+            thinking_level: llm?.includes('extended-thinking') ? (thinkingLevel === 'none' || !thinkingLevel ? 'low' : thinkingLevel) : 'none',
             media_resolution: mediaResolution,
             max_context_size: maxContextSize,
             target_context_size: targetContextSize,
@@ -844,6 +844,23 @@ export default function AgentDetailPage() {
               <p className="text-xs text-muted-foreground mb-5">Configure context window management and tool access for your Gemini agent.</p>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Thinking Level — required for extended-thinking models */}
+                {llm?.includes('extended-thinking') && (
+                  <div className="md:col-span-2">
+                    <label className="text-sm font-medium text-foreground mb-1.5 block">Thinking Level</label>
+                    <p className="text-xs text-muted-foreground mb-2">Controls reasoning depth for this extended-thinking model.</p>
+                    <select
+                      className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                      value={thinkingLevel === 'none' || !thinkingLevel ? 'low' : thinkingLevel}
+                      onChange={e => set(setThinkingLevel)(e.target.value)}
+                    >
+                      {GEMINI_THINKING_LEVELS.map(t => (
+                        <option key={t.value} value={t.value}>{t.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
                 {/* Max Context Size (triggers compression) */}
                 <div>
                   <label className="text-sm font-medium text-foreground mb-1.5 block">Max Context Size: {maxContextSize.toLocaleString()} tokens</label>

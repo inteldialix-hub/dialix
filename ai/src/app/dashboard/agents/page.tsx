@@ -23,6 +23,7 @@ import {
   VAPI_TRANSCRIBER_PROVIDERS,
   GEMINI_VOICES,
   GEMINI_MODELS,
+  GEMINI_THINKING_LEVELS,
 } from '@/lib/constants';
 
 interface Agent {
@@ -518,7 +519,9 @@ function CreateAgentModal({ token, voices, templates, onClose, onCreated }: {
         Object.assign(baseBody, {
           gemini_voice: geminiVoice,
           gemini_model: finalGeminiModel,
-          thinking_level: geminiThinkingLevel,
+          thinking_level: finalGeminiModel.includes('extended-thinking')
+            ? (geminiThinkingLevel === 'none' || !geminiThinkingLevel ? 'low' : geminiThinkingLevel)
+            : 'none',
         });
       } else {
         Object.assign(baseBody, {
@@ -728,7 +731,7 @@ function CreateAgentModal({ token, voices, templates, onClose, onCreated }: {
               
               {provider === 'gemini' ? (
                 <>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className={cn("grid gap-4", geminiModel.includes('extended-thinking') ? "grid-cols-2" : "grid-cols-1")}>
                     <div className="space-y-2">
                       <label className="text-sm font-medium">Model</label>
                       <CustomSelect 
@@ -758,6 +761,17 @@ function CreateAgentModal({ token, voices, templates, onClose, onCreated }: {
                         />
                       )}
                     </div>
+                    {geminiModel.includes('extended-thinking') && (
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Thinking level</label>
+                        <CustomSelect
+                          value={geminiThinkingLevel === 'none' || !geminiThinkingLevel ? 'low' : geminiThinkingLevel}
+                          onChange={e => setGeminiThinkingLevel(e.target.value)}
+                          options={GEMINI_THINKING_LEVELS}
+                          placeholder="Select thinking level"
+                        />
+                      </div>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Temperature: {temperature.toFixed(2)}</label>
