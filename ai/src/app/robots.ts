@@ -1,14 +1,16 @@
 import { MetadataRoute } from 'next';
 
 export default function robots(): MetadataRoute.Robots {
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.inteldialix.online';
+
   return {
     rules: [
       {
         userAgent: '*',
         allow: '/',
-        disallow: ['/dashboard', '/api/', '/login', '/signup'],
+        disallow: ['/dashboard/', '/api/'],
       },
     ],
-    sitemap: 'https://dialix.ai/sitemap.xml',
+    sitemap: `${baseUrl}/sitemap.xml`,
   };
 }

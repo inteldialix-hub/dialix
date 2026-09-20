@@ -24,7 +24,7 @@ export const metadata: Metadata = {
   },
   description:
     "Enterprise-ready Voice AI agents for automated phone calls. Deploy AI voice agents with speed, precision, and trust.",
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://dialix.ai'),
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://www.inteldialix.online'),
   openGraph: {
     title: "Dialix - Enterprise Voice AI Agents",
     description: "Deploy AI voice agents with speed, precision, and trust.",
