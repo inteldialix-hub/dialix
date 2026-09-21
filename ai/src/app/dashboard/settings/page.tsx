@@ -53,6 +53,15 @@ interface WebhookItem {
   created_at: string;
 }
 
+interface WebhookDelivery {
+  id: number;
+  event_type: string;
+  status: string;
+  http_status: number | null;
+  latency_ms: number | null;
+  created_at: string;
+}
+
 interface SystemErrorItem {
   id: number;
   error_message: string;
@@ -128,6 +137,8 @@ export default function SettingsPage() {
   const [creatingWebhook, setCreatingWebhook] = useState(false);
   const [testingWebhookId, setTestingWebhookId] = useState<number | null>(null);
   const [webhookTestResults, setWebhookTestResults] = useState<Record<number, { success: boolean; status: number; latency_ms: number; error?: string }>>({});
+  const [webhookDeliveries, setWebhookDeliveries] = useState<Record<number, WebhookDelivery[]>>({});
+  const [expandedWebhookId, setExpandedWebhookId] = useState<number | null>(null);
 
   // ── Telemetry & Bug Monitor State ──
   const [errorsList, setErrorsList] = useState<SystemErrorItem[]>([]);
@@ -423,6 +434,25 @@ export default function SettingsPage() {
       addToast(err instanceof Error ? err.message : 'Ping test failed', 'error');
     } finally {
       setTestingWebhookId(null);
+    }
+  };
+
+  const loadDeliveries = async (id: number) => {
+    try {
+      const res = await api<{ deliveries: WebhookDelivery[] }>(`/webhooks/${id}/deliveries`, { token: token! });
+      setWebhookDeliveries(prev => ({ ...prev, [id]: res.deliveries || [] }));
+    } catch (err) {
+      addToast('Failed to load webhook deliveries', 'error');
+    }
+  };
+
+  const handleRetryDelivery = async (webhookId: number, deliveryId: number) => {
+    try {
+      await api(`/webhooks/${webhookId}/deliveries/${deliveryId}/retry`, { method: 'POST', token: token! });
+      addToast('Delivery queued for retry', 'success');
+      loadDeliveries(webhookId);
+    } catch (err) {
+      addToast(err instanceof Error ? err.message : 'Failed to retry delivery', 'error');
     }
   };
 
@@ -1092,6 +1122,9 @@ export default function SettingsPage() {
               <div className="divide-y divide-border">
                 {webhooks.map(wh => {
                   const testRes = webhookTestResults[wh.id];
+                  const deliveries = webhookDeliveries[wh.id] || [];
+                  const isExpanded = expandedWebhookId === wh.id;
+
                   return (
                     <div key={wh.id} className="p-6 flex flex-col gap-4">
                       <div className="flex items-center justify-between gap-4">
@@ -1145,6 +1178,74 @@ export default function SettingsPage() {
                             {ev}
                           </span>
                         ))}
+                      </div>
+
+                      <div className="mt-2 border-t border-border pt-3">
+                        <button
+                          type="button"
+                          className="text-muted-foreground hover:text-foreground text-xs font-medium inline-flex items-center gap-1.5 transition-colors"
+                          onClick={() => {
+                            if (isExpanded) {
+                              setExpandedWebhookId(null);
+                            } else {
+                              setExpandedWebhookId(wh.id);
+                              loadDeliveries(wh.id);
+                            }
+                          }}
+                        >
+                          {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                          {isExpanded ? 'Hide Delivery History' : 'View Delivery History'}
+                        </button>
+
+                        {isExpanded && (
+                          <div className="mt-3 bg-card border border-border rounded-md overflow-hidden">
+                            {deliveries.length === 0 ? (
+                              <div className="p-4 text-center text-xs text-muted-foreground">No recent deliveries found for this webhook.</div>
+                            ) : (
+                              <div className="divide-y divide-border">
+                                {deliveries.map(d => (
+                                  <div key={d.id} className="p-3 flex items-center justify-between gap-4 hover:bg-accent/30 transition-colors">
+                                    <div className="flex flex-col gap-1">
+                                      <div className="flex items-center gap-2">
+                                        <span className={cn(
+                                          "px-2 py-0.5 text-[10px] font-medium rounded-full uppercase tracking-wider",
+                                          d.status === 'success' ? "bg-emerald-500/10 text-emerald-500" :
+                                          d.status === 'failed' ? "bg-red-500/10 text-red-500" :
+                                          "bg-yellow-500/10 text-yellow-500"
+                                        )}>
+                                          {d.status}
+                                        </span>
+                                        <span className="text-xs font-mono font-medium">{d.event_type}</span>
+                                      </div>
+                                      <span className="text-[11px] text-muted-foreground">{new Date(d.created_at).toLocaleString()}</span>
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                      {d.http_status && (
+                                        <span className="text-[11px] text-muted-foreground font-mono">
+                                          HTTP {d.http_status}
+                                        </span>
+                                      )}
+                                      {d.latency_ms && (
+                                        <span className="text-[11px] text-muted-foreground">
+                                          {d.latency_ms}ms
+                                        </span>
+                                      )}
+                                      {d.status === 'failed' && (
+                                        <button
+                                          type="button"
+                                          className="bg-secondary text-secondary-foreground hover:bg-secondary/80 rounded border border-border px-2 py-1 text-[10px] font-medium"
+                                          onClick={() => handleRetryDelivery(wh.id, d.id)}
+                                        >
+                                          Retry
+                                        </button>
+                                      )}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
                   );

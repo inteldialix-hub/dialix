@@ -10,6 +10,12 @@ const vapi = require('./vapi');
 
 let intervalId = null;
 let isProcessing = false;
+let isShuttingDown = false;
+let lastTickTime = null;
+let processedCount = 0;
+let errorCount = 0;
+
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 const DAYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
 
@@ -205,7 +211,7 @@ async function processCampaign(campaign) {
   // Query remaining valid contacts
   const placeholders = contactIds.map(() => '?').join(',');
   const candidateContacts = await all(
-    `SELECT id, first_name, last_name, phone, phone_e164 
+    `SELECT id, first_name, last_name, phone, phone_e164, retry_count 
      FROM contacts 
      WHERE id IN (${placeholders}) AND client_id = ? AND do_not_call = 0`,
     [...contactIds, campaign.client_id]
@@ -247,65 +253,107 @@ async function processCampaign(campaign) {
     const targetNumber = contact.phone_e164 || contact.phone;
     const leadName = `${contact.first_name || ''} ${contact.last_name || ''}`.trim() || 'Valued Customer';
 
-    try {
-      let conversationId = null;
+    const delays = [5000, 15000, 45000];
+    let success = false;
 
-      if (provider === 'elevenlabs') {
-        const callPayload = {
-          agent_id: campaign.agent_id,
-          agent_phone_number_id: phoneRow.elevenlabs_phone_number_id,
-          to_number: targetNumber,
-          conversation_initiation_client_data: {
-            dynamic_variables: {
-              lead_name: contact.first_name || leadName,
-              LEAD_NAME: contact.first_name || leadName,
+    for (let attempt = 0; attempt <= 3; attempt++) {
+      if (isShuttingDown) break;
+      
+      try {
+        let conversationId = null;
+
+        if (provider === 'elevenlabs') {
+          const callPayload = {
+            agent_id: campaign.agent_id,
+            agent_phone_number_id: phoneRow.elevenlabs_phone_number_id,
+            to_number: targetNumber,
+            conversation_initiation_client_data: {
+              dynamic_variables: {
+                lead_name: contact.first_name || leadName,
+                LEAD_NAME: contact.first_name || leadName,
+              },
             },
-          },
-        };
-        const elRes = await elevenlabs.makeOutboundCall(phoneRow.provider || 'twilio', callPayload);
-        conversationId = elRes?.conversation_id || elRes?.id || `el_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
-      } else if (provider === 'vapi') {
-        const vapiRes = await vapi.createCall({
-          assistantId: campaign.agent_id,
-          phoneNumberId: phoneRow.elevenlabs_phone_number_id || undefined,
-          customerNumber: targetNumber,
-          customer: {
-            number: targetNumber,
-            name: leadName,
-          },
-        });
-        conversationId = vapiRes?.id || `vapi_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
-      } else {
-        // Fallback or Gemini
-        conversationId = `call_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+          };
+          const elRes = await elevenlabs.makeOutboundCall(phoneRow.provider || 'twilio', callPayload);
+          conversationId = elRes?.conversation_id || elRes?.id || `el_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+        } else if (provider === 'vapi') {
+          const vapiRes = await vapi.createCall({
+            assistantId: campaign.agent_id,
+            phoneNumberId: phoneRow.elevenlabs_phone_number_id || undefined,
+            customerNumber: targetNumber,
+            customer: {
+              number: targetNumber,
+              name: leadName,
+            },
+          });
+          conversationId = vapiRes?.id || `vapi_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+        } else {
+          // Fallback or Gemini
+          conversationId = `call_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+        }
+
+        // Record call history with campaign_id
+        await run(
+          `INSERT INTO call_history (
+            client_id, campaign_id, agent_id, conversation_id, to_number, lead_name, status, started_at, created_at
+          ) VALUES (?, ?, ?, ?, ?, ?, 'initiated', datetime('now'), datetime('now'))`,
+          [campaign.client_id, String(campaign.id), campaign.agent_id, conversationId, targetNumber, leadName]
+        );
+
+        // Increment campaign completed calls
+        await run(
+          `UPDATE campaigns 
+           SET calls_completed = calls_completed + 1, updated_at = datetime('now') 
+           WHERE id = ?`,
+          [campaign.id]
+        );
+
+        console.log(`[CampaignWorker] Successfully dialed ${targetNumber} for campaign #${campaign.id} (${leadName})`);
+        success = true;
+        break; // exit retry loop on success
+      } catch (err) {
+        console.error(`[CampaignWorker] Call failure for ${targetNumber} in campaign #${campaign.id} (Attempt ${attempt + 1}):`, err.message || err);
+        if (attempt < 3) {
+          console.log(`[CampaignWorker] Waiting ${delays[attempt]}ms before retrying...`);
+          await sleep(delays[attempt]);
+        }
       }
+    }
 
-      // Record call history with campaign_id
-      await run(
-        `INSERT INTO call_history (
-          client_id, campaign_id, agent_id, conversation_id, to_number, lead_name, status, started_at, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, 'initiated', datetime('now'), datetime('now'))`,
-        [campaign.client_id, String(campaign.id), campaign.agent_id, conversationId, targetNumber, leadName]
-      );
-
-      // Increment campaign completed calls
-      await run(
-        `UPDATE campaigns 
-         SET calls_completed = calls_completed + 1, updated_at = datetime('now') 
-         WHERE id = ?`,
-        [campaign.id]
-      );
-
-      console.log(`[CampaignWorker] Successfully dialed ${targetNumber} for campaign #${campaign.id} (${leadName})`);
-    } catch (err) {
-      console.error(`[CampaignWorker] Call failure for ${targetNumber} in campaign #${campaign.id}:`, err.message || err);
+    if (!success) {
+      console.error(`[CampaignWorker] All retries failed for ${targetNumber} in campaign #${campaign.id}.`);
       await run(
         `UPDATE campaigns 
          SET calls_failed = calls_failed + 1, updated_at = datetime('now') 
          WHERE id = ?`,
         [campaign.id]
       );
+      // Mark contact as failed in call_history
+      try {
+        await run(
+          `INSERT INTO call_history (
+            client_id, campaign_id, agent_id, conversation_id, to_number, lead_name, status, started_at, created_at
+          ) VALUES (?, ?, ?, ?, ?, ?, 'failed', datetime('now'), datetime('now'))`,
+          [campaign.client_id, String(campaign.id), campaign.agent_id, `fail_${Date.now()}`, targetNumber, leadName]
+        );
+      } catch(e) {}
     }
+  }
+}
+
+async function detectStuckCampaigns() {
+  try {
+    const stuck = await all("SELECT id, name, updated_at FROM campaigns WHERE status = 'running' AND updated_at < datetime('now', '-30 minutes')");
+    for (const c of (stuck || [])) {
+      console.warn(`[CampaignWorker] Warning: Campaign #${c.id} "${c.name}" appears stuck (no activity since ${c.updated_at}).`);
+      const updatedAt = new Date(c.updated_at + 'Z');
+      if (Date.now() - updatedAt.getTime() > 2 * 60 * 60 * 1000) {
+        console.warn(`[CampaignWorker] Auto-pausing stuck campaign #${c.id}`);
+        await run("UPDATE campaigns SET status = 'paused', updated_at = datetime('now') WHERE id = ?", [c.id]);
+      }
+    }
+  } catch (err) {
+    console.error('[CampaignWorker] Error detecting stuck campaigns:', err);
   }
 }
 
@@ -313,10 +361,12 @@ async function processCampaign(campaign) {
  * Main worker tick
  */
 async function tick() {
-  if (isProcessing) return;
+  if (isProcessing || isShuttingDown) return;
+  lastTickTime = new Date().toISOString();
   isProcessing = true;
 
   try {
+    await detectStuckCampaigns();
     const runningCampaigns = await all("SELECT * FROM campaigns WHERE status = 'running'");
     if (runningCampaigns && runningCampaigns.length > 0) {
       for (const campaign of runningCampaigns) {
@@ -325,7 +375,9 @@ async function tick() {
     }
   } catch (err) {
     console.error('[CampaignWorker] Tick error:', err.message || err);
+    errorCount++;
   } finally {
+    processedCount++;
     isProcessing = false;
   }
 }
@@ -352,8 +404,33 @@ function stop() {
   }
 }
 
+async function gracefulShutdown() {
+  console.log('[CampaignWorker] Initiating graceful shutdown...');
+  isShuttingDown = true;
+  
+  // Wait up to 30s for current processing to finish
+  const startWait = Date.now();
+  while (isProcessing && Date.now() - startWait < 30000) {
+    await sleep(1000);
+  }
+  
+  stop();
+  console.log('[CampaignWorker] Graceful shutdown complete.');
+}
+
+function getStats() {
+  return {
+    isProcessing,
+    lastTickTime,
+    processedCount,
+    errorCount
+  };
+}
+
 module.exports = {
   start,
   stop,
   tick,
+  gracefulShutdown,
+  getStats,
 };

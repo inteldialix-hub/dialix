@@ -156,6 +156,7 @@ export default function AnalysisPage() {
   const [loading, setLoading] = useState(true);
   const [detailLoading, setDetailLoading] = useState(false);
   const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
   const [activeTab, setActiveTab] = useState<'overview' | 'transcription' | 'client_data'>('overview');
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
@@ -296,13 +297,27 @@ export default function AnalysisPage() {
   /* ─── Filtered conversations ──────────────────────────────── */
 
   const filtered = useMemo(() => {
-    if (!search.trim()) return conversations;
-    const q = search.toLowerCase();
-    return conversations.filter(c =>
-      c.conversation_id?.toLowerCase().includes(q) ||
-      statusLabel(c).toLowerCase().includes(q)
-    );
-  }, [conversations, search]);
+    let result = conversations;
+    // Status filter
+    if (statusFilter !== 'all') {
+      result = result.filter(c => {
+        const s = (c.call_successful || c.status || '').toLowerCase();
+        if (statusFilter === 'success') return s === 'done' || s === 'success' || s === 'successful';
+        if (statusFilter === 'failed') return s === 'failed' || s === 'error' || s === 'failure';
+        if (statusFilter === 'processing') return s === 'processing' || s === 'in-progress';
+        return true;
+      });
+    }
+    // Search filter
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      result = result.filter(c =>
+        c.conversation_id?.toLowerCase().includes(q) ||
+        statusLabel(c).toLowerCase().includes(q)
+      );
+    }
+    return result;
+  }, [conversations, search, statusFilter]);
 
   const agentName = useMemo(() => {
     const a = agents.find(a => a.agent_id === selectedAgent);
@@ -331,6 +346,36 @@ export default function AnalysisPage() {
               onChange={e => { setSelectedAgent(e.target.value); loadHistory(e.target.value); }}
               options={agents.map(a => ({ value: a.agent_id, label: a.name }))}
             />
+            <div className="flex gap-2">
+              <select
+                value={statusFilter}
+                onChange={e => setStatusFilter(e.target.value)}
+                className="flex-1 rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+              >
+                <option value="all">All statuses</option>
+                <option value="success">Successful</option>
+                <option value="failed">Failed</option>
+                <option value="processing">Processing</option>
+              </select>
+              <button
+                type="button"
+                onClick={() => {
+                  const csv = ['ID,Status,Duration (s),Date'].concat(
+                    filtered.map(c => `${c.conversation_id},${statusLabel(c)},${c.call_duration_secs || 0},${c.start_time_unix_secs ? new Date(c.start_time_unix_secs * 1000).toISOString() : ''}`)
+                  ).join('\n');
+                  const blob = new Blob([csv], { type: 'text/csv' });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url; a.download = `call-history-${agentName}.csv`; a.click();
+                  URL.revokeObjectURL(url);
+                  addToast('CSV exported', 'success');
+                }}
+                className="rounded-md border border-border bg-background px-3 py-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                title="Export CSV"
+              >
+                CSV
+              </button>
+            </div>
           </div>
         </div>
 

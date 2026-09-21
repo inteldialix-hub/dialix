@@ -107,6 +107,11 @@ app.use('/api/api-keys', require('./routes/api-keys'));
 app.use('/api/telemetry', require('./routes/telemetry'));
 app.use('/api/team', require('./routes/team'));
 
+app.get('/api/health/worker', (req, res) => {
+  const campaignWorker = require('./services/campaign-worker');
+  res.json(campaignWorker.getStats());
+});
+
 // ─── Health check ───────────────────────────────────────────────
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
@@ -320,6 +325,11 @@ async function start() {
   const campaignWorker = require('./services/campaign-worker');
   campaignWorker.start();
 
+  const { processRetries } = require('./lib/webhooks');
+  setInterval(() => {
+    processRetries().catch(console.error);
+  }, 60000);
+
   server.listen(PORT, '0.0.0.0', () => {
     console.log('');
     console.log('  ╔═══════════════════════════════════════╗');
@@ -341,3 +351,16 @@ start().catch((err) => {
   console.error('Failed to start server:', err);
   process.exit(1);
 });
+
+async function shutdown(signal) {
+  console.log(`\nReceived ${signal}. Shutting down gracefully...`);
+  const campaignWorker = require('./services/campaign-worker');
+  await campaignWorker.gracefulShutdown();
+  server.close(() => {
+    console.log('HTTP server closed.');
+    process.exit(0);
+  });
+}
+
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));

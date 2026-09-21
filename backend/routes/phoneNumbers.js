@@ -169,24 +169,25 @@ router.post('/:id/assign', authenticate, validateSchema(phoneNumberAssignSchema)
     const { id } = req.params;
     const { agent_id } = req.body;
 
-    const phoneNum = await get(
-      'SELECT * FROM phone_numbers WHERE id = ? AND client_id = ?',
-      [id, req.client.id]
-    );
+    const isNumeric = /^\d+$/.test(String(id));
+    const phoneNum = isNumeric
+      ? await get('SELECT * FROM phone_numbers WHERE id = ? AND (client_id = ? OR ? = 1)', [parseInt(id), req.client.id, req.client.is_admin ? 1 : 0])
+      : await get('SELECT * FROM phone_numbers WHERE elevenlabs_phone_number_id = ? AND (client_id = ? OR ? = 1)', [id, req.client.id, req.client.is_admin ? 1 : 0]);
+
     if (!phoneNum) {
       return res.status(404).json({ error: 'Phone number not found' });
     }
 
     const agent = await get(
-      'SELECT id FROM client_agents WHERE client_id = ? AND agent_id = ?',
-      [req.client.id, agent_id]
+      'SELECT id FROM client_agents WHERE (client_id = ? OR ? = 1) AND agent_id = ?',
+      [req.client.id, req.client.is_admin ? 1 : 0, agent_id]
     );
-    if (!agent) {
+    if (!agent && req.client.is_admin !== 1) {
       return res.status(403).json({ error: 'Agent not assigned to your account' });
     }
 
     await elevenlabs.assignPhoneNumber(phoneNum.elevenlabs_phone_number_id, agent_id);
-    await run('UPDATE phone_numbers SET assigned_agent_id = ? WHERE id = ?', [agent_id, id]);
+    await run('UPDATE phone_numbers SET assigned_agent_id = ? WHERE id = ?', [agent_id, phoneNum.id]);
 
     res.json({ success: true });
   } catch (err) {
@@ -202,17 +203,17 @@ router.delete('/:id', authenticate, async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Admins can delete any phone number; regular users only their own
-    const phoneNum = req.client.is_admin === 1
-      ? await get('SELECT * FROM phone_numbers WHERE id = ?', [id])
-      : await get('SELECT * FROM phone_numbers WHERE id = ? AND client_id = ?', [id, req.client.id]);
+    const isNumeric = /^\d+$/.test(String(id));
+    const phoneNum = isNumeric
+      ? await get('SELECT * FROM phone_numbers WHERE id = ? AND (client_id = ? OR ? = 1)', [parseInt(id), req.client.id, req.client.is_admin ? 1 : 0])
+      : await get('SELECT * FROM phone_numbers WHERE elevenlabs_phone_number_id = ? AND (client_id = ? OR ? = 1)', [id, req.client.id, req.client.is_admin ? 1 : 0]);
 
     if (!phoneNum) {
       return res.status(404).json({ error: 'Phone number not found' });
     }
 
     await elevenlabs.deletePhoneNumber(phoneNum.elevenlabs_phone_number_id);
-    await run('DELETE FROM phone_numbers WHERE id = ?', [id]);
+    await run('DELETE FROM phone_numbers WHERE id = ?', [phoneNum.id]);
 
     res.json({ success: true });
   } catch (err) {

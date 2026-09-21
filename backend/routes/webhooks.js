@@ -179,4 +179,68 @@ router.delete('/:id', authenticate, async (req, res) => {
   }
 });
 
+/**
+ * GET /api/webhooks/:id/deliveries
+ * Get delivery history for a webhook
+ */
+router.get('/:id/deliveries', authenticate, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const sub = await get('SELECT * FROM webhook_subscriptions WHERE id = ? AND client_id = ?', [id, req.client.id]);
+    if (!sub) {
+      return res.status(404).json({ error: 'Webhook subscription not found' });
+    }
+
+    const { all } = require('../db');
+    const deliveries = await all(
+      'SELECT * FROM webhook_deliveries WHERE webhook_id = ? ORDER BY created_at DESC LIMIT 50',
+      [id]
+    );
+
+    res.json({ deliveries });
+  } catch (err) {
+    console.error('GET /api/webhooks/:id/deliveries error:', err);
+    res.status(500).json({ error: 'Failed to fetch webhook deliveries' });
+  }
+});
+
+/**
+ * POST /api/webhooks/:id/deliveries/:deliveryId/retry
+ * Manually retry a failed delivery
+ */
+router.post('/:id/deliveries/:deliveryId/retry', authenticate, async (req, res) => {
+  try {
+    const { id, deliveryId } = req.params;
+    const sub = await get('SELECT * FROM webhook_subscriptions WHERE id = ? AND client_id = ?', [id, req.client.id]);
+    if (!sub) {
+      return res.status(404).json({ error: 'Webhook subscription not found' });
+    }
+
+    const delivery = await get('SELECT * FROM webhook_deliveries WHERE id = ? AND webhook_id = ?', [deliveryId, id]);
+    if (!delivery) {
+      return res.status(404).json({ error: 'Delivery record not found' });
+    }
+
+    // Force retry
+    const { processRetries } = require('../lib/webhooks');
+    const { run } = require('../db');
+    
+    // Set it back to pending and next_retry_at to now
+    await run(
+      `UPDATE webhook_deliveries 
+       SET status = 'pending', next_retry_at = datetime('now')
+       WHERE id = ?`,
+      [deliveryId]
+    );
+    
+    // Trigger processing (in background)
+    processRetries().catch(console.error);
+
+    res.json({ success: true, message: 'Delivery queued for retry' });
+  } catch (err) {
+    console.error('POST /api/webhooks/:id/deliveries/:deliveryId/retry error:', err);
+    res.status(500).json({ error: 'Failed to retry webhook delivery' });
+  }
+});
+
 module.exports = router;

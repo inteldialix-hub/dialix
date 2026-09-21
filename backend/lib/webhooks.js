@@ -18,8 +18,8 @@ const SUPPORTED_EVENTS = [
   'subscription.cancelled',
 ];
 
-const MAX_RETRIES = 3;
-const RETRY_DELAYS = [5000, 30000, 120000]; // 5s, 30s, 2min
+const MAX_RETRIES = 5;
+const RETRY_DELAYS = [60000, 300000, 900000, 3600000, 14400000]; // 1min, 5min, 15min, 60min, 4hr
 
 function buildSignature(secret, payload) {
   if (!secret) return null;
@@ -55,15 +55,12 @@ async function deleteSubscription(clientId, id) {
 }
 
 /**
- * Send a webhook event to all matching subscribers with retries and delivery logging.
- * Think of it like a postal service — it tries to deliver the package,
- * and if nobody answers, it comes back later up to 3 times.
+ * Send a webhook event to all matching subscribers with deliveries tracking.
  */
 async function sendWebhookEvent(event, payload, sourceClientId) {
   try {
     let subscribers;
     if (sourceClientId) {
-      // Only notify subscribers belonging to the source client
       subscribers = await all(
         'SELECT * FROM webhook_subscriptions WHERE event = ? AND client_id = ?',
         [event, sourceClientId]
@@ -74,7 +71,13 @@ async function sendWebhookEvent(event, payload, sourceClientId) {
     if (!subscribers || !subscribers.length) return;
 
     for (const sub of subscribers) {
-      deliverWithRetry(sub, event, payload, 0);
+      const result = await run(
+        `INSERT INTO webhook_deliveries (webhook_id, event_type, payload, status, max_attempts) 
+         VALUES (?, ?, ?, ?, ?)`,
+        [sub.id, event, JSON.stringify(payload), 'pending', MAX_RETRIES]
+      );
+      const deliveryId = result.lastInsertRowid;
+      deliverWithRetry(sub, event, payload, deliveryId, 0);
     }
   } catch (err) {
     console.error('Webhook delivery error:', err.message || err);
@@ -82,15 +85,44 @@ async function sendWebhookEvent(event, payload, sourceClientId) {
 }
 
 /**
- * Deliver a webhook with automatic retries on failure
+ * Process pending/failed retries
  */
-async function deliverWithRetry(subscription, event, payload, attempt) {
+async function processRetries() {
+  try {
+    const pendingDeliveries = await all(
+      `SELECT d.*, s.url, s.secret, s.client_id
+       FROM webhook_deliveries d
+       JOIN webhook_subscriptions s ON d.webhook_id = s.id
+       WHERE (d.status = 'failed' OR d.status = 'pending')
+       AND d.attempts < d.max_attempts
+       AND (d.next_retry_at IS NULL OR datetime(d.next_retry_at) <= datetime('now'))`
+    );
+
+    for (const delivery of pendingDeliveries) {
+      const payload = delivery.payload ? JSON.parse(delivery.payload) : {};
+      const sub = {
+        id: delivery.webhook_id,
+        url: delivery.url,
+        secret: delivery.secret,
+        client_id: delivery.client_id
+      };
+      deliverWithRetry(sub, delivery.event_type, payload, delivery.id, delivery.attempts);
+    }
+  } catch (err) {
+    console.error('Failed to process webhook retries:', err);
+  }
+}
+
+/**
+ * Deliver a webhook with tracking
+ */
+async function deliverWithRetry(subscription, event, payload, deliveryId, attempt) {
   const body = JSON.stringify({ event, payload, timestamp: new Date().toISOString() });
   const headers = {
     'Content-Type': 'application/json',
     'User-Agent': 'Dialix-Webhook/1.0',
     'X-Dialix-Event': event,
-    'X-Dialix-Delivery': crypto.randomUUID(),
+    'X-Dialix-Delivery': String(deliveryId),
   };
 
   if (subscription.secret) {
@@ -98,9 +130,10 @@ async function deliverWithRetry(subscription, event, payload, attempt) {
   }
 
   const startTime = Date.now();
-  let statusCode = 0;
+  let statusCode = null;
   let success = false;
   let errorMessage = null;
+  let responseText = null;
 
   try {
     const controller = new AbortController();
@@ -116,12 +149,41 @@ async function deliverWithRetry(subscription, event, payload, attempt) {
     clearTimeout(timeoutId);
     statusCode = response.status;
     success = statusCode >= 200 && statusCode < 300;
+    
+    try {
+      const text = await response.text();
+      responseText = text.slice(0, 1000); // Truncate response
+    } catch (e) {}
+
   } catch (err) {
     errorMessage = err.name === 'AbortError' ? 'Request timed out (10s)' : err.message;
     console.error(`Failed webhook POST to ${subscription.url} (attempt ${attempt + 1}):`, errorMessage);
   }
 
   const durationMs = Date.now() - startTime;
+  const currentAttempt = attempt + 1;
+
+  if (success) {
+    await run(
+      `UPDATE webhook_deliveries 
+       SET status = 'success', http_status = ?, response_body = ?, attempts = ?, latency_ms = ?, delivered_at = datetime('now'), next_retry_at = NULL, error_message = NULL
+       WHERE id = ?`,
+      [statusCode, responseText, currentAttempt, durationMs, deliveryId]
+    );
+  } else {
+    let nextRetryAt = null;
+    if (currentAttempt < MAX_RETRIES) {
+      const delayMs = RETRY_DELAYS[attempt] || 3600000;
+      nextRetryAt = new Date(Date.now() + delayMs).toISOString();
+    }
+    
+    await run(
+      `UPDATE webhook_deliveries 
+       SET status = 'failed', http_status = ?, response_body = ?, attempts = ?, latency_ms = ?, error_message = ?, next_retry_at = ?
+       WHERE id = ?`,
+      [statusCode, responseText, currentAttempt, durationMs, errorMessage, nextRetryAt, deliveryId]
+    );
+  }
 
   // Log delivery attempt (non-blocking)
   try {
@@ -134,7 +196,7 @@ async function deliverWithRetry(subscription, event, payload, attempt) {
         JSON.stringify({
           event,
           url: subscription.url,
-          attempt: attempt + 1,
+          attempt: currentAttempt,
           status_code: statusCode,
           success,
           duration_ms: durationMs,
@@ -145,14 +207,6 @@ async function deliverWithRetry(subscription, event, payload, attempt) {
   } catch {
     // Don't let logging failures break webhook delivery
   }
-
-  // Retry on failure
-  if (!success && attempt < MAX_RETRIES) {
-    const delay = RETRY_DELAYS[attempt] || 60000;
-    setTimeout(() => {
-      deliverWithRetry(subscription, event, payload, attempt + 1);
-    }, delay);
-  }
 }
 
 module.exports = {
@@ -162,4 +216,5 @@ module.exports = {
   deleteSubscription,
   sendWebhookEvent,
   buildSignature,
+  processRetries,
 };

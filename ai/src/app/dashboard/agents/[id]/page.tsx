@@ -105,6 +105,13 @@ export default function AgentDetailPage() {
   const [maxDuration, setMaxDuration] = useState(300);
   const [mode, setMode] = useState('turn');
   
+  const [maxCallDuration, setMaxCallDuration] = useState(30);
+  const [silenceTimeout, setSilenceTimeout] = useState(30);
+  const [interruptionHandling, setInterruptionHandling] = useState('allow');
+  const [complianceDisclosure, setComplianceDisclosure] = useState('');
+  const [voicemailBehavior, setVoicemailBehavior] = useState('hangup');
+  const [fallbackMessage, setFallbackMessage] = useState('');
+  
   const [asrQuality, setAsrQuality] = useState('high');
   const [asrProvider, setAsrProvider] = useState('scribe_realtime');
   
@@ -200,6 +207,12 @@ export default function AgentDetailPage() {
       setProvider((a.provider as 'elevenlabs' | 'vapi' | 'gemini') || 'elevenlabs');
       setName((a.name as string) || '');
       setFirstMessage((a.first_message as string) || '');
+      setMaxCallDuration((a.max_call_duration_seconds as number) ? Math.floor((a.max_call_duration_seconds as number) / 60) : 30);
+      setSilenceTimeout((a.silence_timeout_seconds as number) ?? 30);
+      setInterruptionHandling((a.interruption_handling as string) || 'allow');
+      setComplianceDisclosure((a.compliance_disclosure as string) || '');
+      setVoicemailBehavior((a.voicemail_behavior as string) || 'hangup');
+      setFallbackMessage((a.fallback_message as string) || '');
       
       if (a.provider === 'vapi') {
         setModelProvider((a.model_provider as string) || 'openai');
@@ -602,7 +615,15 @@ export default function AgentDetailPage() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      const commonFields: Record<string, unknown> = { name, first_message: firstMessage, prompt, llm, temperature };
+      const commonFields: Record<string, unknown> = { 
+        name, first_message: firstMessage, prompt, llm, temperature,
+        max_call_duration_seconds: maxCallDuration * 60,
+        silence_timeout_seconds: silenceTimeout,
+        interruption_handling: interruptionHandling,
+        compliance_disclosure: complianceDisclosure,
+        voicemail_behavior: voicemailBehavior,
+        fallback_message: fallbackMessage,
+      };
       if (maxTokens >= 50) commonFields.max_tokens = maxTokens;
 
       const body = provider === 'gemini'
@@ -899,6 +920,44 @@ export default function AgentDetailPage() {
               </div>
             </div>
           )}
+
+            <div className="rounded-lg border border-border bg-card p-6 mt-6">
+              <h3 className="text-sm font-medium mb-4 flex items-center gap-2"><Phone className="size-4" /> Call Behavior</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="text-sm font-medium text-foreground mb-1.5 block">Max Call Duration (minutes)</label>
+                  <input type="number" min="1" className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring" value={maxCallDuration} onChange={e => set(setMaxCallDuration)(parseInt(e.target.value) || 0)} />
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-foreground mb-1.5 block">Silence Timeout (seconds)</label>
+                  <input type="number" min="1" className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring" value={silenceTimeout} onChange={e => set(setSilenceTimeout)(parseInt(e.target.value) || 0)} />
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-foreground mb-1.5 block">Interruption Handling</label>
+                  <select className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring" value={interruptionHandling} onChange={e => set(setInterruptionHandling)(e.target.value)}>
+                    <option value="allow">Allow</option>
+                    <option value="reject">Reject</option>
+                    <option value="queue">Queue</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-foreground mb-1.5 block">Voicemail Behavior</label>
+                  <select className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring" value={voicemailBehavior} onChange={e => set(setVoicemailBehavior)(e.target.value)}>
+                    <option value="hangup">Hang up</option>
+                    <option value="leave_message">Leave message</option>
+                  </select>
+                </div>
+                <div className="md:col-span-2">
+                  <label className="text-sm font-medium text-foreground mb-1.5 block">Compliance Disclosure (Recording Notice)</label>
+                  <textarea className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring min-h-[80px]" placeholder="e.g. This call is being recorded for quality and training purposes." value={complianceDisclosure} onChange={e => set(setComplianceDisclosure)(e.target.value)} />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="text-sm font-medium text-foreground mb-1.5 block">Fallback Message</label>
+                  <textarea className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring min-h-[80px]" placeholder="Message played if the AI fails to generate a response..." value={fallbackMessage} onChange={e => set(setFallbackMessage)(e.target.value)} />
+                </div>
+              </div>
+            </div>
+
         </div>
         )}
         {activeTab === 'voice' && (

@@ -1275,6 +1275,17 @@ router.get('/:agent_id', authenticate, async (req, res) => {
       }
     }
 
+    // Fetch common agent_settings
+    const settings = await get('SELECT * FROM agent_settings WHERE agent_id = ?', [agent_id]);
+    const commonSettings = {
+      max_call_duration_seconds: settings?.max_call_duration_seconds ?? 1800,
+      silence_timeout_seconds: settings?.silence_timeout_seconds ?? 30,
+      interruption_handling: settings?.interruption_handling || 'allow',
+      compliance_disclosure: settings?.compliance_disclosure || '',
+      voicemail_behavior: settings?.voicemail_behavior || 'hangup',
+      fallback_message: settings?.fallback_message || '',
+    };
+
     // ── Gemini agent detail ──
     if (provider === 'gemini') {
       const geminiData = await get('SELECT * FROM gemini_agents WHERE agent_id = ?', [agent_id]);
@@ -1316,6 +1327,7 @@ router.get('/:agent_id', authenticate, async (req, res) => {
         // Timestamps
         created_at: geminiData.created_at || null,
         updated_at: geminiData.updated_at || null,
+        ...commonSettings,
       };
 
       res.json({ config, can_edit: clientCanEdit, allowed_features: allowedFeatures });
@@ -1421,6 +1433,7 @@ router.get('/:agent_id', authenticate, async (req, res) => {
         // Timestamps
         created_at: raw.createdAt || null,
         updated_at: raw.updatedAt || null,
+        ...commonSettings,
       };
 
       res.json({ config, can_edit: clientCanEdit, allowed_features: allowedFeatures });
@@ -1502,6 +1515,7 @@ router.get('/:agent_id', authenticate, async (req, res) => {
 
       // Auth
       enable_auth: raw.platform_settings?.auth?.enable_auth ?? false,
+      ...commonSettings,
     };
 
     res.json({ config, can_edit: clientCanEdit, allowed_features: allowedFeatures });
@@ -1577,6 +1591,29 @@ router.patch('/:agent_id', authenticate, async (req, res) => {
     }
 
     const body = req.body;
+
+    // Update generic agent settings (for all providers)
+    const asUpdates = [];
+    const asParams = [];
+    if (body.max_call_duration_seconds !== undefined) { asUpdates.push('max_call_duration_seconds = ?'); asParams.push(body.max_call_duration_seconds); }
+    if (body.silence_timeout_seconds !== undefined) { asUpdates.push('silence_timeout_seconds = ?'); asParams.push(body.silence_timeout_seconds); }
+    if (body.interruption_handling !== undefined) { asUpdates.push('interruption_handling = ?'); asParams.push(body.interruption_handling); }
+    if (body.compliance_disclosure !== undefined) { asUpdates.push('compliance_disclosure = ?'); asParams.push(body.compliance_disclosure); }
+    if (body.voicemail_behavior !== undefined) { asUpdates.push('voicemail_behavior = ?'); asParams.push(body.voicemail_behavior); }
+    if (body.fallback_message !== undefined) { asUpdates.push('fallback_message = ?'); asParams.push(body.fallback_message); }
+    
+    if (asUpdates.length > 0) {
+      asUpdates.push("updated_at = datetime('now')");
+      asParams.push(agent_id);
+      await run(
+        `INSERT INTO agent_settings (agent_id) VALUES (?) ON CONFLICT(agent_id) DO NOTHING`,
+        [agent_id]
+      );
+      await run(
+        `UPDATE agent_settings SET ${asUpdates.join(', ')} WHERE agent_id = ?`,
+        asParams
+      );
+    }
 
     // ════════════════════════════════════════════════
     // ── Gemini PATCH ──

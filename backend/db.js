@@ -277,6 +277,12 @@ async function initSqliteDb() {
   try { db.run("ALTER TABLE agent_settings ADD COLUMN similarity_boost REAL DEFAULT 0.75"); persistSync(); } catch (e) {}
   try { db.run("ALTER TABLE agent_settings ADD COLUMN speed REAL DEFAULT 1.0"); persistSync(); } catch (e) {}
   try { db.run("ALTER TABLE agent_settings ADD COLUMN streaming_latency INTEGER DEFAULT 3"); persistSync(); } catch (e) {}
+  try { db.run("ALTER TABLE agent_settings ADD COLUMN max_call_duration_seconds INTEGER DEFAULT 1800"); persistSync(); } catch (e) {}
+  try { db.run("ALTER TABLE agent_settings ADD COLUMN silence_timeout_seconds INTEGER DEFAULT 30"); persistSync(); } catch (e) {}
+  try { db.run("ALTER TABLE agent_settings ADD COLUMN interruption_handling TEXT DEFAULT 'allow'"); persistSync(); } catch (e) {}
+  try { db.run("ALTER TABLE agent_settings ADD COLUMN compliance_disclosure TEXT"); persistSync(); } catch (e) {}
+  try { db.run("ALTER TABLE agent_settings ADD COLUMN voicemail_behavior TEXT DEFAULT 'hangup'"); persistSync(); } catch (e) {}
+  try { db.run("ALTER TABLE agent_settings ADD COLUMN fallback_message TEXT"); persistSync(); } catch (e) {}
 
   db.run(`
     CREATE TABLE IF NOT EXISTS webhook_subscriptions (
@@ -286,6 +292,26 @@ async function initSqliteDb() {
       url TEXT NOT NULL,
       secret TEXT,
       created_at TEXT DEFAULT (datetime('now'))
+    )
+  `);
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS webhook_deliveries (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      webhook_id INTEGER NOT NULL,
+      event_type TEXT NOT NULL,
+      payload TEXT,
+      status TEXT DEFAULT 'pending',
+      http_status INTEGER,
+      response_body TEXT,
+      attempts INTEGER DEFAULT 0,
+      max_attempts INTEGER DEFAULT 5,
+      next_retry_at TEXT,
+      error_message TEXT,
+      latency_ms INTEGER,
+      created_at TEXT DEFAULT (datetime('now')),
+      delivered_at TEXT,
+      FOREIGN KEY (webhook_id) REFERENCES webhook_subscriptions(id)
     )
   `);
 
@@ -734,6 +760,8 @@ async function initSqliteDb() {
     db.run('CREATE INDEX IF NOT EXISTS idx_call_history_created_at ON call_history(created_at)');
     db.run('CREATE INDEX IF NOT EXISTS idx_webhook_subscriptions_client_id ON webhook_subscriptions(client_id)');
     db.run('CREATE INDEX IF NOT EXISTS idx_webhook_subscriptions_event ON webhook_subscriptions(event)');
+    db.run('CREATE INDEX IF NOT EXISTS idx_webhook_deliveries_webhook_id ON webhook_deliveries(webhook_id)');
+    db.run('CREATE INDEX IF NOT EXISTS idx_webhook_deliveries_status ON webhook_deliveries(status)');
     db.run('CREATE INDEX IF NOT EXISTS idx_call_metrics_conversation_id ON call_metrics(conversation_id)');
     db.run('CREATE INDEX IF NOT EXISTS idx_gemini_agents_agent_id ON gemini_agents(agent_id)');
     // New table indexes
