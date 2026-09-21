@@ -300,9 +300,13 @@ async function processCampaign(campaign) {
           const elRes = await elevenlabs.makeOutboundCall(phoneRow.provider || 'twilio', callPayload);
           conversationId = elRes?.conversation_id || elRes?.id || `el_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
         } else if (provider === 'vapi') {
+          // If phone is an ElevenLabs phone, Vapi cannot dial out with it
+          if (phoneRow.elevenlabs_phone_number_id && !phoneRow.provider_id) {
+            throw new Error(`Agent is managed by Vapi, but phone line ${phoneRow.phone_number} is hosted on ElevenLabs. Please assign an ElevenLabs agent to this campaign.`);
+          }
           const vapiRes = await vapi.createCall({
             assistantId: campaign.agent_id,
-            phoneNumberId: phoneRow.elevenlabs_phone_number_id || undefined,
+            phoneNumberId: phoneRow.provider_id || undefined,
             customerNumber: targetNumber,
             customer: {
               number: targetNumber,
@@ -336,6 +340,9 @@ async function processCampaign(campaign) {
         break; // exit retry loop on success
       } catch (err) {
         console.error(`[CampaignWorker] Call failure for ${targetNumber} in campaign #${campaign.id} (Attempt ${attempt + 1}):`, err.message || err);
+        if (err.message && err.message.includes('hosted on ElevenLabs')) {
+          break; // Don't retry incompatible provider
+        }
         if (attempt < 3) {
           console.log(`[CampaignWorker] Waiting ${delays[attempt]}ms before retrying...`);
           await sleep(delays[attempt]);

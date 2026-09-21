@@ -1141,6 +1141,7 @@ async function initPostgresDb() {
   await pool.query(`ALTER TABLE contacts ADD COLUMN IF NOT EXISTS dnc_at TIMESTAMPTZ`);
   await pool.query(`ALTER TABLE contacts ADD COLUMN IF NOT EXISTS last_called_at TIMESTAMPTZ`);
   await pool.query(`ALTER TABLE contacts ADD COLUMN IF NOT EXISTS next_callback_at TIMESTAMPTZ`);
+  await pool.query(`ALTER TABLE contacts ADD COLUMN IF NOT EXISTS retry_count INTEGER DEFAULT 0`);
 
   // ─── DNC (Do Not Call) Suppression List ──────────────────────
   await pool.query(`
