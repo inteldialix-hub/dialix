@@ -1,5 +1,4 @@
 const { all, get, run } = require('../db');
-const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 async function analyzeCall(callId) {
   try {
@@ -19,9 +18,6 @@ async function analyzeCall(callId) {
     // Check for Gemini API Key
     const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
     if (apiKey) {
-      const genAI = new GoogleGenerativeAI(apiKey);
-      const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
-      
       const prompt = `
         Analyze the following call transcript and provide a JSON response with these fields:
         - summary: A brief summary of the conversation (max 3 sentences).
@@ -35,11 +31,22 @@ async function analyzeCall(callId) {
       `;
 
       try {
-        const result = await model.generateContent({
-            contents: [{ role: 'user', parts: [{ text: prompt }]}],
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`;
+        const aiResponse = await fetch(apiUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
             generationConfig: { responseMimeType: "application/json" }
+          })
         });
-        const responseText = result.response.text();
+
+        if (!aiResponse.ok) {
+          throw new Error(`Gemini API returned ${aiResponse.status}`);
+        }
+
+        const aiData = await aiResponse.json();
+        const responseText = aiData.candidates?.[0]?.content?.parts?.[0]?.text;
         const parsed = JSON.parse(responseText);
         
         summary = parsed.summary || 'No summary available';

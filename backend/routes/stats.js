@@ -219,6 +219,9 @@ router.get('/daily', authenticate, async (req, res) => {
 
     const dailyStats = Object.values(grouped).sort((a, b) => a.date.localeCompare(b.date));
     res.json(dailyStats);
+  } catch (err) {
+    console.error('GET /api/stats/daily error:', err);
+    res.status(500).json({ error: 'Failed to fetch daily stats' });
   }
 });
 
