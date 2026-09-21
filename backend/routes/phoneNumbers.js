@@ -170,14 +170,13 @@ router.post('/:id/assign', authenticate, validateSchema(phoneNumberAssignSchema)
     const { agent_id } = req.body;
 
     const isNumeric = /^\d+$/.test(String(id));
-    const phoneNum = isNumeric
+    const cleanElId = String(id).replace(/^el_/, '');
+
+    let phoneNum = isNumeric
       ? await get('SELECT * FROM phone_numbers WHERE id = ? AND (client_id = ? OR ? = 1)', [parseInt(id), req.client.id, req.client.is_admin ? 1 : 0])
-      : await get('SELECT * FROM phone_numbers WHERE elevenlabs_phone_number_id = ? AND (client_id = ? OR ? = 1)', [id, req.client.id, req.client.is_admin ? 1 : 0]);
+      : await get('SELECT * FROM phone_numbers WHERE (elevenlabs_phone_number_id = ? OR elevenlabs_phone_number_id = ?) AND (client_id = ? OR ? = 1)', [cleanElId, id, req.client.id, req.client.is_admin ? 1 : 0]);
 
-    if (!phoneNum) {
-      return res.status(404).json({ error: 'Phone number not found' });
-    }
-
+    // Check agent ownership or admin
     const agent = await get(
       'SELECT id FROM client_agents WHERE (client_id = ? OR ? = 1) AND agent_id = ?',
       [req.client.id, req.client.is_admin ? 1 : 0, agent_id]
@@ -186,13 +185,35 @@ router.post('/:id/assign', authenticate, validateSchema(phoneNumberAssignSchema)
       return res.status(403).json({ error: 'Agent not assigned to your account' });
     }
 
-    await elevenlabs.assignPhoneNumber(phoneNum.elevenlabs_phone_number_id, agent_id);
-    await run('UPDATE phone_numbers SET assigned_agent_id = ? WHERE id = ?', [agent_id, phoneNum.id]);
+    // Call ElevenLabs API to assign agent to phone number
+    const elPhoneId = phoneNum?.elevenlabs_phone_number_id || cleanElId;
+    await elevenlabs.assignPhoneNumber(elPhoneId, agent_id);
+
+    // If already in local DB, update it; otherwise auto-import it into DB
+    if (phoneNum) {
+      await run('UPDATE phone_numbers SET assigned_agent_id = ? WHERE id = ?', [agent_id, phoneNum.id]);
+    } else {
+      try {
+        const allEl = await elevenlabs.getPhoneNumbers();
+        const elDetails = (Array.isArray(allEl) ? allEl : []).find(n => (n.phone_number_id || n.id) === cleanElId);
+        const phoneStr = elDetails?.phone_number || elDetails?.number || '—';
+        const labelStr = elDetails?.label || elDetails?.name || 'ElevenLabs Number';
+        const providerStr = elDetails?.provider || 'twilio';
+
+        await run(
+          `INSERT INTO phone_numbers (client_id, phone_number, label, provider, elevenlabs_phone_number_id, assigned_agent_id, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, datetime('now'))`,
+          [req.client.id, phoneStr, labelStr, providerStr, cleanElId, agent_id]
+        );
+      } catch (dbErr) {
+        console.warn('Could not auto-import ElevenLabs number to DB:', dbErr.message);
+      }
+    }
 
     res.json({ success: true });
   } catch (err) {
     console.error('POST /api/phone-numbers/:id/assign error:', err);
-    res.status(500).json({ error: 'Failed to assign phone number' });
+    res.status(500).json({ error: err.message || 'Failed to assign phone number' });
   }
 });
 
@@ -202,18 +223,25 @@ router.post('/:id/assign', authenticate, validateSchema(phoneNumberAssignSchema)
 router.delete('/:id', authenticate, async (req, res) => {
   try {
     const { id } = req.params;
-
     const isNumeric = /^\d+$/.test(String(id));
+    const cleanElId = String(id).replace(/^el_/, '');
+
     const phoneNum = isNumeric
       ? await get('SELECT * FROM phone_numbers WHERE id = ? AND (client_id = ? OR ? = 1)', [parseInt(id), req.client.id, req.client.is_admin ? 1 : 0])
-      : await get('SELECT * FROM phone_numbers WHERE elevenlabs_phone_number_id = ? AND (client_id = ? OR ? = 1)', [id, req.client.id, req.client.is_admin ? 1 : 0]);
+      : await get('SELECT * FROM phone_numbers WHERE (elevenlabs_phone_number_id = ? OR elevenlabs_phone_number_id = ?) AND (client_id = ? OR ? = 1)', [cleanElId, id, req.client.id, req.client.is_admin ? 1 : 0]);
 
-    if (!phoneNum) {
-      return res.status(404).json({ error: 'Phone number not found' });
+    const targetElId = phoneNum?.elevenlabs_phone_number_id || cleanElId;
+    if (targetElId) {
+      try {
+        await elevenlabs.deletePhoneNumber(targetElId);
+      } catch (elErr) {
+        console.warn('ElevenLabs delete warning:', elErr.message);
+      }
     }
 
-    await elevenlabs.deletePhoneNumber(phoneNum.elevenlabs_phone_number_id);
-    await run('DELETE FROM phone_numbers WHERE id = ?', [phoneNum.id]);
+    if (phoneNum) {
+      await run('DELETE FROM phone_numbers WHERE id = ?', [phoneNum.id]);
+    }
 
     res.json({ success: true });
   } catch (err) {
