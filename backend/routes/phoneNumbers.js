@@ -65,46 +65,74 @@ router.post('/twilio', authenticate, validateSchema(twilioPhoneNumberSchema), as
 
     const { label, phone_number, account_sid, auth_token, phone_number_sid } = req.body;
 
+    let resolvedPhoneNumber = phone_number;
+    let resolvedPhoneNumberSid = phone_number_sid;
+
     // Auto-fetch Phone Number SID from Twilio if not provided
-    if (!phone_number_sid) {
+    if (!resolvedPhoneNumberSid) {
       try {
         const cleanNumber = phone_number.replace(/[\s\-()]/g, '');
-        const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${account_sid}/IncomingPhoneNumbers.json?PhoneNumber=${encodeURIComponent(cleanNumber)}`;
-        const twilioRes = await fetch(twilioUrl, {
-          headers: {
-            'Authorization': 'Basic ' + Buffer.from(`${account_sid}:${auth_token}`).toString('base64'),
-          },
+        const twilioAuth = 'Basic ' + Buffer.from(`${account_sid}:${auth_token}`).toString('base64');
+        
+        // Fetch all incoming phone numbers from Twilio
+        const twilioListUrl = `https://api.twilio.com/2010-04-01/Accounts/${account_sid}/IncomingPhoneNumbers.json`;
+        const twilioRes = await fetch(twilioListUrl, {
+          headers: { 'Authorization': twilioAuth },
         });
         const twilioData = await twilioRes.json();
 
         if (!twilioRes.ok) {
-          return res.status(400).json({ error: `Twilio lookup failed: ${twilioData.message || 'Invalid credentials'}` });
+          return res.status(400).json({ error: `Twilio authentication failed: ${twilioData.message || 'Invalid Account SID or Auth Token'}` });
         }
-        if (!twilioData.incoming_phone_numbers || twilioData.incoming_phone_numbers.length === 0) {
-          return res.status(400).json({ error: `Phone number ${cleanNumber} not found in your Twilio account` });
+
+        const incomingNumbers = twilioData.incoming_phone_numbers || [];
+        if (incomingNumbers.length === 0) {
+          return res.status(400).json({ error: 'No active phone numbers found in your Twilio account. Please purchase or claim a number in Twilio first.' });
         }
-        phone_number_sid = twilioData.incoming_phone_numbers[0].sid;
-        console.log(`Auto-resolved Phone Number SID: ${phone_number_sid}`);
+
+        // Try exact match or match digits
+        const digitsOnly = cleanNumber.replace(/\D/g, '');
+        const match = incomingNumbers.find(n => {
+          const nDigits = (n.phone_number || '').replace(/\D/g, '');
+          return n.phone_number === cleanNumber || nDigits === digitsOnly;
+        });
+
+        if (match) {
+          resolvedPhoneNumberSid = match.sid;
+          resolvedPhoneNumber = match.phone_number;
+        } else {
+          // If only 1 number in account, auto-use it!
+          if (incomingNumbers.length === 1) {
+            resolvedPhoneNumberSid = incomingNumbers[0].sid;
+            resolvedPhoneNumber = incomingNumbers[0].phone_number;
+            console.log(`[Twilio] Auto-selected available Twilio number: ${resolvedPhoneNumber} (${resolvedPhoneNumberSid})`);
+          } else {
+            const availableList = incomingNumbers.map(n => n.phone_number).join(', ');
+            return res.status(400).json({ 
+              error: `Number ${cleanNumber} not found in Twilio. Active numbers in your Twilio account: ${availableList}` 
+            });
+          }
+        }
       } catch (lookupErr) {
         console.error('Twilio lookup error:', lookupErr);
-        return res.status(400).json({ error: 'Failed to look up Phone Number SID from Twilio. Please enter it manually.' });
+        return res.status(400).json({ error: 'Failed to look up Phone Number SID from Twilio. Please verify your Account SID and Auth Token.' });
       }
     }
 
     const result = await elevenlabs.createPhoneNumber({
       provider: 'twilio',
       label,
-      phone_number,
+      phone_number: resolvedPhoneNumber,
       sid: account_sid,
       token: auth_token,
-      phone_number_sid,
+      phone_number_sid: resolvedPhoneNumberSid,
     });
 
     const elevenlabsPhoneId = result.phone_number_id || result.id;
     await run(
-      `INSERT INTO phone_numbers (client_id, elevenlabs_phone_number_id, phone_number, label, provider)
-       VALUES (?, ?, ?, ?, 'twilio') RETURNING id`,
-      [req.client.id, elevenlabsPhoneId, phone_number, label]
+      `INSERT INTO phone_numbers (client_id, elevenlabs_phone_number_id, phone_number, label, provider, created_at)
+       VALUES (?, ?, ?, ?, 'twilio', datetime('now'))`,
+      [req.client.id, elevenlabsPhoneId, resolvedPhoneNumber, label]
     );
 
     const inserted = await get(
