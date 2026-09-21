@@ -148,4 +148,112 @@ router.get('/', authenticate, async (req, res) => {
   }
 });
 
+/**
+ * GET /api/stats/daily
+ * Returns calls grouped by day
+ */
+router.get('/daily', authenticate, async (req, res) => {
+  try {
+    const clientId = req.client.id;
+    const isAdmin = req.client.is_admin;
+    const days = parseInt(req.query.days) || 30;
+
+    // Get agents
+    const agents = isAdmin
+      ? await all('SELECT DISTINCT agent_id FROM client_agents')
+      : await all('SELECT agent_id FROM client_agents WHERE client_id = ?', [clientId]);
+
+    let allConversations = [];
+
+    const agentResults = await Promise.allSettled(
+      agents.map(async (agent) => {
+        try {
+          const data = await elevenlabs.getConversations(agent.agent_id, 100);
+          return data.conversations || [];
+        } catch (err) {
+          return [];
+        }
+      })
+    );
+
+    for (const result of agentResults) {
+      if (result.status === 'fulfilled') {
+        allConversations = allConversations.concat(result.value);
+      }
+    }
+
+    // Filter to last N days
+    const now = Date.now() / 1000;
+    const cutoff = now - (days * 24 * 60 * 60);
+    
+    const recentConversations = allConversations.filter(c => {
+      const time = c.start_time_unix_secs || c.metadata?.start_time_unix_secs || 0;
+      return time >= cutoff;
+    });
+
+    // Group by date (YYYY-MM-DD)
+    const grouped = {};
+    
+    // Initialize dates
+    for (let i = 0; i < days; i++) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const dateStr = d.toISOString().split('T')[0];
+      grouped[dateStr] = { date: dateStr, count: 0, successCount: 0, failedCount: 0 };
+    }
+
+    recentConversations.forEach(c => {
+      const time = c.start_time_unix_secs || c.metadata?.start_time_unix_secs || 0;
+      if (time === 0) return;
+      
+      const dateStr = new Date(time * 1000).toISOString().split('T')[0];
+      if (grouped[dateStr]) {
+        grouped[dateStr].count++;
+        if (c.status === 'done' || c.status === 'completed') {
+          grouped[dateStr].successCount++;
+        } else if (c.status && c.status !== 'processing') {
+          grouped[dateStr].failedCount++;
+        }
+      }
+    });
+
+    const dailyStats = Object.values(grouped).sort((a, b) => a.date.localeCompare(b.date));
+    res.json(dailyStats);
+  }
+});
+
+/**
+ * GET /api/stats/usage
+ * Returns current month usage summary and plan limits for billing page
+ */
+router.get('/usage', authenticate, async (req, res) => {
+  try {
+    const { getCurrentMonthUsage } = require('../services/usage-tracker');
+    const { getClientPlanLimits } = require('../lib/plan-limits');
+    
+    const usage = await getCurrentMonthUsage(req.client.id);
+    const plan = await getClientPlanLimits(req.client.id);
+    
+    res.json({ usage, plan });
+  } catch (err) {
+    console.error('GET /api/stats/usage error:', err);
+    res.status(500).json({ error: 'Failed to fetch usage' });
+  }
+});
+
+/**
+ * GET /api/stats/usage/history
+ * Returns historical usage for the past year
+ */
+router.get('/usage/history', authenticate, async (req, res) => {
+  try {
+    const { getUsageHistory } = require('../services/usage-tracker');
+    const history = await getUsageHistory(req.client.id, 12);
+    res.json(history);
+  } catch (err) {
+    console.error('GET /api/stats/usage/history error:', err);
+    res.status(500).json({ error: 'Failed to fetch usage history' });
+  }
+});
+
 module.exports = router;

@@ -245,11 +245,14 @@ router.get('/conversation/:conversation_id', authenticate, async (req, res) => {
         },
         analysis: {
           call_successful: localCall.success ? 'success' : 'unknown',
-          transcript_summary: 'Customer called inquiring about Enterprise SLA and latency guarantees. Agent confirmed 99.99% uptime and answered all questions.',
+          transcript_summary: localCall.summary || 'No summary available.',
           evaluation: {
-            quality_score: localCall.quality_score || 95,
-            sentiment: 'positive',
+            quality_score: localCall.qualification_score || localCall.quality_score || 0,
+            sentiment: localCall.sentiment || 'neutral',
           },
+          outcome: localCall.outcome,
+          key_topics: localCall.key_topics ? JSON.parse(localCall.key_topics) : null,
+          analyzed_at: localCall.analyzed_at,
         },
         conversation_initiation_client_data: {
           dynamic_variables: {
@@ -333,11 +336,41 @@ router.get('/conversation/:conversation_id', authenticate, async (req, res) => {
           conversation_config_override: {},
         },
       };
+      
+      const dbCall = await get('SELECT id, summary, sentiment, outcome, qualification_score, key_topics, analyzed_at FROM call_history WHERE conversation_id = ?', [conversation_id]);
+      if (dbCall) {
+        mapped.id = dbCall.id;
+        if (dbCall.summary) {
+          mapped.analysis.transcript_summary = dbCall.summary;
+          mapped.analysis.outcome = dbCall.outcome;
+          mapped.analysis.sentiment = dbCall.sentiment;
+          mapped.analysis.qualification_score = dbCall.qualification_score;
+          mapped.analysis.key_topics = dbCall.key_topics ? JSON.parse(dbCall.key_topics) : null;
+          mapped.analysis.analyzed_at = dbCall.analyzed_at;
+        }
+      }
+      
       return res.json(mapped);
     }
 
     // ElevenLabs flow
     const data = await elevenlabs.getConversation(conversation_id);
+    
+    // Merge DB analysis if exists
+    const dbCall = await get('SELECT id, summary, sentiment, outcome, qualification_score, key_topics, analyzed_at FROM call_history WHERE conversation_id = ?', [conversation_id]);
+    if (dbCall && dbCall.summary) {
+      if (!data.analysis) data.analysis = {};
+      data.analysis.transcript_summary = dbCall.summary;
+      data.analysis.outcome = dbCall.outcome;
+      data.analysis.sentiment = dbCall.sentiment;
+      data.analysis.qualification_score = dbCall.qualification_score;
+      data.analysis.key_topics = dbCall.key_topics ? JSON.parse(dbCall.key_topics) : null;
+      data.analysis.analyzed_at = dbCall.analyzed_at;
+      data.id = dbCall.id; // pass DB ID for running analysis
+    } else if (dbCall) {
+      data.id = dbCall.id;
+    }
+    
     res.json(data);
   } catch (err) {
     console.error('GET /api/calls/conversation error:', err);
@@ -797,6 +830,10 @@ router.post('/status-webhook', async (req, res) => {
         [conversation_id]
       );
       if (callRecord) {
+        // Record usage for billing
+        const { recordCallUsage } = require('../services/usage-tracker');
+        await recordCallUsage(callRecord.client_id, conversation_id, duration || 0);
+
         const eventType = normalizedStatus === 'completed' ? 'call.completed' : 'call.failed';
         sendWebhookEvent(eventType, {
           conversation_id,

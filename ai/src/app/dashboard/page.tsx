@@ -6,17 +6,18 @@ import { useAuth } from '@/lib/auth-context';
 import { useToast } from '@/components/dashboard/shared/ToastProvider';
 import { cn } from '@/lib/utils';
 import { api } from '@/lib/api';
-import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
-import { Doughnut } from 'react-chartjs-2';
+import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, PointElement, LineElement, Filler } from 'chart.js';
+import { Doughnut, Line } from 'react-chartjs-2';
 import {
   Phone, Users, Bot, Download, FileText, TrendingUp, TrendingDown, Minus,
   PieChart, Activity, CheckCircle, Timer, Star, MicOff, Webhook, Plus, Trash,
   Filter, RefreshCw, Radio, Server, MessageSquare, GitBranch, User, PhoneCall,
-  Loader2
+  Loader2,
+  LineChart as LineChartIcon
 } from 'lucide-react';
 import { useTopBar } from '@/components/dashboard/TopBarContext';
 
-ChartJS.register(ArcElement, Tooltip, Legend);
+ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, PointElement, LineElement, Filler);
 
 interface Stats {
   totalAgents: number;
@@ -96,6 +97,27 @@ export default function DashboardPage() {
   const [filterDateFrom, setFilterDateFrom] = useState('');
   const [filterDateTo, setFilterDateTo] = useState('');
 
+  // Daily Stats for Chart
+  const [timeframe, setTimeframe] = useState<number>(30);
+  const [dailyStats, setDailyStats] = useState<any[]>([]);
+  const [dailyStatsLoading, setDailyStatsLoading] = useState(false);
+
+  useEffect(() => {
+    if (!token) return;
+
+    setDailyStatsLoading(true);
+    api<any[]>(`/stats/daily?days=${timeframe}`, { token })
+      .then(data => {
+        setDailyStats(data || []);
+      })
+      .catch(() => {
+        // silently fail or addtoast
+      })
+      .finally(() => {
+        setDailyStatsLoading(false);
+      });
+  }, [token, timeframe]);
+
 
   useEffect(() => {
     if (!token) return;
@@ -136,8 +158,7 @@ export default function DashboardPage() {
   }, [token, addToast]);
 
   const formatDuration = (secs: number) => {
-    if (!secs) return '0s';
-    const m = Math.floor(secs / 60);
+    if (!secs) return '0s';    const m = Math.floor(secs / 60);
     const s = Math.round(secs % 60);
     return m > 0 ? `${m}m ${s}s` : `${s}s`;
   };
@@ -375,8 +396,87 @@ export default function DashboardPage() {
     return true;
   }) || [];
 
+  const lineChartData = {
+    labels: dailyStats.map(d => {
+      const date = new Date(d.date);
+      // adjust for timezone offset if needed, or just keep it simple
+      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+    }),
+    datasets: [
+      {
+        label: 'Total Calls',
+        data: dailyStats.map(d => d.count),
+        borderColor: 'rgba(16, 185, 129, 0.9)',
+        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+        fill: true,
+        tension: 0.4,
+        borderWidth: 2,
+        pointRadius: 2,
+        pointHoverRadius: 4,
+      }
+    ]
+  };
+
+  const lineChartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        backgroundColor: '#18181b',
+        titleColor: '#ffffff',
+        bodyColor: '#a1a1aa',
+        borderColor: 'rgba(255, 255, 255, 0.1)',
+        borderWidth: 1,
+        padding: 10,
+        boxPadding: 4,
+        mode: 'index' as const,
+        intersect: false,
+      },
+    },
+    scales: {
+      y: {
+        beginAtZero: true,
+        grid: { color: 'rgba(255, 255, 255, 0.05)' },
+        ticks: { color: '#a1a1aa', font: { size: 11, family: 'monospace' }, stepSize: 1 }
+      },
+      x: {
+        grid: { display: false },
+        ticks: { color: '#a1a1aa', font: { size: 11 }, maxRotation: 45, minRotation: 0 }
+      }
+    },
+    interaction: {
+      mode: 'index' as const,
+      intersect: false,
+    },
+  };
+
   return (
     <div className="max-w-7xl mx-auto px-6 py-6">
+      <div className="flex items-center justify-end mb-6">
+        <div className="flex items-center gap-1 bg-muted/30 p-1 rounded-lg border border-border">
+          {[
+            { label: 'Today', value: 1 },
+            { label: '7 Days', value: 7 },
+            { label: '30 Days', value: 30 },
+            { label: '90 Days', value: 90 },
+          ].map(t => (
+            <button
+              key={t.value}
+              onClick={() => setTimeframe(t.value)}
+              className={cn(
+                "px-3 py-1.5 text-xs font-medium rounded-md transition-colors",
+                timeframe === t.value 
+                  ? "bg-card text-foreground shadow-sm border border-border" 
+                  : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
+              )}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {statCards.map((card, i) => (
           <div key={i} className="rounded-lg border border-border bg-card p-6">
@@ -384,6 +484,26 @@ export default function DashboardPage() {
             <p className="text-2xl font-semibold mt-1 font-mono tabular-nums">{card.value}</p>
           </div>
         ))}
+      </div>
+
+      {/* Calls Over Time Chart */}
+      <div className="mt-6 rounded-lg border border-border bg-card p-6">
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="text-sm font-medium flex items-center gap-2">
+            <LineChartIcon className="w-4 h-4 text-muted-foreground" /> Calls over time
+          </h3>
+          {dailyStatsLoading && <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />}
+        </div>
+        <div className="h-[300px] w-full">
+          {dailyStats.length > 0 ? (
+            <Line data={lineChartData} options={lineChartOptions} />
+          ) : (
+            <div className="flex flex-col items-center justify-center h-full text-muted-foreground text-sm">
+              <Activity className="w-8 h-8 mb-2 opacity-20" />
+              <p>No call data for this timeframe</p>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">

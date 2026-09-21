@@ -430,4 +430,68 @@ router.post('/resend-verification', authenticate, resendVerificationLimiter, asy
   }
 });
 
+// ─── GDPR: Account Deletion ──────────────────────────────────
+// DELETE /api/auth/me — Permanently delete account and anonymize data
+router.delete('/me', authenticate, async (req, res) => {
+  try {
+    const clientId = req.client.id;
+    const clientEmail = req.client.email;
+
+    // Require password confirmation for account deletion
+    const { password } = req.body || {};
+    if (!password) {
+      return res.status(400).json({ error: 'Password confirmation required for account deletion.' });
+    }
+
+    const client = await get('SELECT * FROM clients WHERE id = ?', [clientId]);
+    if (!client) {
+      return res.status(404).json({ error: 'Account not found.' });
+    }
+
+    const validPassword = await bcrypt.compare(password, client.password_hash);
+    if (!validPassword) {
+      return res.status(401).json({ error: 'Invalid password.' });
+    }
+
+    // Delete user data (cascading) — order matters for foreign key safety
+    await run('DELETE FROM api_keys WHERE client_id = ?', [clientId]);
+    await run('DELETE FROM webhook_subscriptions WHERE client_id = ?', [clientId]);
+    await run('DELETE FROM call_history WHERE client_id = ?', [clientId]);
+    await run('DELETE FROM contacts WHERE client_id = ?', [clientId]);
+    await run('DELETE FROM campaigns WHERE client_id = ?', [clientId]);
+    await run('DELETE FROM phone_numbers WHERE client_id = ?', [clientId]);
+    await run('DELETE FROM client_agents WHERE client_id = ?', [clientId]);
+    await run('DELETE FROM usage_records WHERE client_id = ?', [clientId]);
+    await run('DELETE FROM audit_logs WHERE client_id = ?', [clientId]);
+
+    // Anonymize the client record instead of hard-deleting (preserve audit trail)
+    const crypto = require('crypto');
+    const anonymizedEmail = `deleted_${crypto.randomBytes(8).toString('hex')}@anonymized.local`;
+    await run(
+      `UPDATE clients SET 
+        name = 'Deleted User', 
+        email = ?, 
+        password_hash = 'DELETED',
+        is_active = 0,
+        verification_token = NULL,
+        reset_token = NULL,
+        updated_at = datetime('now')
+      WHERE id = ?`,
+      [anonymizedEmail, clientId]
+    );
+
+    // Log the deletion event
+    await run(
+      `INSERT INTO audit_logs (client_id, actor_id, action, resource_type, resource_id, details)
+       VALUES (?, ?, 'DELETE', 'account', ?, ?)`,
+      [clientId, clientId, String(clientId), JSON.stringify({ original_email: clientEmail, reason: 'GDPR account deletion request' })]
+    );
+
+    res.json({ success: true, message: 'Account deleted successfully. All personal data has been removed.' });
+  } catch (err) {
+    console.error('Account deletion error:', err);
+    res.status(500).json({ error: 'Failed to delete account. Please contact support.' });
+  }
+});
+
 module.exports = router;

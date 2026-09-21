@@ -43,6 +43,7 @@ interface TranscriptEntry {
 }
 
 interface ConversationDetail {
+  id?: number;
   conversation_id: string;
   agent_id: string;
   status: string;
@@ -74,6 +75,11 @@ interface ConversationDetail {
     transcript_summary?: string;
     successEvaluation?: string;
     structuredData?: Record<string, unknown>;
+    sentiment?: string;
+    outcome?: string;
+    qualification_score?: number;
+    key_topics?: string[];
+    analyzed_at?: string;
   };
   conversation_initiation_client_data?: {
     dynamic_variables?: Record<string, string>;
@@ -157,6 +163,42 @@ export default function AnalysisPage() {
   const [audioError, setAudioError] = useState(false);
   const [audioLoading, setAudioLoading] = useState(false);
   const [audioBlobUrl, setAudioBlobUrl] = useState<string | null>(null);
+
+  // Analysis state
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+
+  const runAnalysis = async () => {
+    if (!convDetail?.id) return;
+    setIsAnalyzing(true);
+    try {
+      const res = await api<any>(`/calls/${convDetail.id}/analyze`, {
+        method: 'POST',
+        token: token!
+      });
+      if (res.success && res.data) {
+        setConvDetail(prev => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            analysis: {
+              ...prev.analysis,
+              transcript_summary: res.data.summary,
+              sentiment: res.data.sentiment,
+              outcome: res.data.outcome,
+              qualification_score: res.data.qualification_score,
+              key_topics: res.data.key_topics ? JSON.parse(res.data.key_topics) : null,
+              analyzed_at: res.data.analyzed_at
+            }
+          };
+        });
+        addToast('Analysis completed', 'success');
+      }
+    } catch (err) {
+      addToast(err instanceof Error ? err.message : 'Failed to analyze', 'error');
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
 
   /* ─── Load agents ─────────────────────────────────────────── */
 
@@ -388,7 +430,7 @@ export default function AnalysisPage() {
               </div>
 
               <div className="p-6 flex-1 overflow-y-auto">
-                {activeTab === 'overview' && <OverviewTab detail={convDetail} />}
+                {activeTab === 'overview' && <OverviewTab detail={convDetail} onRunAnalysis={runAnalysis} isAnalyzing={isAnalyzing} />}
                 {activeTab === 'transcription' && <TranscriptionTab detail={convDetail} agentName={agentName} />}
                 {activeTab === 'client_data' && <ClientDataTab detail={convDetail} />}
               </div>
@@ -426,17 +468,75 @@ export default function AnalysisPage() {
    OVERVIEW TAB
    ═══════════════════════════════════════════════════════════════ */
 
-function OverviewTab({ detail }: { detail: ConversationDetail }) {
+function OverviewTab({ detail, onRunAnalysis, isAnalyzing }: { detail: ConversationDetail; onRunAnalysis: () => void; isAnalyzing: boolean }) {
   const summary = detail.analysis?.transcript_summary;
   const callStatus = detail.analysis?.call_successful || detail.status || 'unknown';
   const scClass = getStatusColorClass(callStatus);
 
   return (
     <div className="flex flex-col gap-8 max-w-3xl">
-      {summary && (
+      <div className="flex justify-between items-start">
+        {summary ? (
+          <div className="flex-1">
+            <h4 className="text-sm font-semibold mb-2">Summary</h4>
+            <p className="text-sm text-muted-foreground leading-relaxed">{summary}</p>
+            {detail.analysis?.analyzed_at && (
+              <span className="text-[10px] text-muted-foreground mt-2 block">
+                Analyzed at: {new Date(detail.analysis.analyzed_at).toLocaleString()}
+              </span>
+            )}
+          </div>
+        ) : (
+          <div className="flex-1">
+            <h4 className="text-sm font-semibold mb-2">Summary</h4>
+            <p className="text-sm text-muted-foreground italic">No summary available.</p>
+          </div>
+        )}
+        
+        {detail.id && !detail.analysis?.analyzed_at && (
+          <button 
+            onClick={onRunAnalysis}
+            disabled={isAnalyzing}
+            className="ml-4 flex-shrink-0 bg-primary/10 hover:bg-primary/20 text-primary px-3 py-1.5 rounded-md text-sm font-medium transition-colors"
+          >
+            {isAnalyzing ? 'Analyzing...' : 'Run Analysis'}
+          </button>
+        )}
+      </div>
+
+      {(detail.analysis?.sentiment || detail.analysis?.outcome || detail.analysis?.qualification_score !== undefined) && (
         <div>
-          <h4 className="text-sm font-semibold mb-2">Summary</h4>
-          <p className="text-sm text-muted-foreground leading-relaxed">{summary}</p>
+          <h4 className="text-sm font-semibold mb-3">AI Analysis</h4>
+          <div className="grid grid-cols-3 gap-4">
+            {detail.analysis?.sentiment && (
+              <div className="rounded-lg border border-border bg-card p-4">
+                <span className="block text-xs font-medium text-muted-foreground mb-1 uppercase tracking-wider">Sentiment</span>
+                <span className="font-medium capitalize">{detail.analysis.sentiment}</span>
+              </div>
+            )}
+            {detail.analysis?.outcome && (
+              <div className="rounded-lg border border-border bg-card p-4">
+                <span className="block text-xs font-medium text-muted-foreground mb-1 uppercase tracking-wider">Outcome</span>
+                <span className="font-medium capitalize">{detail.analysis.outcome.replace('_', ' ')}</span>
+              </div>
+            )}
+            {detail.analysis?.qualification_score !== undefined && (
+              <div className="rounded-lg border border-border bg-card p-4">
+                <span className="block text-xs font-medium text-muted-foreground mb-1 uppercase tracking-wider">Score</span>
+                <span className="font-medium">{detail.analysis.qualification_score}/100</span>
+              </div>
+            )}
+          </div>
+          {detail.analysis?.key_topics && detail.analysis.key_topics.length > 0 && (
+             <div className="mt-4">
+               <span className="block text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wider">Key Topics</span>
+               <div className="flex gap-2 flex-wrap">
+                 {detail.analysis.key_topics.map((t: string) => (
+                   <span key={t} className="bg-accent text-accent-foreground px-2 py-1 rounded-md text-xs">{t}</span>
+                 ))}
+               </div>
+             </div>
+          )}
         </div>
       )}
 

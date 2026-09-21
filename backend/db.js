@@ -304,6 +304,12 @@ async function initSqliteDb() {
       success INTEGER DEFAULT 0,
       error_message TEXT,
       quality_score REAL,
+      summary TEXT,
+      sentiment TEXT,
+      outcome TEXT,
+      qualification_score INTEGER,
+      key_topics TEXT,
+      analyzed_at TEXT,
       started_at TEXT DEFAULT (datetime('now')),
       ended_at TEXT,
       created_at TEXT DEFAULT (datetime('now'))
@@ -316,7 +322,7 @@ async function initSqliteDb() {
     console.log('✓ Migrated: added campaign_id column to call_history');
   } catch (e) {}
 
-  // ── call_history migrations for inbound + detail tracking ──
+  // ── call_history migrations for inbound + detail tracking + analysis ──
   try { db.run("ALTER TABLE call_history ADD COLUMN direction TEXT DEFAULT 'outbound'"); persistSync(); } catch (e) {}
   try { db.run("ALTER TABLE call_history ADD COLUMN from_number TEXT"); persistSync(); } catch (e) {}
   try { db.run("ALTER TABLE call_history ADD COLUMN end_reason TEXT"); persistSync(); } catch (e) {}
@@ -324,6 +330,13 @@ async function initSqliteDb() {
   try { db.run("ALTER TABLE call_history ADD COLUMN cost REAL"); persistSync(); } catch (e) {}
   try { db.run("ALTER TABLE call_history ADD COLUMN transcript TEXT"); persistSync(); } catch (e) {}
   try { db.run("ALTER TABLE call_history ADD COLUMN updated_at TEXT"); persistSync(); } catch (e) {}
+  
+  try { db.run("ALTER TABLE call_history ADD COLUMN summary TEXT"); persistSync(); } catch (e) {}
+  try { db.run("ALTER TABLE call_history ADD COLUMN sentiment TEXT"); persistSync(); } catch (e) {}
+  try { db.run("ALTER TABLE call_history ADD COLUMN outcome TEXT"); persistSync(); } catch (e) {}
+  try { db.run("ALTER TABLE call_history ADD COLUMN qualification_score INTEGER"); persistSync(); } catch (e) {}
+  try { db.run("ALTER TABLE call_history ADD COLUMN key_topics TEXT"); persistSync(); } catch (e) {}
+  try { db.run("ALTER TABLE call_history ADD COLUMN analyzed_at TEXT"); persistSync(); } catch (e) {}
 
   db.run(`
     CREATE TABLE IF NOT EXISTS call_metrics (

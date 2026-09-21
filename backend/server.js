@@ -93,6 +93,7 @@ app.use((req, res, next) => {
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/agents', require('./routes/agents'));
 app.use('/api/phone-numbers', require('./routes/phoneNumbers'));
+app.use('/api/calls', authenticate, require('./routes/analysis'));
 app.use('/api/calls', require('./routes/calls'));
 app.use('/api/webhooks', require('./routes/webhooks'));
 app.use('/api/admin', require('./routes/admin'));

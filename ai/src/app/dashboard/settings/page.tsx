@@ -660,6 +660,51 @@ export default function SettingsPage() {
               </p>
             </div>
           </div>
+
+          <div className="rounded-lg border border-red-500/30 bg-card">
+            <div className="px-6 py-4 border-b border-red-500/20 flex items-center gap-2">
+              <AlertTriangle size={16} className="text-red-500" />
+              <h3 className="font-medium text-sm text-red-400">Danger Zone</h3>
+            </div>
+            <div className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium">Delete Account</p>
+                  <p className="text-sm text-muted-foreground">Permanently remove your account and all associated data. This action cannot be undone.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setConfirmAction({
+                    title: 'Delete Account Permanently',
+                    message: 'This will permanently delete your account, all contacts, campaigns, call history, and settings. This action is irreversible.',
+                    confirmLabel: 'Yes, Delete Everything',
+                    danger: true,
+                    onConfirm: async () => {
+                      const deletePassword = prompt('Enter your password to confirm account deletion:');
+                      if (!deletePassword) return;
+                      try {
+                        await api('/auth/me', {
+                          method: 'DELETE',
+                          token: token!,
+                          body: { password: deletePassword },
+                        });
+                        addToast('Account deleted successfully', 'success');
+                        localStorage.removeItem('dialix_token');
+                        localStorage.removeItem('dialix_client');
+                        window.location.href = '/';
+                      } catch (err) {
+                        addToast(err instanceof Error ? err.message : 'Failed to delete account', 'error');
+                      }
+                      setConfirmAction(null);
+                    },
+                  })}
+                  className="bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/30 rounded-md px-4 py-2 text-sm font-medium transition-colors flex-shrink-0"
+                >
+                  Delete Account
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 

@@ -45,7 +45,8 @@ export default function BillingPage() {
   const [currentPlan, setCurrentPlan] = useState<CurrentPlan | null>(null);
   const [paymentHistory, setPaymentHistory] = useState<PaymentHistory[]>([]);
   const [usageStats, setUsageStats] = useState<{ totalAgents?: number; totalCalls?: number; totalNumbers?: number } | null>(null);
-  
+  const [usage, setUsage] = useState<any>(null);
+  const [usageHistory, setUsageHistory] = useState<any[]>([]);  
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -68,14 +69,18 @@ export default function BillingPage() {
       setLoading(true);
       setError(null);
       
-      const [plansRes, myPlanRes, historyRes, statsRes] = await Promise.all([
+      const [plansRes, myPlanRes, historyRes, statsRes, usageRes, usageHistoryRes] = await Promise.all([
         api('/pricing/plans', { token: token || undefined }).catch(() => null),
         api('/pricing/my-plan', { token: token || undefined }).catch(() => null),
         api('/paypal/billing-history', { token: token || undefined }).catch(() => null),
-        api<any>('/stats', { token: token || undefined }).catch(() => null)
+        api<any>('/stats', { token: token || undefined }).catch(() => null),
+        api<any>('/stats/usage', { token: token || undefined }).catch(() => null),
+        api<any>('/stats/usage/history', { token: token || undefined }).catch(() => null)
       ]);
 
       if (statsRes) setUsageStats(statsRes);
+      if (usageRes?.usage) setUsage(usageRes.usage);
+      if (usageHistoryRes && Array.isArray(usageHistoryRes)) setUsageHistory(usageHistoryRes);
 
       const rawPlans = plansRes?.plans || plansRes?.data || (Array.isArray(plansRes) ? plansRes : []);
       if (rawPlans.length > 0) {
@@ -324,6 +329,73 @@ export default function BillingPage() {
           )}
         </div>
       </div>
+
+      {/* Current Usage */}
+      <div>
+        <h2 className="text-lg font-medium tracking-tight mb-4">Current Usage ({usage?.period || new Date().toISOString().substring(0, 7)})</h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          <div className="rounded-lg border border-border bg-card p-6">
+            <div className="text-sm text-muted-foreground mb-2">Calls Used</div>
+            <div className="text-2xl font-semibold font-mono tabular-nums mb-2">
+              {(usage?.totalCalls ?? 0).toLocaleString()}
+              <span className="text-sm font-normal text-muted-foreground ml-1">
+                / {activePlanDetails.maxCalls === 999999 || activePlanDetails.maxCalls < 0 ? 'Unlimited' : activePlanDetails.maxCalls.toLocaleString()}
+              </span>
+            </div>
+            <div className="h-2 rounded-full bg-muted mb-2 overflow-hidden">
+              <div 
+                className="h-2 rounded-full bg-blue-500 transition-all duration-300"
+                style={{ width: `${Math.min(100, Math.max(0, activePlanDetails.maxCalls === 999999 || activePlanDetails.maxCalls < 0 ? 0 : Math.round(((usage?.totalCalls ?? 0) / activePlanDetails.maxCalls) * 100)))}%` }}
+              />
+            </div>
+          </div>
+          <div className="rounded-lg border border-border bg-card p-6">
+            <div className="text-sm text-muted-foreground mb-2">Connected Minutes</div>
+            <div className="text-2xl font-semibold font-mono tabular-nums mb-2">
+              {Math.round(usage?.totalMinutes ?? 0).toLocaleString()} <span className="text-sm font-normal text-muted-foreground ml-1">min</span>
+            </div>
+          </div>
+          <div className="rounded-lg border border-border bg-card p-6">
+            <div className="text-sm text-muted-foreground mb-2">Estimated Usage Cost</div>
+            <div className="text-2xl font-semibold font-mono tabular-nums mb-2">
+              ${Number(usage?.totalCost ?? 0).toFixed(2)}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Usage History Table */}
+      {usageHistory.length > 0 && (
+        <div>
+          <h2 className="text-lg font-medium tracking-tight mb-4">Monthly Usage History</h2>
+          <div className="rounded-lg border border-border bg-card overflow-x-auto">
+            <table className="w-full text-left divide-y divide-border">
+              <thead>
+                <tr>
+                  <th className="text-left font-medium text-muted-foreground px-4 py-3 text-sm">Period</th>
+                  <th className="text-left font-medium text-muted-foreground px-4 py-3 text-sm">Calls</th>
+                  <th className="text-left font-medium text-muted-foreground px-4 py-3 text-sm">Minutes</th>
+                  <th className="text-left font-medium text-muted-foreground px-4 py-3 text-sm">AI Cost</th>
+                  <th className="text-left font-medium text-muted-foreground px-4 py-3 text-sm">Telephony Cost</th>
+                  <th className="text-left font-medium text-muted-foreground px-4 py-3 text-sm">Total Cost</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {usageHistory.map((hist, idx) => (
+                  <tr key={idx} className="hover:bg-accent/50 transition-colors">
+                    <td className="px-4 py-3 text-sm">{hist.period}</td>
+                    <td className="px-4 py-3 text-sm font-mono">{hist.totalCalls.toLocaleString()}</td>
+                    <td className="px-4 py-3 text-sm font-mono">{Math.round(hist.totalMinutes).toLocaleString()}</td>
+                    <td className="px-4 py-3 text-sm font-mono text-muted-foreground">${Number(hist.aiCost || 0).toFixed(2)}</td>
+                    <td className="px-4 py-3 text-sm font-mono text-muted-foreground">${Number(hist.telephonyCost || 0).toFixed(2)}</td>
+                    <td className="px-4 py-3 text-sm font-mono font-medium">${Number(hist.totalCost || 0).toFixed(2)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {/* Plans Grid */}
       <div>
