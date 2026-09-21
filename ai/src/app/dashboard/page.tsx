@@ -78,7 +78,7 @@ interface ActiveCall {
 }
 
 export default function DashboardPage() {
-  const { token, user } = useAuth();
+  const { token, client } = useAuth();
   const { addToast } = useToast();
   const { setTopBar } = useTopBar();
   const [stats, setStats] = useState<Stats | null>(null);
@@ -267,7 +267,7 @@ export default function DashboardPage() {
           <div className="w-16 h-16 rounded-full bg-muted border border-border flex items-center justify-center mx-auto mb-6">
             <Bot className="w-8 h-8 text-foreground" />
           </div>
-          <h1 className="text-2xl font-semibold tracking-tight mb-2">Welcome to Dialix, {user?.name || 'User'}!</h1>
+          <h1 className="text-2xl font-semibold tracking-tight mb-2">Welcome to Dialix{client?.name ? `, ${client.name}` : ''}!</h1>
           <p className="text-muted-foreground text-sm">Let's get your AI calling operations up and running.</p>
         </div>
 
@@ -280,7 +280,7 @@ export default function DashboardPage() {
             <p className="text-sm text-muted-foreground">Configure an AI agent with custom instructions and voice.</p>
           </Link>
           
-          <Link href="/dashboard/numbers" className="rounded-lg border border-border bg-card p-6 hover:bg-accent/50 transition-colors group block">
+          <Link href="/dashboard/phone-numbers" className="rounded-lg border border-border bg-card p-6 hover:bg-accent/50 transition-colors group block">
             <div className="w-10 h-10 rounded-lg bg-muted border border-border flex items-center justify-center mb-4 group-hover:scale-105 transition-transform">
               <Phone className="w-5 h-5 text-foreground" />
             </div>
@@ -288,7 +288,7 @@ export default function DashboardPage() {
             <p className="text-sm text-muted-foreground">Claim a Twilio number for inbound or outbound calls.</p>
           </Link>
           
-          <Link href="/dashboard/calls" className="rounded-lg border border-border bg-card p-6 hover:bg-accent/50 transition-colors group block">
+          <Link href="/dashboard/agents" className="rounded-lg border border-border bg-card p-6 hover:bg-accent/50 transition-colors group block">
             <div className="w-10 h-10 rounded-lg bg-muted border border-border flex items-center justify-center mb-4 group-hover:scale-105 transition-transform">
               <PhoneCall className="w-5 h-5 text-foreground" />
             </div>
