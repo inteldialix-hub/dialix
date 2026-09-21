@@ -21,6 +21,7 @@ export default function PhoneNumbersPage() {
   const [deleteTarget, setDeleteTarget] = useState<PhoneNumber | null>(null);
   const [provider, setProvider] = useState('twilio');
   const [addLoading, setAddLoading] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
   const [label, setLabel] = useState('');
   const [pn, setPn] = useState('');
   const [sid, setSid] = useState('');
@@ -69,6 +70,7 @@ export default function PhoneNumbersPage() {
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault(); 
     setAddLoading(true);
+    setFormError(null);
     try {
       const ep = provider === 'twilio' ? '/phone-numbers/twilio' : '/phone-numbers/sip';
       const body = provider === 'twilio' 
@@ -83,8 +85,11 @@ export default function PhoneNumbersPage() {
       setSid(''); 
       setAt(''); 
       setUri('');
+      setFormError(null);
     } catch (err) { 
-      addToast(err instanceof Error ? err.message : 'Failed to connect phone number', 'error'); 
+      const msg = err instanceof Error ? err.message : 'Failed to connect phone number';
+      setFormError(msg);
+      addToast(msg, 'error'); 
     } finally { 
       setAddLoading(false); 
     }
@@ -263,6 +268,13 @@ export default function PhoneNumbersPage() {
                     onChange={e => setUri(e.target.value)} 
                     required 
                   />
+                </div>
+              )}
+
+              {formError && (
+                <div className="p-3 rounded-md bg-red-500/10 border border-red-500/25 text-red-400 text-xs leading-relaxed flex items-start gap-2">
+                  <span className="font-bold flex-shrink-0">Error:</span>
+                  <span className="flex-1">{formError}</span>
                 </div>
               )}
 

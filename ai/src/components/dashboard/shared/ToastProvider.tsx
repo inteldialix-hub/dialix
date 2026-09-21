@@ -52,11 +52,17 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       {children}
 
       {/* Toast container */}
-      <div className="toast-container">
+      <div className="fixed bottom-6 right-6 z-[99999] flex flex-col gap-2.5 max-w-md w-full pointer-events-none px-4">
         {toasts.map(toast => (
           <div
             key={toast.id}
-            className={`toast toast-${toast.type}`}
+            className={`pointer-events-auto flex items-start gap-3 p-4 rounded-lg shadow-2xl border text-sm font-medium transition-all backdrop-blur-md cursor-pointer ${
+              toast.type === 'success'
+                ? 'bg-emerald-950/90 border-emerald-500/30 text-emerald-200'
+                : toast.type === 'error'
+                ? 'bg-red-950/90 border-red-500/30 text-red-200'
+                : 'bg-zinc-900/90 border-zinc-700/50 text-zinc-200'
+            }`}
             onClick={() => removeToast(toast.id)}
           >
             <Icon
@@ -67,9 +73,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                   ? 'alert-circle'
                   : 'info'
               }
-              size={14}
+              size={16}
+              className="mt-0.5 flex-shrink-0"
             />
-            <span>{toast.message}</span>
+            <span className="flex-1 leading-snug break-words">{toast.message}</span>
           </div>
         ))}
       </div>
