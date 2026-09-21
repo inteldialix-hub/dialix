@@ -3,11 +3,472 @@
 @tailwind utilities;
 
 /* ============================================
-   CSS VARIABLES — ElevenLabs Dark Palette
-   Dark mode only. Neutral zinc/charcoal tones.
-   No purple. No glow. No glass.
+   LENIS SCROLLBAR OVERRIDES
+   Must be outside @layer so they have high specificity
+   to override Lenis's JS-applied inline styles.
    ============================================ */
+html.lenis,
+html.lenis-smooth,
+html.lenis.lenis-smooth,
+html.lenis-stopped,
+html.lenis.lenis-stopped,
+html.lenis-scrolling,
+html.lenis.lenis-scrolling {
+  overflow-y: scroll !important;
+  scrollbar-gutter: stable !important;
+}
+
 :root {
+  --background: 0 0% 100%;
+  --foreground: 0 0% 5%;
+  --card: 0 0% 100%;
+  --card-foreground: 0 0% 5%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 0 0% 5%;
+  --primary: 271 91% 65%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 270 100% 98%;
+  --secondary-foreground: 271 91% 45%;
+  --muted: 260 20% 96%;
+  --muted-foreground: 260 10% 40%;
+  --accent: 270 100% 97%;
+  --accent-foreground: 271 91% 45%;
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 260 15% 82%;
+  --input: 260 15% 82%;
+  --ring: 271 91% 65%;
+  --radius: 0.75rem;
+
+  /* Chart accent colors */
+  --chart-1: 142 71% 45%;
+  --chart-2: 217 91% 60%;
+  --chart-3: 47 96% 53%;
+  --chart-4: 0 72% 51%;
+  --chart-5: 271 91% 65%;
+
+  /* Dialix brand tokens */
+  --sf-purple: #7c3aed;
+  --sf-purple-light: #a78bfa;
+  --sf-purple-dark: #5b21b6;
+  --sf-lavender: #f5f0ff;
+  --sf-lavender-deep: #ede5ff;
+  --sf-ink: #0a0a0a;
+  --sf-text: #1a1a2e;
+  --sf-text-secondary: #52525b;
+  --sf-surface: #ffffff;
+  --sf-border: #e4e4e7;
+
+  /* Motion tokens */
+  --spring-ease: cubic-bezier(0.32, 0.72, 0, 1);
+  --spring-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --spring-smooth: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.dark {
+  --background: 240 6% 6%;
+  --foreground: 0 0% 98%;
+  --card: 240 6% 9%;
+  --card-foreground: 0 0% 98%;
+  --popover: 240 6% 9%;
+  --popover-foreground: 0 0% 98%;
+  --primary: 271 91% 65%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 270 20% 15%;
+  --secondary-foreground: 271 91% 65%;
+  --muted: 260 10% 15%;
+  --muted-foreground: 260 10% 65%;
+  --accent: 270 10% 15%;
+  --accent-foreground: 271 91% 65%;
+  --destructive: 0 62% 30%;
+  --destructive-foreground: 0 85% 97%;
+  --border: 260 10% 18%;
+  --input: 260 10% 18%;
+  --ring: 271 91% 65%;
+
+  --sf-lavender: #1a1030;
+  --sf-lavender-deep: #14082a;
+  --sf-ink: #fafafa;
+  --sf-text: #e4e4e7;
+  --sf-text-secondary: #a1a1aa;
+  --sf-surface: #18181b;
+  --sf-border: #27272a;
+
+  /* Chart accent colors */
+  --chart-1: 142 71% 45%;
+  --chart-2: 217 91% 60%;
+  --chart-3: 47 96% 53%;
+  --chart-4: 0 72% 51%;
+  --chart-5: 271 91% 65%;
+}
+
+/* ============================================
+   BASE LAYER
+   ============================================ */
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: var(--font-geist-sans), 'Inter', system-ui, -apple-system, sans-serif;
+    font-feature-settings: "rlig" 1, "calt" 1;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Light mode — subtle body texture so it's NOT plain white */
+  :root body {
+    background-color: #fafafa;
+    background-image:
+      radial-gradient(ellipse 100% 80% at 50% -20%, rgba(124,58,237,0.06) 0%, transparent 70%),
+      linear-gradient(180deg, #f8f5ff 0%, #fafafa 300px);
+  }
+  .dark body {
+    background-color: hsl(240,6%,6%);
+    background-image: none;
+  }
+
+  html {
+    /* scroll-behavior handled by Lenis smooth scroll */
+    overflow-y: scroll !important; /* always show scrollbar to prevent layout shift */
+    scrollbar-gutter: stable !important; /* reserve scrollbar space on all pages */
+  }
+
+  body {
+    /* Constrain body so scrollbar-width changes can't shift layout */
+    max-width: 100vw;
+  }
+
+  /* Premium heading defaults */
+  h1, h2, h3 {
+    letter-spacing: -0.025em;
+    line-height: 1.1;
+  }
+}
+
+/* ============================================
+   COMPONENT LAYER
+   ============================================ */
+@layer components {
+  /* Double-Bezel card architecture */
+  .card-bezel {
+    @apply relative rounded-[1.5rem] p-[1px];
+    background: linear-gradient(
+      135deg,
+      rgba(124, 58, 237, 0.18) 0%,
+      rgba(124, 58, 237, 0.06) 100%
+    );
+    box-shadow:
+      0 0 0 1px rgba(124, 58, 237, 0.1),
+      0 4px 12px rgba(124, 58, 237, 0.06),
+      0 20px 40px -15px rgba(0, 0, 0, 0.12);
+  }
+
+  .dark .card-bezel {
+    background: linear-gradient(
+      135deg,
+      rgba(124, 58, 237, 0.15) 0%,
+      rgba(124, 58, 237, 0.04) 100%
+    );
+    box-shadow:
+      0 0 0 1px rgba(255, 255, 255, 0.06),
+      0 20px 40px -15px rgba(0, 0, 0, 0.4);
+  }
+
+  .card-bezel-inner {
+    @apply rounded-[calc(1.5rem-1px)] bg-white dark:bg-zinc-900;
+    box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.8);
+    border: 1px solid rgba(124, 58, 237, 0.08);
+  }
+
+  .dark .card-bezel-inner {
+    box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.06);
+  }
+
+  /* Eyebrow badge */
+  .eyebrow-badge {
+    @apply inline-flex items-center rounded-full px-3 py-1 text-[11px] uppercase tracking-[0.15em] font-medium;
+    @apply bg-purple-50 text-purple-700 border border-purple-200/60;
+    @apply dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-800/40;
+  }
+
+  /* Premium pill button */
+  .btn-pill {
+    @apply inline-flex items-center justify-center rounded-full font-medium transition-all duration-300;
+    transition-timing-function: var(--spring-smooth);
+  }
+
+  .btn-pill:active {
+    transform: scale(0.97) translateY(1px);
+  }
+
+  .btn-pill-primary {
+    @apply btn-pill bg-zinc-900 text-white px-6 py-3 text-sm;
+    @apply hover:bg-zinc-800 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-100;
+  }
+
+  .btn-pill-accent {
+    @apply btn-pill bg-purple-600 text-white px-6 py-3 text-sm;
+    @apply hover:bg-purple-700 dark:bg-purple-500 dark:hover:bg-purple-600;
+  }
+
+  .btn-pill-ghost {
+    @apply btn-pill bg-transparent text-zinc-600 px-4 py-2 text-sm;
+    @apply hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white;
+  }
+}
+
+/* ============================================
+   UTILITY LAYER
+   ============================================ */
+@layer utilities {
+  /* Gradients */
+  .hero-gradient {
+    background:
+      radial-gradient(ellipse 80% 60% at 30% 40%, #e4d4ff 0%, transparent 70%),
+      radial-gradient(ellipse 60% 50% at 80% 30%, #d4c0ff 0%, transparent 60%),
+      radial-gradient(ellipse 40% 40% at 60% 70%, #e8daff 0%, transparent 50%),
+      linear-gradient(180deg, #ece0ff 0%, #f0e8ff 40%, #f8f4ff 80%, #fafafa 100%);
+  }
+
+  .dark .hero-gradient {
+    background:
+      radial-gradient(ellipse 80% 60% at 30% 40%, rgba(124,58,237,0.12) 0%, transparent 70%),
+      radial-gradient(ellipse 60% 50% at 80% 30%, rgba(139,92,246,0.08) 0%, transparent 60%),
+      linear-gradient(180deg, hsl(240,6%,6%) 0%, hsl(260,10%,8%) 100%);
+  }
+
+  .purple-gradient {
+    background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 50%, #6d28d9 100%);
+  }
+
+  .cta-gradient {
+    background: linear-gradient(135deg, #a78bfa 0%, #8b5cf6 25%, #7c3aed 50%, #6d28d9 100%);
+  }
+
+  .footer-gradient {
+    background: linear-gradient(180deg, #fafafa 0%, #f0e6ff 30%, #e8ddff 70%, #e4d7ff 100%);
+  }
+
+  .dark .footer-gradient {
+    background: linear-gradient(180deg, hsl(260,10%,8%) 0%, hsl(270,15%,10%) 100%);
+  }
+
+  /* Dot grid pattern */
+  .dot-grid {
+    background-image: radial-gradient(circle, rgba(124,58,237,0.3) 1px, transparent 1px);
+    background-size: 24px 24px;
+  }
+
+  .dark .dot-grid {
+    background-image: radial-gradient(circle, rgba(124,58,237,0.15) 1px, transparent 1px);
+  }
+
+  /* Card shadows */
+  .card-shadow {
+    box-shadow:
+      0 1px 2px rgba(0, 0, 0, 0.04),
+      0 4px 16px rgba(124, 58, 237, 0.06);
+  }
+
+  .card-shadow-hover {
+    box-shadow:
+      0 2px 4px rgba(0, 0, 0, 0.06),
+      0 8px 32px rgba(124, 58, 237, 0.1);
+  }
+
+  /* Glass effect */
+  .glass-effect {
+    backdrop-filter: blur(16px) saturate(1.8);
+    background: rgba(255, 255, 255, 0.88);
+    border-bottom: 1px solid rgba(124, 58, 237, 0.1);
+    box-shadow: 0 1px 3px rgba(124, 58, 237, 0.04);
+  }
+
+  .dark .glass-effect {
+    background: rgba(24, 24, 27, 0.82);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  }
+
+  /* Text gradient */
+  .text-gradient {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-violet-500;
+  }
+
+  .dark .text-gradient {
+    @apply from-purple-400 to-violet-300;
+  }
+
+  /* Background path dash animation (GPU-accelerated) */
+  @keyframes dash-flow {
+    from { stroke-dashoffset: 0; }
+    to { stroke-dashoffset: -40; }
+  }
+
+  @keyframes dash-flow-reverse {
+    from { stroke-dashoffset: 0; }
+    to { stroke-dashoffset: 40; }
+  }
+
+  .animate-dash {
+    animation: dash-flow linear infinite;
+    will-change: stroke-dashoffset;
+  }
+
+  .animate-dash-reverse {
+    animation: dash-flow-reverse linear infinite;
+    will-change: stroke-dashoffset;
+  }
+
+  /* Marquee (GPU-accelerated) */
+  @keyframes marquee {
+    from { transform: translate3d(0, 0, 0); }
+    to { transform: translate3d(-50%, 0, 0); }
+  }
+
+  @keyframes marquee-reverse {
+    from { transform: translate3d(-50%, 0, 0); }
+    to { transform: translate3d(0, 0, 0); }
+  }
+
+  @keyframes marquee-vertical {
+    from { transform: translate3d(0, 0, 0); }
+    to { transform: translate3d(0, -50%, 0); }
+  }
+
+  @keyframes marquee-vertical-reverse {
+    from { transform: translate3d(0, -50%, 0); }
+    to { transform: translate3d(0, 0, 0); }
+  }
+
+  .animate-marquee {
+    animation: marquee 40s linear infinite;
+    will-change: transform;
+  }
+
+  /* Slider track hover pause */
+  .slider-track:hover {
+    animation-duration: var(--slider-hover-duration, var(--slider-duration)) !important;
+  }
+
+
+  /* Float */
+  @keyframes float {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-8px); }
+  }
+
+  .animate-float {
+    animation: float 4s ease-in-out infinite;
+  }
+
+  /* Float particle (intro screen) */
+  @keyframes float-particle {
+    0%, 100% { transform: translate(0, 0); opacity: 0; }
+    10% { opacity: 0.4; }
+    50% { transform: translate(var(--drift-x, 20px), var(--drift-y, -30px)); opacity: 0.2; }
+    90% { opacity: 0.3; }
+  }
+
+  .animate-float-particle {
+    animation: float-particle 6s ease-in-out infinite;
+    --drift-x: 20px;
+    --drift-y: -30px;
+  }
+
+  /* Pulse soft */
+  @keyframes pulse-soft {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+  }
+
+  .animate-pulse-soft {
+    animation: pulse-soft 2.5s ease-in-out infinite;
+  }
+
+  /* Scroll reveal base (used with IntersectionObserver / framer-motion) */
+  .reveal-up {
+    opacity: 0;
+    transform: translateY(24px);
+    transition: opacity 0.7s var(--spring-ease), transform 0.7s var(--spring-ease);
+  }
+
+  .reveal-up.revealed {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  /* Stagger children delays */
+  .stagger-1 { transition-delay: 0ms; }
+  .stagger-2 { transition-delay: 80ms; }
+  .stagger-3 { transition-delay: 160ms; }
+  .stagger-4 { transition-delay: 240ms; }
+  .stagger-5 { transition-delay: 320ms; }
+  .stagger-6 { transition-delay: 400ms; }
+
+  /* Edge fade for marquees */
+  .edge-fade {
+    mask-image: linear-gradient(
+      to right,
+      transparent 0%,
+      black 10%,
+      black 90%,
+      transparent 100%
+    );
+    -webkit-mask-image: linear-gradient(
+      to right,
+      transparent 0%,
+      black 10%,
+      black 90%,
+      transparent 100%
+    );
+  }
+
+  /* Section spacing */
+  .section-pad {
+    @apply py-24 lg:py-32;
+  }
+
+  .section-pad-sm {
+    @apply py-16 lg:py-20;
+  }
+
+  /* Light-mode alternating section backgrounds */
+  .section-alt {
+    background: linear-gradient(180deg, #f3eeff 0%, #ede5ff 50%, #f3eeff 100%);
+    border-top: 1px solid rgba(124,58,237,0.08);
+    border-bottom: 1px solid rgba(124,58,237,0.08);
+  }
+  .dark .section-alt {
+    background: linear-gradient(180deg, rgba(124,58,237,0.04) 0%, rgba(124,58,237,0.06) 50%, rgba(124,58,237,0.04) 100%);
+    border-top: 1px solid rgba(124,58,237,0.06);
+    border-bottom: 1px solid rgba(124,58,237,0.06);
+  }
+
+  /* Light-mode subtle grid lines pattern */
+  .grid-lines {
+    background-image:
+      linear-gradient(rgba(124,58,237,0.06) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(124,58,237,0.06) 1px, transparent 1px);
+    background-size: 64px 64px;
+  }
+  .dark .grid-lines {
+    background-image:
+      linear-gradient(rgba(124,58,237,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(124,58,237,0.04) 1px, transparent 1px);
+    background-size: 64px 64px;
+  }
+}
+
+
+/* ============================================
+   DASHBOARD SCOPED THEME (ElevenLabs Dark Zinc)
+   Applied strictly to /dashboard via .dashboard-theme
+   ============================================ */
+.dashboard-theme {
   --background: 0 0% 4.5%;
   --foreground: 0 0% 98%;
   --card: 0 0% 7.2%;
@@ -29,114 +490,9 @@
   --ring: 0 0% 30%;
   --radius: 0.5rem;
 
-  /* Chart accent colors */
   --chart-1: 142 71% 45%;
   --chart-2: 217 91% 60%;
   --chart-3: 47 96% 53%;
   --chart-4: 0 72% 51%;
   --chart-5: 271 91% 65%;
-}
-
-/* ============================================
-   BASE LAYER
-   ============================================ */
-@layer base {
-  * {
-    @apply border-border;
-  }
-
-  body {
-    @apply bg-background text-foreground antialiased;
-    font-family: var(--font-geist-sans), system-ui, -apple-system, sans-serif;
-    font-feature-settings: "rlig" 1, "calt" 1;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-  }
-
-  html {
-    overflow-y: scroll !important;
-    scrollbar-gutter: stable !important;
-    color-scheme: dark;
-  }
-
-  h1, h2, h3 {
-    letter-spacing: -0.025em;
-    line-height: 1.2;
-  }
-
-  /* Scrollbar styling for dark theme */
-  ::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
-  }
-  ::-webkit-scrollbar-track {
-    background: transparent;
-  }
-  ::-webkit-scrollbar-thumb {
-    background: hsl(0 0% 25%);
-    border-radius: 3px;
-  }
-  ::-webkit-scrollbar-thumb:hover {
-    background: hsl(0 0% 35%);
-  }
-}
-
-/* ============================================
-   LANDING PAGE COMPONENTS (kept for marketing pages)
-   ============================================ */
-@layer components {
-  .btn-pill {
-    @apply inline-flex items-center justify-center rounded-full font-medium transition-all duration-200;
-  }
-  .btn-pill-primary {
-    @apply btn-pill bg-white text-zinc-900 px-6 py-3 text-sm hover:bg-zinc-100;
-  }
-  .btn-pill-accent {
-    @apply btn-pill bg-purple-600 text-white px-6 py-3 text-sm hover:bg-purple-700;
-  }
-}
-
-/* ============================================
-   UTILITIES (animations for landing page)
-   ============================================ */
-@layer utilities {
-  /* Marquee animations */
-  @keyframes marquee {
-    from { transform: translate3d(0, 0, 0); }
-    to { transform: translate3d(-50%, 0, 0); }
-  }
-  .animate-marquee {
-    animation: marquee 40s linear infinite;
-    will-change: transform;
-  }
-
-  /* Float animation */
-  @keyframes float {
-    0%, 100% { transform: translateY(0px); }
-    50% { transform: translateY(-8px); }
-  }
-  .animate-float {
-    animation: float 4s ease-in-out infinite;
-  }
-
-  /* Dash flow for SVG paths */
-  @keyframes dash-flow {
-    from { stroke-dashoffset: 0; }
-    to { stroke-dashoffset: -40; }
-  }
-  .animate-dash {
-    animation: dash-flow linear infinite;
-    will-change: stroke-dashoffset;
-  }
-
-  /* Edge fade for marquees */
-  .edge-fade {
-    mask-image: linear-gradient(to right, transparent 0%, black 10%, black 90%, transparent 100%);
-    -webkit-mask-image: linear-gradient(to right, transparent 0%, black 10%, black 90%, transparent 100%);
-  }
-
-  /* Section spacing for landing pages */
-  .section-pad {
-    @apply py-24 lg:py-32;
-  }
 }

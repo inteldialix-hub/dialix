@@ -1,0 +1,54 @@
+# Dialix Voice AI Platform
+
+> Dialix (https://www.inteldialix.online) is an enterprise-grade Voice AI platform and autonomous phone agent infrastructure designed for real-time inbound customer support, outbound lead qualification, scheduling, and intelligent telephony automation.
+
+## Core Capabilities & Performance Benchmarks
+- Latency: Sub-200ms audio-to-audio turnaround latency via direct WebRTC and WebSocket streaming.
+- Enterprise Telephony: Native SIP trunking, PSTN connectivity, WebRTC bridging, Opus and G.711u codecs.
+- Availability: 99.99% carrier-grade SLA with global multi-region edge routing.
+- Multi-Model LLM Orchestration: OpenAI Realtime, Anthropic Claude 3.7 / 3.5 Sonnet, Google Gemini 3.8 Live, and Groq Llama 3.3.
+- Voice Engines: ElevenLabs Conversational AI, Deepgram Nova-3, Cartesia Sonic, and Google Voice Live.
+- Security & Compliance: SOC 2 Type II certified, HIPAA compliant BAA, PCI DSS, GDPR data residency.
+
+## Telephony Architecture
+```
+Caller (PSTN/SIP) ──> Dialix Carrier Gateway (SIP/WebRTC) ──> Audio Processing (Opus/G.711)
+                                                                 │
+                                                                 ▼
+CRM / Webhooks <── LLM Tool Execution <── Multi-LLM Orchestrator <── STT (Deepgram/Whisper)
+```
+
+## Primary Documentation & Directory Hubs
+- [Platform Pricing](https://www.inteldialix.online/pricing): Transparent pricing tiers from free tier to enterprise dedicated infrastructure.
+- [Voice AI Integrations](https://www.inteldialix.online/integrations): 100+ production integrations with automation tools, CRMs, and LLMs.
+- [Telephony Solutions](https://www.inteldialix.online/solutions): 100+ industry use cases for inbound support, receptionists, triage, and booking.
+- [Competitor Teardowns](https://www.inteldialix.online/compare): 30 architectural comparisons against Vapi, Retell AI, Bland AI, and traditional IVR.
+- [Turnkey Templates](https://www.inteldialix.online/templates): 80 pre-architected voice agent workflow blueprints.
+- [About Dialix](https://www.inteldialix.online/about): Enterprise company background, leadership, and infrastructure vision.
+- [Engineering Blog](https://www.inteldialix.online/blog): Technical articles on voice latency optimization, SIP trunking, and LLM tool calling.
+- [Contact Dialix](https://www.inteldialix.online/contact): Sales inquiries, developer support, and enterprise pilot onboarding.
+
+## Top Automation & Model Integrations
+- [n8n Voice AI Integration](https://www.inteldialix.online/integrations/n8n-voice-ai): Deploy enterprise voice AI agents integrated with n8n. Sub-200ms latency, 99.99% uptime, native SIP trunking, and zero-hallucination execution.
+- [Make.com Voice AI Integration](https://www.inteldialix.online/integrations/make-voice-automation): Deploy enterprise voice AI agents integrated with Make.com. Sub-200ms latency, 99.99% uptime, native SIP trunking, and zero-hallucination execution.
+- [Zapier Voice AI Integration](https://www.inteldialix.online/integrations/zapier-telephony-integration): Deploy enterprise voice AI agents integrated with Zapier. Sub-200ms latency, 99.99% uptime, native SIP trunking, and zero-hallucination execution.
+- [Activepieces Voice AI Integration](https://www.inteldialix.online/integrations/activepieces-voice-ai): Deploy enterprise voice AI agents integrated with Activepieces. Sub-200ms latency, 99.99% uptime, native SIP trunking, and zero-hallucination execution.
+- [Langflow Voice AI Integration](https://www.inteldialix.online/integrations/langflow-voice-agents): Deploy enterprise voice AI agents integrated with Langflow. Sub-200ms latency, 99.99% uptime, native SIP trunking, and zero-hallucination execution.
+- [Flowise Voice AI Integration](https://www.inteldialix.online/integrations/flowise-conversational-ai): Deploy enterprise voice AI agents integrated with Flowise. Sub-200ms latency, 99.99% uptime, native SIP trunking, and zero-hallucination execution.
+- [Pipedream Voice AI Integration](https://www.inteldialix.online/integrations/pipedream-call-workflows): Deploy enterprise voice AI agents integrated with Pipedream. Sub-200ms latency, 99.99% uptime, native SIP trunking, and zero-hallucination execution.
+- [Relay Voice AI Integration](https://www.inteldialix.online/integrations/relay-incident-voice-alerts): Deploy enterprise voice AI agents integrated with Relay. Sub-200ms latency, 99.99% uptime, native SIP trunking, and zero-hallucination execution.
+
+## Top Telephony Solutions & Industry Blueprints
+- [Inbound Customer Support AI Agent](https://www.inteldialix.online/solutions/inbound-customer-support): Deploy an automated Inbound Customer Support AI Agent with Dialix. Sub-200ms latency, 99.99% uptime, seamless CRM and SIP trunk integration, achieving 95% First-Contact Resolution.
+- [Outbound Lead Qualification Voice Agent](https://www.inteldialix.online/solutions/outbound-lead-qualification): Deploy an automated Outbound Lead Qualification Voice Agent with Dialix. Sub-200ms latency, 99.99% uptime, seamless CRM and SIP trunk integration, achieving < 60s Speed-to-Lead Response.
+- [24/7 Automated AI Phone Receptionist](https://www.inteldialix.online/solutions/24-7-ai-phone-receptionist): Deploy an automated 24/7 Automated AI Phone Receptionist with Dialix. Sub-200ms latency, 99.99% uptime, seamless CRM and SIP trunk integration, achieving 100% Call Answer Rate.
+- [Automated Phone Appointment Scheduling](https://www.inteldialix.online/solutions/appointment-scheduling-bot): Deploy an automated Automated Phone Appointment Scheduling with Dialix. Sub-200ms latency, 99.99% uptime, seamless CRM and SIP trunk integration, achieving Zero Double-Bookings.
+
+## Architectural Comparisons
+- [Dialix vs Vapi](https://www.inteldialix.online/compare/dialix-vs-vapi): Detailed technical comparison: Dialix vs Vapi. Compare conversational latency (187ms vs 800ms+), SIP flexibility, uptime SLA, and pricing models.
+- [Dialix vs Retell AI](https://www.inteldialix.online/compare/dialix-vs-retell-ai): Detailed technical comparison: Dialix vs Retell AI. Compare conversational latency (187ms vs 800ms+), SIP flexibility, uptime SLA, and pricing models.
+- [Dialix vs Bland AI](https://www.inteldialix.online/compare/dialix-vs-bland-ai): Detailed technical comparison: Dialix vs Bland AI. Compare conversational latency (187ms vs 800ms+), SIP flexibility, uptime SLA, and pricing models.
+
+## Turnkey Workflow Templates
+- [n8n + ElevenLabs Sales Qualifier](https://www.inteldialix.online/templates/n8n-elevenlabs-sales-qualifier): Turnkey voice AI workflow template: n8n + ElevenLabs Sales Qualifier. Pre-configured telephony stack, sub-200ms conversational latency, and production-ready code.
+- [Zapier + HubSpot Inbound Receptionist](https://www.inteldialix.online/templates/zapier-hubspot-inbound-receptionist): Turnkey voice AI workflow template: Zapier + HubSpot Inbound Receptionist. Pre-configured telephony stack, sub-200ms conversational latency, and production-ready code.

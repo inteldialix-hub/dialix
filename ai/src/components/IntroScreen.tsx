@@ -62,7 +62,7 @@ export function IntroScreen({ onEnter }: IntroScreenProps) {
           absolute left-1/2 bottom-[15%] -translate-x-1/2 z-10
           flex flex-col items-center gap-4
           transition-all ease-out
-          ${isExiting ? 'opacity-0 translate-y-4 duration-500' : buttonVisible ? 'opacity-100 translate-y-0 duration-[1500ms]' : 'opacity-0 translate-y-6 duration-[1500ms]'}
+          ${isExiting ? 'opacity-0 translate-y-4 duration-500' : buttonVisible ? 'opacity-100 translate-y-0 [transition-duration:1500ms]' : 'opacity-0 translate-y-6 [transition-duration:1500ms]'}
         `}
       >
         <button

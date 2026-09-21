@@ -50,7 +50,7 @@ export default function DashboardLayout({
   return (
     <ToastProvider>
       <TopBarProvider>
-        <div className="flex min-h-screen bg-background">
+        <div className="flex min-h-screen bg-background dashboard-theme">
           <Sidebar />
           <div className="flex-1 flex flex-col overflow-hidden">
             <TopBar />

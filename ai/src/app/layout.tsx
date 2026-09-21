@@ -4,6 +4,8 @@ import "./globals.css";
 import ClientBody from "./ClientBody";
 import { ThemeProvider } from "@/components/theme-provider";
 import Script from "next/script";
+import { JsonLd } from "@/components/seo/JsonLd";
+import { generateGlobalOrganizationSchema } from "@/lib/seo/schema-generator";
 
 const GA_MEASUREMENT_ID = process.env.NEXT_PUBLIC_GA_ID || "G-EEGF2XL6BC";
 
@@ -58,6 +60,7 @@ export default function RootLayout({
         suppressHydrationWarning
         className="antialiased font-[family-name:var(--font-geist-sans)]"
       >
+        <JsonLd schema={generateGlobalOrganizationSchema()} />
         <Script
           src={`https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`}
           strategy="afterInteractive"

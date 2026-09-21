@@ -2,7 +2,20 @@ User-agent: *
 Allow: /
 Disallow: /dashboard
 Disallow: /api/
-Disallow: /login
-Disallow: /signup
 
-Sitemap: https://dialix.ai/sitemap.xml
+User-agent: GPTBot
+Allow: /
+
+User-agent: Claude-Web
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: Applebot-Extended
+Allow: /
+
+Sitemap: https://www.inteldialix.online/sitemap.xml
