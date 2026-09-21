@@ -924,6 +924,13 @@ async function initPostgresDb() {
   `);
 
   await pool.query(`
+    ALTER TABLE phone_numbers ADD COLUMN IF NOT EXISTS elevenlabs_phone_number_id TEXT
+  `);
+  await pool.query(`
+    ALTER TABLE phone_numbers ADD COLUMN IF NOT EXISTS assigned_agent_id TEXT
+  `);
+
+  await pool.query(`
     ALTER TABLE clients ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE
   `);
   await pool.query(`

@@ -34,3 +34,4 @@ build/
 .agents/
 skills-lock.json
 agent_full_config.json
+*scratch*.js
