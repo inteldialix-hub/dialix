@@ -1169,7 +1169,7 @@ async function initPostgresDb() {
       name TEXT NOT NULL,
       description TEXT,
       agent_id TEXT,
-      phone_number_id INTEGER REFERENCES phone_numbers(id),
+      phone_number_id TEXT,
       status TEXT DEFAULT 'draft',
       contact_list TEXT DEFAULT '[]',
       total_contacts INTEGER DEFAULT 0,
@@ -1198,6 +1198,12 @@ async function initPostgresDb() {
       updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
     )
   `);
+
+  // Campaigns migrations
+  await pool.query(`ALTER TABLE campaigns DROP CONSTRAINT IF EXISTS campaigns_agent_id_fkey`);
+  await pool.query(`ALTER TABLE campaigns ALTER COLUMN agent_id TYPE TEXT USING agent_id::TEXT`);
+  await pool.query(`ALTER TABLE campaigns DROP CONSTRAINT IF EXISTS campaigns_phone_number_id_fkey`);
+  await pool.query(`ALTER TABLE campaigns ALTER COLUMN phone_number_id TYPE TEXT USING phone_number_id::TEXT`);
 
   // ─── Subscriptions ──────────────────────────────────────────
   await pool.query(`
