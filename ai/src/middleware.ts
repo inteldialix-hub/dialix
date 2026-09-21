@@ -12,13 +12,13 @@ export function middleware(request: NextRequest) {
   // Content Security Policy
   const csp = [
     "default-src 'self'",
-    "script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: *.google.com *.googletagmanager.com cdn.jsdelivr.net https://*.daily.co",
-    "script-src-elem 'self' 'unsafe-inline' blob: *.google.com *.googletagmanager.com cdn.jsdelivr.net https://*.daily.co",
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: *.google.com *.googletagmanager.com *.google-analytics.com *.analytics.google.com cdn.jsdelivr.net https://*.daily.co",
+    "script-src-elem 'self' 'unsafe-inline' blob: *.google.com *.googletagmanager.com *.google-analytics.com *.analytics.google.com cdn.jsdelivr.net https://*.daily.co",
     "worker-src 'self' blob:",
     "style-src 'self' 'unsafe-inline' fonts.googleapis.com",
     "font-src 'self' fonts.gstatic.com",
-    "img-src 'self' data: https: *.unsplash.com *.same-assets.com",
-    "connect-src 'self' blob: https://dialix-backend.onrender.com https://*.onrender.com wss://dialix-backend.onrender.com wss://*.onrender.com https://dialix-backend.fly.dev wss://*.fly.dev https://*.elevenlabs.io wss://*.elevenlabs.io https://api.vapi.ai https://*.vapi.ai https://storage.vapi.ai https://*.daily.co wss://*.daily.co https://*.wss.daily.co wss://*.wss.daily.co",
+    "img-src 'self' data: https: *.unsplash.com *.same-assets.com *.google-analytics.com *.googletagmanager.com",
+    "connect-src 'self' blob: https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://*.google.com https://dialix-backend.onrender.com https://*.onrender.com wss://dialix-backend.onrender.com wss://*.onrender.com https://dialix-backend.fly.dev wss://*.fly.dev https://*.elevenlabs.io wss://*.elevenlabs.io https://api.vapi.ai https://*.vapi.ai https://storage.vapi.ai https://*.daily.co wss://*.daily.co https://*.wss.daily.co wss://*.wss.daily.co",
     "media-src 'self' data: blob: https: https://dialix-backend.onrender.com https://*.onrender.com https://dialix-backend.fly.dev https://*.vapi.ai https://storage.vapi.ai",
     "frame-src 'self' https://*.daily.co",
     "object-src 'none'",
