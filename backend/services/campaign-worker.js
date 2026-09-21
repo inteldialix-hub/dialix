@@ -236,10 +236,33 @@ async function processCampaign(campaign) {
   }
 
   // Get phone number details
-  const phoneRow = await get(
-    'SELECT * FROM phone_numbers WHERE (id = ? OR elevenlabs_phone_number_id = ?) AND client_id = ?',
-    [campaign.phone_number_id, String(campaign.phone_number_id), campaign.client_id]
-  );
+  const isNumericPhone = /^\d+$/.test(String(campaign.phone_number_id));
+  const cleanPhoneId = String(campaign.phone_number_id).replace(/^el_/, '');
+  let phoneRow = isNumericPhone
+    ? await get(
+        'SELECT * FROM phone_numbers WHERE (id = ? OR elevenlabs_phone_number_id = ?) AND client_id = ?',
+        [parseInt(campaign.phone_number_id), cleanPhoneId, campaign.client_id]
+      )
+    : await get(
+        'SELECT * FROM phone_numbers WHERE (elevenlabs_phone_number_id = ? OR elevenlabs_phone_number_id = ?) AND client_id = ?',
+        [cleanPhoneId, String(campaign.phone_number_id), campaign.client_id]
+      );
+
+  if (!phoneRow) {
+    try {
+      const allEl = await elevenlabs.getPhoneNumbers();
+      const elMatch = (Array.isArray(allEl) ? allEl : []).find(
+        n => (n.phone_number_id || n.id) === cleanPhoneId
+      );
+      if (elMatch) {
+        phoneRow = {
+          elevenlabs_phone_number_id: elMatch.phone_number_id || elMatch.id,
+          phone_number: elMatch.phone_number || elMatch.number,
+          provider: elMatch.provider || 'twilio',
+        };
+      }
+    } catch {}
+  }
   if (!phoneRow) {
     console.error(`[CampaignWorker] Phone number ${campaign.phone_number_id} not found for campaign ${campaign.id}`);
     return;

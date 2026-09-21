@@ -249,10 +249,17 @@ router.post('/:id/start', actionLimiter, requireRole('manager'), async (req, res
     }
 
     // Verify agent in client_agents or gemini_agents
-    let agent = await get(
-      'SELECT agent_name as name FROM client_agents WHERE (agent_id = ? OR id = ?) AND client_id = ?',
-      [String(campaign.agent_id), campaign.agent_id, client_id]
-    );
+    const isNumericAgent = /^\d+$/.test(String(campaign.agent_id));
+    let agent = isNumericAgent
+      ? await get(
+          'SELECT agent_name as name FROM client_agents WHERE (agent_id = ? OR id = ?) AND client_id = ?',
+          [String(campaign.agent_id), parseInt(campaign.agent_id), client_id]
+        )
+      : await get(
+          'SELECT agent_name as name FROM client_agents WHERE agent_id = ? AND client_id = ?',
+          [String(campaign.agent_id), client_id]
+        );
+
     if (!agent) {
       agent = await get('SELECT name FROM gemini_agents WHERE agent_id = ?', [String(campaign.agent_id)]);
     }
@@ -262,10 +269,30 @@ router.post('/:id/start', actionLimiter, requireRole('manager'), async (req, res
     if (!agent) return res.status(400).json({ error: 'Assigned agent not found' });
 
     // Verify phone number exists
-    const phone = await get(
-      'SELECT phone_number FROM phone_numbers WHERE (id = ? OR elevenlabs_phone_number_id = ?) AND client_id = ?',
-      [campaign.phone_number_id, String(campaign.phone_number_id), client_id]
-    );
+    const isNumericPhone = /^\d+$/.test(String(campaign.phone_number_id));
+    const cleanPhoneId = String(campaign.phone_number_id).replace(/^el_/, '');
+    let phone = isNumericPhone
+      ? await get(
+          'SELECT phone_number FROM phone_numbers WHERE (id = ? OR elevenlabs_phone_number_id = ?) AND client_id = ?',
+          [parseInt(campaign.phone_number_id), cleanPhoneId, client_id]
+        )
+      : await get(
+          'SELECT phone_number FROM phone_numbers WHERE (elevenlabs_phone_number_id = ? OR elevenlabs_phone_number_id = ?) AND client_id = ?',
+          [cleanPhoneId, String(campaign.phone_number_id), client_id]
+        );
+
+    if (!phone) {
+      try {
+        const elevenlabs = require('../services/elevenlabs');
+        const allEl = await elevenlabs.getPhoneNumbers();
+        const elMatch = (Array.isArray(allEl) ? allEl : []).find(
+          n => (n.phone_number_id || n.id) === cleanPhoneId
+        );
+        if (elMatch) {
+          phone = { phone_number: elMatch.phone_number || elMatch.number || '—' };
+        }
+      } catch {}
+    }
     if (!phone) return res.status(400).json({ error: 'Assigned phone number not found' });
 
     const placeholders = contactIds.map(() => '?').join(',');
