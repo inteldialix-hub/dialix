@@ -1130,6 +1130,18 @@ async function initPostgresDb() {
     )
   `);
 
+  // Contacts migrations
+  await pool.query(`ALTER TABLE contacts ADD COLUMN IF NOT EXISTS language TEXT DEFAULT 'en'`);
+  await pool.query(`ALTER TABLE contacts ADD COLUMN IF NOT EXISTS country TEXT`);
+  await pool.query(`ALTER TABLE contacts ADD COLUMN IF NOT EXISTS timezone TEXT`);
+  await pool.query(`ALTER TABLE contacts ADD COLUMN IF NOT EXISTS consent_status TEXT DEFAULT 'unknown'`);
+  await pool.query(`ALTER TABLE contacts ADD COLUMN IF NOT EXISTS consent_source TEXT`);
+  await pool.query(`ALTER TABLE contacts ADD COLUMN IF NOT EXISTS consent_at TIMESTAMPTZ`);
+  await pool.query(`ALTER TABLE contacts ADD COLUMN IF NOT EXISTS dnc_reason TEXT`);
+  await pool.query(`ALTER TABLE contacts ADD COLUMN IF NOT EXISTS dnc_at TIMESTAMPTZ`);
+  await pool.query(`ALTER TABLE contacts ADD COLUMN IF NOT EXISTS last_called_at TIMESTAMPTZ`);
+  await pool.query(`ALTER TABLE contacts ADD COLUMN IF NOT EXISTS next_callback_at TIMESTAMPTZ`);
+
   // ─── DNC (Do Not Call) Suppression List ──────────────────────
   await pool.query(`
     CREATE TABLE IF NOT EXISTS dnc_list (
@@ -1144,6 +1156,10 @@ async function initPostgresDb() {
       UNIQUE(client_id, phone_e164)
     )
   `);
+
+  // DNC migrations
+  await pool.query(`ALTER TABLE dnc_list ADD COLUMN IF NOT EXISTS scope TEXT DEFAULT 'organization'`);
+  await pool.query(`ALTER TABLE dnc_list ADD COLUMN IF NOT EXISTS actor TEXT`);
 
   // ─── Campaigns ──────────────────────────────────────────────
   await pool.query(`
