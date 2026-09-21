@@ -13,22 +13,27 @@ export default function robots(): MetadataRoute.Robots {
       {
         userAgent: 'GPTBot',
         allow: '/',
+        disallow: ['/dashboard', '/api/'],
       },
       {
         userAgent: 'Claude-Web',
         allow: '/',
+        disallow: ['/dashboard', '/api/'],
       },
       {
         userAgent: 'PerplexityBot',
         allow: '/',
+        disallow: ['/dashboard', '/api/'],
       },
       {
         userAgent: 'Google-Extended',
         allow: '/',
+        disallow: ['/dashboard', '/api/'],
       },
       {
         userAgent: 'Applebot-Extended',
         allow: '/',
+        disallow: ['/dashboard', '/api/'],
       },
     ],
     sitemap: `${baseUrl}/sitemap.xml`,

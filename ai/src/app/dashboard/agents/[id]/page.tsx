@@ -1181,9 +1181,16 @@ export default function AgentDetailPage() {
 
         {activeTab === 'analytics' && (
           <div className="space-y-6">
-            <div className="rounded-lg border border-border bg-card p-6">
-              <h3 className="text-sm font-medium mb-4">Analytics</h3>
-              <p className="text-sm text-muted-foreground">Analytics data view would be displayed here.</p>
+            <div className="rounded-lg border border-border bg-card p-8 text-center">
+              <div className="mx-auto mb-4 flex size-12 items-center justify-center rounded-full bg-primary/10">
+                <BarChart2 className="size-6 text-primary" />
+              </div>
+              <h3 className="text-base font-semibold mb-2">Agent Analytics</h3>
+              <span className="inline-block rounded-full bg-amber-500/10 px-3 py-1 text-xs font-medium text-amber-500 mb-3">Coming Soon</span>
+              <p className="text-sm text-muted-foreground max-w-md mx-auto">
+                Per-agent performance metrics, call volume trends, and conversion analytics are being built. 
+                In the meantime, visit the <strong>Analysis</strong> page in the sidebar to view call history and transcripts for this agent.
+              </p>
             </div>
           </div>
         )}

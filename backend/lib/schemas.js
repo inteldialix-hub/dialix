@@ -179,8 +179,8 @@ const createContactSchema = z.object({
 const updateContactSchema = createContactSchema.partial();
 
 const importContactsSchema = z.object({
-  rows: z.array(z.record(z.string())).min(1).max(10000),
-  column_mapping: z.record(z.string()).optional(),
+  rows: z.array(z.record(z.string().max(5000))).min(1).max(10000),
+  column_mapping: z.record(z.string().max(100)).optional(),
 });
 
 module.exports = {

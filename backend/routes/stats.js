@@ -103,12 +103,35 @@ router.get('/', authenticate, async (req, res) => {
         to_number: c.to_number || c.metadata?.to_number || '',
       }));
 
+    // Failed calls = not 'done' or 'completed'
+    const failedCalls = allConversations.filter(
+      c => c.status && c.status !== 'done' && c.status !== 'completed' && c.status !== 'processing'
+    ).length;
+
+    // Total minutes
+    const totalMinutes = durationsSeconds.length > 0
+      ? Math.round(durationsSeconds.reduce((a, b) => a + b, 0) / 60)
+      : 0;
+
+    // Active campaigns count
+    let activeCampaigns = 0;
+    try {
+      const campaignRow = isAdmin
+        ? await get("SELECT COUNT(*) as count FROM campaigns WHERE status IN ('running', 'scheduled')")
+        : await get("SELECT COUNT(*) as count FROM campaigns WHERE client_id = ? AND status IN ('running', 'scheduled')", [clientId]);
+      activeCampaigns = campaignRow?.count || 0;
+    } catch (e) { /* campaigns table may not exist yet */ }
+
     const stats = {
       totalAgents: agents.length,
       totalCalls,
       totalPhoneNumbers,
       successRate,
       avgDuration,
+      failedCalls,
+      totalMinutes,
+      activeCampaigns,
+      answeredCalls: successfulCalls,
       callsByAgent,
       recentActivity,
     };

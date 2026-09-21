@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useRef } from 'react';
+import Link from 'next/link';
 import { useAuth } from '@/lib/auth-context';
 import { useToast } from '@/components/dashboard/shared/ToastProvider';
 import { cn } from '@/lib/utils';
@@ -22,6 +23,10 @@ interface Stats {
   totalCalls: number;
   successRate: number;
   avgDuration: number;
+  failedCalls?: number;
+  totalMinutes?: number;
+  activeCampaigns?: number;
+  answeredCalls?: number;
   callsByAgent: Array<{ name: string; count: number }>;
   recentActivity: Array<{
     id?: string;
@@ -73,7 +78,7 @@ interface ActiveCall {
 }
 
 export default function DashboardPage() {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const { addToast } = useToast();
   const { setTopBar } = useTopBar();
   const [stats, setStats] = useState<Stats | null>(null);
@@ -241,13 +246,63 @@ export default function DashboardPage() {
       <div className="max-w-7xl mx-auto px-6 py-6">
         <div className="h-8 w-48 rounded bg-muted animate-pulse mb-2" />
         <div className="h-4 w-64 rounded bg-muted animate-pulse mb-6" />
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-6">
-          {[...Array(4)].map((_, i) => (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
+          {[...Array(8)].map((_, i) => (
             <div key={i} className="rounded-lg border border-border bg-card p-6 h-28 animate-pulse">
               <div className="h-4 w-24 rounded bg-muted mb-2" />
               <div className="h-8 w-16 rounded bg-muted" />
             </div>
           ))}
+        </div>
+      </div>
+    );
+  }
+
+  const isNewUser = stats?.totalAgents === 0 && stats?.totalCalls === 0 && (!analytics?.stats?.total_calls || analytics.stats.total_calls === 0);
+
+  if (isNewUser) {
+    return (
+      <div className="max-w-4xl mx-auto px-6 py-12 mt-8">
+        <div className="text-center mb-10">
+          <div className="w-16 h-16 rounded-full bg-muted border border-border flex items-center justify-center mx-auto mb-6">
+            <Bot className="w-8 h-8 text-foreground" />
+          </div>
+          <h1 className="text-2xl font-semibold tracking-tight mb-2">Welcome to Dialix, {user?.name || 'User'}!</h1>
+          <p className="text-muted-foreground text-sm">Let's get your AI calling operations up and running.</p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Link href="/dashboard/agents" className="rounded-lg border border-border bg-card p-6 hover:bg-accent/50 transition-colors group block">
+            <div className="w-10 h-10 rounded-lg bg-muted border border-border flex items-center justify-center mb-4 group-hover:scale-105 transition-transform">
+              <Bot className="w-5 h-5 text-foreground" />
+            </div>
+            <h3 className="text-base font-medium mb-1">Create your first agent</h3>
+            <p className="text-sm text-muted-foreground">Configure an AI agent with custom instructions and voice.</p>
+          </Link>
+          
+          <Link href="/dashboard/numbers" className="rounded-lg border border-border bg-card p-6 hover:bg-accent/50 transition-colors group block">
+            <div className="w-10 h-10 rounded-lg bg-muted border border-border flex items-center justify-center mb-4 group-hover:scale-105 transition-transform">
+              <Phone className="w-5 h-5 text-foreground" />
+            </div>
+            <h3 className="text-base font-medium mb-1">Connect a phone number</h3>
+            <p className="text-sm text-muted-foreground">Claim a Twilio number for inbound or outbound calls.</p>
+          </Link>
+          
+          <Link href="/dashboard/calls" className="rounded-lg border border-border bg-card p-6 hover:bg-accent/50 transition-colors group block">
+            <div className="w-10 h-10 rounded-lg bg-muted border border-border flex items-center justify-center mb-4 group-hover:scale-105 transition-transform">
+              <PhoneCall className="w-5 h-5 text-foreground" />
+            </div>
+            <h3 className="text-base font-medium mb-1">Make a test call</h3>
+            <p className="text-sm text-muted-foreground">Test your agent's responses in a sandbox environment.</p>
+          </Link>
+          
+          <Link href="/dashboard/campaigns" className="rounded-lg border border-border bg-card p-6 hover:bg-accent/50 transition-colors group block">
+            <div className="w-10 h-10 rounded-lg bg-muted border border-border flex items-center justify-center mb-4 group-hover:scale-105 transition-transform">
+              <Radio className="w-5 h-5 text-foreground" />
+            </div>
+            <h3 className="text-base font-medium mb-1">Launch a campaign</h3>
+            <p className="text-sm text-muted-foreground">Import contacts and start your first calling campaign.</p>
+          </Link>
         </div>
       </div>
     );
@@ -294,8 +349,10 @@ export default function DashboardPage() {
   };
 
   const statCards = [
-    { label: 'Total agents', value: stats?.totalAgents || 0 },
-    { label: 'Total calls', value: analytics?.stats?.total_calls || stats?.totalCalls || 0 },
+    { label: 'Total agents', value: stats?.totalAgents || 0, icon: Bot },
+    { label: 'Total calls', value: analytics?.stats?.total_calls || stats?.totalCalls || 0, icon: Phone },
+    { label: 'Answered calls', value: stats?.answeredCalls || 0, icon: CheckCircle },
+    { label: 'Failed calls', value: stats?.failedCalls || 0, icon: MicOff },
     { 
       label: 'Success rate', 
       value: analytics?.stats?.successful_calls && analytics?.stats?.total_calls 
@@ -303,6 +360,7 @@ export default function DashboardPage() {
         : `${stats?.successRate || 0}%` 
     },
     { label: 'Avg duration', value: formatDuration(analytics?.stats?.avg_duration || stats?.avgDuration || 0) },
+    { label: 'Total minutes', value: stats?.totalMinutes || 0, icon: Timer },
     { 
       label: 'Avg quality', 
       value: analytics?.stats?.avg_quality ? (analytics.stats.avg_quality).toFixed(1) : 'N/A' 
@@ -319,7 +377,7 @@ export default function DashboardPage() {
 
   return (
     <div className="max-w-7xl mx-auto px-6 py-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {statCards.map((card, i) => (
           <div key={i} className="rounded-lg border border-border bg-card p-6">
             <p className="text-sm text-muted-foreground">{card.label}</p>

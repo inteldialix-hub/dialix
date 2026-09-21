@@ -168,7 +168,11 @@ function recordResult({ id, tier, milestone, feature, title, description, passed
 
 // HTTP request helper
 async function fetchEndpoint(urlPath, { userAgent = 'DialixSEOTestSuite/1.0', headers = {} } = {}) {
-  const targetUrl = urlPath.startsWith('http') ? urlPath : `${options.url}${urlPath.startsWith('/') ? '' : '/'}${urlPath}`;
+  let normalizedPath = urlPath;
+  if (normalizedPath.startsWith('https://www.inteldialix.online') || normalizedPath.startsWith('http://www.inteldialix.online')) {
+    normalizedPath = normalizedPath.replace(/^https?:\/\/www\.inteldialix\.online/, '') || '/';
+  }
+  const targetUrl = normalizedPath.startsWith('http') ? normalizedPath : `${options.url}${normalizedPath.startsWith('/') ? '' : '/'}${normalizedPath}`;
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), options.timeout);
 

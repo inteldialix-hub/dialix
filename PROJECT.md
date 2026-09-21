@@ -1,85 +1,144 @@
-# Project: Dialix Voice AI SaaS Production Readiness
+# Project: Dialix SEO, GEO, AEO, and Programmatic AI Discovery Architecture
 
 ## Architecture
-Dialix is a full-stack Voice AI SaaS platform:
-- **Frontend (`ai/`)**: Next.js 15 App Router, React 18, Tailwind CSS, custom dashboard design system (`dashboard.css`). Client-side state managed via React Context. Global error boundary captures runtime crashes and transmits telemetry.
-- **Backend (`backend/`)**: Node.js / Express server on port 3001, providing REST APIs and WebSocket audio bridges for ElevenLabs, Vapi, Twilio, and Gemini Live.
-- **Database (`backend/db.js`)**: In-process dual-engine database layer supporting SQLite (`sql.js` with file persistence at `backend/dialix.db`) and PostgreSQL (`pg.Pool`).
-- **Background Worker (`backend/services/campaign-worker.js`)**: Server-side in-process background worker executing automated outbound dialing with time window filtering, concurrency limits, and DNC suppression.
-- **Error Telemetry & Bug Tracking (`backend/routes/telemetry.js`)**: Centralized error ingestion logging to `system_error_logs` in DB and appending structured issues to `agent_bug_inbox.json`.
-
----
+- **Framework**: Next.js 15.5.15 (App Router), React 18.3.1, TypeScript 5.8.3, Tailwind CSS 3.4.17
+- **Base Domain**: `https://www.inteldialix.online`
+- **Programmatic Engine**: React Server Components (RSC) with `generateStaticParams` backed by typed in-memory registries in `ai/src/data/seo/`
+- **Structured Data Engine**: Modular Schema.org `@graph` generator in `ai/src/lib/seo/schema-generator.ts` outputting linked entities: `Organization`, `WebSite`, `SoftwareApplication`, `WebPage`/`TechArticle`, `BreadcrumbList`, `FAQPage`
+- **Discovery & Crawlers**:
+  - Multi-tier dynamic XML sitemaps: core pages, integrations (100), solutions (100), comparisons (30), templates (80)
+  - Unified `/robots.txt` permitting `GPTBot`, `Claude-Web`, `PerplexityBot`, `Google-Extended`, `Applebot-Extended`, disallowing `/dashboard*` and `/api*`, pointing to `https://www.inteldialix.online/sitemap.xml`
+  - Official LLM discovery endpoints: `/llms.txt` and `/llms-full.txt` (both dynamic App Router Route Handlers and static `public/` mirrors)
+- **GEO / AEO Content Architecture**: Inverted pyramid factual answers (first 2-3 sentences), technical architecture diagrams, hard benchmarks (sub-200ms latency, 99.99% uptime, Opus/G.711 codecs, 34 languages), code snippets, and 1:1 visible FAQ accordions matching JSON-LD.
 
 ## Feature Inventory
 | # | Feature | Description | Milestone | Source |
 |---|---------|-------------|-----------|--------|
-| 1 | DB Dual-Engine Compatibility | Fix PostgreSQL seeding (pricing_plans, is_active), `mapQuery` translations (`date_trunc`, `ON CONFLICT`), and add `campaign_id` to `call_history` | M1 | ORIGINAL_REQUEST §Acceptance Criteria |
-| 2 | R1: Live Provider Sync Backend | Live bidirectional state synchronization with ElevenLabs, Vapi, and Gemini via `/api/agents/:id/sync` and config push | M2 | ORIGINAL_REQUEST §1 |
-| 3 | R1: Live Provider Sync Frontend | "Sync with Provider" button in Agent header bar, visual sync state, and auto-refresh | M2 | ORIGINAL_REQUEST §1 |
-| 4 | R2: Agent Knowledge Base Backend | Document uploads (PDF, TXT, DOCX), URL crawling, and provider prompt KB attachment | M2 | ORIGINAL_REQUEST §2 |
-| 5 | R2: Agent Tools Backend | Live calling action templates (Transfer Call, End Call) and custom webhook tools passed natively to provider prompt tools | M2 | ORIGINAL_REQUEST §2 |
-| 6 | R2: Agent Knowledge & Tools UI | Visible `'knowledge'` and `'tools'` tabs in `/dashboard/agents/[id]` with full document upload and tool creation workflows | M2 | ORIGINAL_REQUEST §2 |
-| 7 | R3: Team Management | Multi-role team management (Admin, Member, Viewer), member listing, role updating, and instant copyable invite link generation | M3 | ORIGINAL_REQUEST §3 |
-| 8 | R3: API Keys Management | Granular scopes API key generation with modal, one-time raw key display, active keys list, and revoke action | M3 | ORIGINAL_REQUEST §3 |
-| 9 | R3: Webhooks Suite | Webhook subscription management, multi-event selection, live test ping button with latency measurement, and event delivery logs | M3 | ORIGINAL_REQUEST §3 |
-| 10 | R3: Settings Dashboard UI | Unified multi-tab Settings page (`/dashboard/settings`) integrating Account, Team, API Keys, Webhooks, and System Health | M3 | ORIGINAL_REQUEST §3 |
-| 11 | R4: Campaign Dialing Worker | Server-side in-process background worker monitoring campaigns, enforcing allowed hours/days, concurrency limits, DNC suppression, multi-provider dialing | M4 | ORIGINAL_REQUEST §4 |
-| 12 | R4: Campaign Routes Async Fix | Add `await` to all DB calls in `backend/routes/campaigns.js`, fix `client_agents` table & `phone_e164` column, string agent IDs, and answered call counter tracking | M4 | ORIGINAL_REQUEST §4 |
-| 13 | R4: Campaign Frontend Wizard | Align campaign creation wizard payload in `ai/src/app/dashboard/campaigns/page.tsx` with backend fields | M4 | ORIGINAL_REQUEST §4 |
-| 14 | R5: Error Telemetry Pipeline | Global UI crash catcher (`GlobalErrorBoundary`), window.onerror & unhandled rejection listeners posting to `/api/telemetry/errors` | M5 | ORIGINAL_REQUEST §5 |
-| 15 | R5: Bug Tracking & Inbox | Backend logs errors to `system_error_logs` and appends to `agent_bug_inbox.json`; System Health UI panel in Settings | M5 | ORIGINAL_REQUEST §5 |
-| 16 | Verification & Build Cleanliness | Next.js build (`npm run build` in `ai/`) exits 0; Backend `/api/health` returns ok; Node test suite verifies R1-R5 | M6 | ORIGINAL_REQUEST §Acceptance Criteria |
-
----
+| 1 | Dynamic Multi-Tier XML Sitemap | `/sitemap.xml` sitemap index indexing core static pages + all 310 programmatic pages with ISO 8601 lastmod, optimal changefreq, accurate priority, and canonical URLs. Omit noindexed auth routes. | M1 | ORIGINAL_REQUEST §R1 |
+| 2 | Reconciled Robots.txt & AI Bot Permissions | Resolve `public/robots.txt` shadowing conflict, correct domain to `https://www.inteldialix.online`, permit GPTBot, Claude-Web, PerplexityBot, Google-Extended, disallow `/dashboard*` and `/api*`. | M1 | ORIGINAL_REQUEST §R1 |
+| 3 | Canonical URL Infrastructure | Automated self-referential absolute canonical tags across root layout, static marketing pages, and programmatic pages. | M1 | ORIGINAL_REQUEST §R1 |
+| 4 | Programmatic Data Model & Types | Strict TypeScript contracts (`ProgrammaticPageData`) supporting integrations, solutions, comparisons, and templates. | M2 | ORIGINAL_REQUEST §R2 |
+| 5 | Curated 310 Programmatic Keyword Registry | 100 Tools/Frameworks/Model integrations, 100 Solutions/Verticals, 30 Comparisons, 80 Templates targeting high-intent telephony & AI terms. | M2 | ORIGINAL_REQUEST §R2 |
+| 6 | Programmatic Routing & RSC Hubs | `/integrations`, `/integrations/[slug]`, `/solutions`, `/solutions/[slug]`, `/compare`, `/compare/[slug]`, `/templates`, `/templates/[slug]` with `generateStaticParams`. | M2 | ORIGINAL_REQUEST §R2 |
+| 7 | GEO/AEO Content & Inverted Pyramid | First 2-3 sentences provide direct factual answers; include architecture diagrams, real benchmarks, and code snippets per page. | M2 | ORIGINAL_REQUEST §R4 |
+| 8 | Reusable SEO Components | Dark-glass programmatic layout, breadcrumbs, code block with copy, comparison table, benchmark cards, and FAQ accordion. | M2 | ORIGINAL_REQUEST §R2, §R4 |
+| 9 | Schema.org `@graph` JSON-LD Generator | Automated linked graph for `Organization`, `WebSite`, `SoftwareApplication`, `WebPage`/`TechArticle`, `BreadcrumbList`, and `FAQPage`. | M3 | ORIGINAL_REQUEST §R3 |
+| 10 | Global & Page-Level Schema Integration | Server component injecting validated JSON-LD into RootLayout, core pages (`/`, `/pricing`, `/about`, etc.) and all programmatic pages. | M3 | ORIGINAL_REQUEST §R3 |
+| 11 | `/llms.txt` Official Standard | Concise markdown summary of Dialix platform, architecture, APIs, voice providers, benchmarks, and key links. | M4 | ORIGINAL_REQUEST §R5 |
+| 12 | `/llms-full.txt` RAG Documentation Feed | Complete technical documentation feed for LLM ingestion indexing all 310 integrations, solutions, comparisons, and guides. | M4 | ORIGINAL_REQUEST §R5 |
+| 13 | Full E2E Build & Validation | `npx next build` in `ai/` succeeds with 0 errors; verify sitemaps, robots.txt, JSON-LD, llms.txt, and 200 HTTP responses. | M5 | ORIGINAL_REQUEST §Acceptance Criteria |
 
 ## Milestones
 | # | Name | Scope | Dependencies | Status |
 |---|------|-------|-------------|--------|
-| M1 | Database & Core Schema Hardening | Fix PostgreSQL seeding, `is_active`, `pricing_plans`, `mapQuery` translations (`date_trunc`, `ON CONFLICT`), `call_history.campaign_id` | none | DONE |
-| M2 | R1 Live Sync & R2 Knowledge Base & Tools | Complete provider sync & tools push in backend; add "Sync with Provider", Knowledge Base tab, Tools tab in Agent Details UI | M1 | PLANNED |
-| M3 | R3 Settings Dashboard Suite | Normalize backend contracts for team, api-keys, webhooks; implement complete multi-tab Settings UI (Team, Keys, Webhooks, System Health) | M1 | PLANNED |
-| M4 | R4 Automated Campaign Dialing Worker | Fix `backend/routes/campaigns.js` async/await, agent_id schema, DNC phone column, `campaign-worker.js` counters; fix frontend wizard payload | M1 | PLANNED |
-| M5 | R5 Error Telemetry & AI Bug Tracking | Telemetry payload normalization, `agent_bug_inbox.json` initialization, and System Health UI log inspection | M1, M3 | PLANNED |
-| M6 | Comprehensive Verification & Next.js Build | Next.js build fix (`ai/next.config.js` standalone conditionalization), Node test suite for R1-R5, backend health verification | M1, M2, M3, M4, M5 | PLANNED |
-
----
+| M1 | Sitemap, Robots & Canonical Foundation | Reconcile `robots.txt` & `app/robots.ts`, build dynamic sitemap generator with canonicals, fix metadata on `/` and `/pricing`. | none | DONE |
+| M2 | Programmatic AI Pages & GEO/AEO Engine (310 Pages) | Build types, 310-page data registries, shared programmatic layout, and dynamic routes for integrations, solutions, comparisons, templates. | M1 | DONE |
+| M3 | Rich Schema.org `@graph` JSON-LD System | Build JSON-LD generator helper and inject structured data across root layout, core pages, and all programmatic routes. | M2 | DONE |
+| M4 | Official LLM Discovery Standards (`/llms.txt` & `/llms-full.txt`) | Implement Route Handlers and static public files for `/llms.txt` and `/llms-full.txt`. | M2 | DONE |
+| M5 | Production Build & Comprehensive E2E Verification | Execute full production build in `ai/`, validate all routes, schemas, XML sitemaps, robots, and LLM text outputs. | M1, M2, M3, M4 | DONE |
 
 ## Interface Contracts
 
-### Backend ↔ Frontend Contracts
-1. **Team Management**:
-   - `GET /api/team` -> `{ success: true, team: [...], members: [...], invitations: [...] }`
-   - `POST /api/team/invite` -> `{ success: true, invite_url: string, invitation: { ... } }`
-2. **API Keys**:
-   - `GET /api/api-keys` -> `{ success: true, keys: [...], data: [...] }`
-   - `POST /api/api-keys` -> `{ success: true, key: string, raw_key: string, data: { ... } }`
-3. **Webhooks**:
-   - `GET /api/webhooks` -> `{ success: true, webhooks: [...], subscriptions: [...] }`
-   - `POST /api/webhooks` accepts `{ url, events: string[] }` or `{ url, event: string }`
-   - `POST /api/webhooks/:id/test` -> `{ success: true, status: number, status_code: number, latency_ms: number, duration_ms: number }`
-4. **Telemetry & System Health**:
-   - `POST /api/telemetry/errors` accepts both snake_case and camelCase (`stack`, `componentStack`, `userAgent`, `metadata`)
-   - `GET /api/telemetry/errors` -> `{ success: true, errors: [...], summary: { total, open, resolved } }`
-5. **Campaigns**:
-   - `POST /api/campaigns` accepts both snake_case and camelCase fields; supports string `agent_id`
-   - `GET /api/campaigns` -> `{ success: true, campaigns: [...], total: number }`
+### Programmatic Data Contract (`ai/src/data/seo/types.ts`)
+```ts
+export interface ProgrammaticPageData {
+  slug: string;
+  type: 'integration' | 'solution' | 'comparison' | 'template';
+  title: string;
+  metaTitle: string;
+  metaDescription: string;
+  canonicalUrl: string;
+  lastModified: string;
+  category: string;
+  badge: string;
+  h1: string;
+  tagline: string;
+  directAnswer: string; // 2-3 factual sentences for GEO/AEO
+  entities: {
+    primaryEntity: string;
+    relatedEntities: string[];
+    protocols: string[];
+    supportedModels: string[];
+  };
+  architecture: {
+    summary: string;
+    steps: Array<{
+      stepNumber: number;
+      title: string;
+      description: string;
+      technicalDetails: string;
+    }>;
+  };
+  benchmarks: Array<{
+    label: string;
+    value: string;
+    comparisonNote: string;
+  }>;
+  codeExample?: {
+    language: string;
+    filename: string;
+    code: string;
+    explanation: string;
+  };
+  comparisonMatrix?: {
+    competitorName: string;
+    rows: Array<{
+      feature: string;
+      dialixValue: string | boolean;
+      competitorValue: string | boolean;
+      explanation: string;
+    }>;
+  };
+  faqs: Array<{
+    question: string;
+    answer: string;
+  }>;
+  breadcrumbs: Array<{
+    name: string;
+    url: string;
+  }>;
+  relatedPages: Array<{
+    title: string;
+    slug: string;
+    type: string;
+    description: string;
+  }>;
+}
+```
 
----
+### Schema Generator Contract (`ai/src/lib/seo/schema-generator.ts`)
+```ts
+export function generatePageSchema(data: ProgrammaticPageData): Record<string, any>;
+export function generateGlobalOrganizationSchema(): Record<string, any>;
+export function generateSoftwareApplicationSchema(): Record<string, any>;
+```
 
 ## Code Layout
-- `backend/server.js`: Server entry point & health check `/api/health`
-- `backend/db.js`: Dual-engine database abstraction (SQLite & PostgreSQL)
-- `backend/routes/agents.js`: Provider sync, Knowledge Base & Tools endpoints
-- `backend/routes/team.js`: Team membership & invitation management
-- `backend/routes/api-keys.js`: API key generation & scoping
-- `backend/routes/webhooks.js`: Webhook subscriptions & delivery tests
-- `backend/routes/campaigns.js`: Campaign lifecycle & contact management
-- `backend/routes/telemetry.js`: Telemetry ingestion & bug inbox recording
-- `backend/services/campaign-worker.js`: In-process campaign dialing background worker
-- `agent_bug_inbox.json`: Repository root AI bug tracking queue
-- `ai/next.config.js`: Next.js build configuration & standalone packaging rule
-- `ai/src/app/dashboard/agents/[id]/page.tsx`: Agent details page (Sync, Knowledge, Tools)
-- `ai/src/app/dashboard/settings/page.tsx`: Settings dashboard suite (Team, Keys, Webhooks, Health)
-- `ai/src/app/dashboard/campaigns/page.tsx`: Campaign management & creation wizard
-- `ai/src/components/GlobalErrorBoundary.tsx`: Global React crash catcher & telemetry reporter
-- `backend/tests/`: Automated test suite verifying R1–R5 functionality
+- `ai/src/data/seo/`
+  - `types.ts`: Core data types
+  - `integrations.ts`: 100 tool & model integration definitions
+  - `solutions.ts`: 100 telephony & vertical solution definitions
+  - `comparisons.ts`: 30 competitor & architectural comparison definitions
+  - `templates.ts`: 80 workflow blueprint definitions
+  - `index.ts`: Unified registry & fast lookup utilities
+- `ai/src/lib/seo/`
+  - `schema-generator.ts`: Schema.org `@graph` JSON-LD generator
+  - `metadata-helpers.ts`: Title, description, and canonical helpers
+- `ai/src/components/seo/`
+  - `JsonLd.tsx`: Server component rendering `<script type="application/ld+json">`
+  - `Breadcrumbs.tsx`: Visual breadcrumbs matching schema
+  - `CodeBlock.tsx`: Syntax highlighted code snippet with copy button
+  - `ProgrammaticLayout.tsx`: Shared dark-glass layout for programmatic pages
+- `ai/src/app/`
+  - `sitemap.ts`: Dynamic multi-tier XML sitemap
+  - `robots.ts`: Reconciled robots directives
+  - `llms.txt/route.ts`: LLM discovery route handler
+  - `llms-full.txt/route.ts`: RAG full documentation feed handler
+  - `integrations/`: Integrations directory hub and `[slug]/page.tsx`
+  - `solutions/`: Solutions directory hub and `[slug]/page.tsx`
+  - `compare/`: Comparison directory hub and `[slug]/page.tsx`
+  - `templates/`: Templates directory hub and `[slug]/page.tsx`
+- `ai/public/`
+  - `robots.txt`: Synchronized static mirror of robots.txt
+  - `llms.txt`: Static mirror of llms.txt
+  - `llms-full.txt`: Static mirror of llms-full.txt

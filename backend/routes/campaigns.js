@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { all, get, run } = require('../db');
-const { authenticate } = require('../middleware/auth');
+const { authenticate, requireRole } = require('../middleware/auth');
 const { z } = require('zod');
 const rateLimit = require('express-rate-limit');
 
@@ -16,21 +16,21 @@ router.use(authenticate);
 
 const campaignSchema = z.object({
   name: z.string().min(1).max(255),
-  description: z.string().optional().nullable(),
+  description: z.string().max(2000).optional().nullable(),
   agent_id: z.union([z.string(), z.number()]).optional().nullable(),
   phone_number_id: z.union([z.string(), z.number()]).optional().nullable(),
   contact_list: z.array(z.union([z.string(), z.number()])).optional().nullable(),
-  schedule_start: z.string().optional().nullable(),
-  schedule_end: z.string().optional().nullable(),
-  calling_days: z.union([z.string(), z.array(z.string())]).optional().nullable(),
-  calling_start_time: z.string().optional().nullable(),
-  calling_end_time: z.string().optional().nullable(),
-  calling_timezone: z.string().optional().nullable(),
-  max_concurrent: z.number().optional().nullable(),
-  max_calls_per_hour: z.number().optional().nullable(),
-  max_retries: z.number().optional().nullable(),
-  retry_delay_minutes: z.number().optional().nullable(),
-  goal: z.string().optional().nullable()
+  schedule_start: z.string().max(50).optional().nullable(),
+  schedule_end: z.string().max(50).optional().nullable(),
+  calling_days: z.union([z.string().max(100), z.array(z.string().max(20))]).optional().nullable(),
+  calling_start_time: z.string().max(10).optional().nullable(),
+  calling_end_time: z.string().max(10).optional().nullable(),
+  calling_timezone: z.string().max(100).optional().nullable(),
+  max_concurrent: z.number().int().min(1).max(100).optional().nullable(),
+  max_calls_per_hour: z.number().int().min(1).max(3600).optional().nullable(),
+  max_retries: z.number().int().min(0).max(10).optional().nullable(),
+  retry_delay_minutes: z.number().int().min(0).max(1440).optional().nullable(),
+  goal: z.string().max(2000).optional().nullable()
 });
 
 // GET / - List campaigns
@@ -70,7 +70,7 @@ router.get('/', async (req, res) => {
 });
 
 // POST / - Create campaign
-router.post('/', async (req, res) => {
+router.post('/', requireRole('manager'), async (req, res) => {
   try {
     const { client_id } = req.user;
     const parsed = campaignSchema.safeParse(req.body);
@@ -132,7 +132,7 @@ router.get('/:id', async (req, res) => {
 });
 
 // PUT /:id - Update campaign
-router.put('/:id', async (req, res) => {
+router.put('/:id', requireRole('manager'), async (req, res) => {
   try {
     const { client_id } = req.user;
     const campaignId = req.params.id;
@@ -199,7 +199,7 @@ router.put('/:id', async (req, res) => {
 });
 
 // DELETE /:id - Delete campaign
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', requireRole('manager'), async (req, res) => {
   try {
     const { client_id } = req.user;
     const campaignId = req.params.id;
@@ -219,7 +219,7 @@ router.delete('/:id', async (req, res) => {
 });
 
 // POST /:id/start - Start/schedule campaign
-router.post('/:id/start', actionLimiter, async (req, res) => {
+router.post('/:id/start', actionLimiter, requireRole('manager'), async (req, res) => {
   try {
     const { client_id } = req.user;
     const campaignId = req.params.id;
@@ -331,7 +331,7 @@ router.post('/:id/start', actionLimiter, async (req, res) => {
 });
 
 // POST /:id/pause - Pause running campaign
-router.post('/:id/pause', actionLimiter, async (req, res) => {
+router.post('/:id/pause', actionLimiter, requireRole('manager'), async (req, res) => {
   try {
     const { client_id } = req.user;
     const campaignId = req.params.id;
@@ -352,7 +352,7 @@ router.post('/:id/pause', actionLimiter, async (req, res) => {
 });
 
 // POST /:id/resume - Resume paused campaign
-router.post('/:id/resume', actionLimiter, async (req, res) => {
+router.post('/:id/resume', actionLimiter, requireRole('manager'), async (req, res) => {
   try {
     const { client_id } = req.user;
     const campaignId = req.params.id;
@@ -373,7 +373,7 @@ router.post('/:id/resume', actionLimiter, async (req, res) => {
 });
 
 // POST /:id/cancel - Cancel campaign
-router.post('/:id/cancel', actionLimiter, async (req, res) => {
+router.post('/:id/cancel', actionLimiter, requireRole('manager'), async (req, res) => {
   try {
     const { client_id } = req.user;
     const campaignId = req.params.id;
@@ -394,7 +394,7 @@ router.post('/:id/cancel', actionLimiter, async (req, res) => {
 });
 
 // POST /:id/duplicate - Duplicate a campaign
-router.post('/:id/duplicate', actionLimiter, async (req, res) => {
+router.post('/:id/duplicate', actionLimiter, requireRole('manager'), async (req, res) => {
   try {
     const { client_id } = req.user;
     const campaignId = req.params.id;

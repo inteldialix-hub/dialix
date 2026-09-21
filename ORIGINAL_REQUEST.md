@@ -114,3 +114,60 @@ Integrity mode: development
 - [ ] Next.js production build (`npm run build` in `ai/`) succeeds with 0 errors.
 - [ ] All pages load without console errors in production deployment.
 - [ ] Playwright visual screenshots verify layout integrity across all pages.
+
+## 2026-09-20T23:10:07Z
+
+Build an enterprise-grade SEO, GEO (Generative Engine Optimization), AEO (Answer Engine Optimization), and Programmatic AI discovery architecture for Dialix (https://www.inteldialix.online). Target the complete spectrum of AI telephony keywords (n8n, OpenAI, ChatGPT, LLMs, model training/fine-tuning, voice agents, call automation), support scalable programmatic page generation (up to 300+ keyword-targeted integration & solution pages), provide dynamic XML sitemaps for Google Search Console, embed rich JSON-LD schemas, and implement the `/llms.txt` standard for AI engines.
+
+Working directory: `c:\Users\ITASH\OneDrive\Desktop\dialix 3\ai`
+Integrity mode: development
+
+## Requirements
+
+### R1. Dynamic XML Sitemap & Search Console Indexing
+- Generate a dynamic, multi-tier XML sitemap (`/sitemap.xml` / sitemap index) that automatically indexes all core static pages and any programmatically generated landing pages (scalable up to hundreds of URLs).
+- Each sitemap entry must include valid ISO 8601 `lastmod`, optimal `changefreq`, accurate `priority`, and absolute canonical production URLs (`https://www.inteldialix.online/...`).
+- Configure `/robots.txt` to point to the sitemap index, permit legitimate AI crawlers (GPTBot, Claude-Web, PerplexityBot, Google-Extended), and disallow private dashboard and API endpoints.
+
+### R2. Programmatic AI Keyword & Integration Architecture (Scalable to 300+ Pages)
+- Build a programmatic routing and metadata system targeting high-intent AI and telephony keywords:
+  - Tool & Framework Integrations: n8n Voice AI workflows, Zapier telephony, Make.com, LangChain, CrewAI, AutoGen.
+  - Model Providers: OpenAI / ChatGPT real-time audio, Anthropic Claude voice assistants, Google Gemini 3.8 Live agents, ElevenLabs conversational AI, Deepgram, Vapi.
+  - Telephony Use Cases: Inbound customer support, outbound qualification, appointment booking, debt collection, real estate lead triage, healthcare intake, 24/7 AI receptionist.
+- Ensure every programmatic page has unique, high-value content: distinct value propositions, workflow architecture diagrams, feature comparison tables, FAQ sections, and technical specifications to prevent duplicate content penalties.
+
+### R3. Schema.org Structured Data (JSON-LD) for Google Rich Results
+- Implement automated `@graph` JSON-LD structured data on all pages:
+  - `Organization`: Dialix identity, logo, verified contact points, sameAs social links.
+  - `SoftwareApplication`: Voice AI Agent Platform, operating systems, feature list, rating, pricing tiers.
+  - `FAQPage`: Rich snippet Q&A pairs for both Google search accordions and LLM extraction.
+  - `BreadcrumbList`: Structural hierarchy for clean SERP navigation breadcrumbs.
+  - `TechArticle` / `WebPage`: Entity-rich metadata referencing AI keywords, models, and protocols.
+
+### R4. GEO (Generative Engine Optimization) & AEO (Answer Engine Optimization)
+- Format page content specifically to be cited and quoted by AI answer engines (Perplexity, ChatGPT Search, Gemini, Claude):
+  - Inverted pyramid structure: direct, factual answers in the first 2-3 sentences of each section.
+  - Comparison matrices (Dialix vs traditional IVR vs Twilio custom code vs Retell vs Vapi).
+  - Concrete technical statistics and benchmarks (latency, uptime, supported languages, voice codecs).
+  - Entity optimization establishing Dialix as the authoritative entity for enterprise voice AI and automated phone agents.
+
+### R5. LLM Standards (`/llms.txt` & `/llms-full.txt`)
+- Serve `/llms.txt` adhering to the official standard: concise, high-density markdown summary of Dialix, architecture, APIs, capabilities, supported LLM providers, and primary documentation links.
+- Serve `/llms-full.txt`: comprehensive documentation feed optimized for RAG embeddings and LLM ingestion.
+
+## Acceptance Criteria
+
+### Technical & Sitemap Verification
+- [ ] `/sitemap.xml` returns valid XML (HTTP 200) listing all static and programmatic URLs with valid `<loc>`, `<lastmod>`, `<changefreq>`, and `<priority>`.
+- [ ] `/robots.txt` returns HTTP 200 with proper `Sitemap:` directive and AI bot permissions.
+- [ ] All programmatic routes render successfully with distinct HTTP 200 status codes and unique metadata.
+
+### Schema & Search Validation
+- [ ] JSON-LD markup on core and programmatic pages parses as valid JSON with no missing required fields (`Organization`, `SoftwareApplication`, `FAQPage`, `BreadcrumbList`).
+- [ ] Every page includes valid canonical tags pointing to `https://www.inteldialix.online/...`.
+
+### AI & LLM Discovery Verification
+- [ ] `/llms.txt` returns HTTP 200 with formatted markdown summarizing the platform and linking key endpoints.
+- [ ] `/llms-full.txt` returns HTTP 200 with full technical documentation for LLM context retrieval.
+- [ ] Next.js application builds cleanly (`npx next build`) with zero compilation or TypeScript errors.
+
