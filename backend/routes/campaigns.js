@@ -36,7 +36,8 @@ const campaignSchema = z.object({
   calls_per_minute: z.number().int().min(1).max(1000).optional().nullable(),
   max_spend: z.number().optional().nullable(),
   max_retry_attempts: z.number().int().min(0).max(10).optional().nullable(),
-  voicemail_action: z.enum(['hangup', 'retry', 'leave_message']).optional().nullable()
+  voicemail_action: z.enum(['hangup', 'retry', 'leave_message']).optional().nullable(),
+  recording_disclosure: z.string().max(2000).optional().nullable()
 });
 
 // GET / - List campaigns
@@ -100,9 +101,9 @@ router.post('/', requireRole('manager'), async (req, res) => {
         total_contacts, valid_contacts, dnc_excluded, calls_completed, calls_answered, calls_failed, 
         schedule_start, schedule_end, calling_days, calling_start_time, calling_end_time, calling_timezone, 
         max_concurrent, max_calls_per_hour, max_retries, retry_delay_minutes, goal,
-        max_concurrent_calls, calls_per_minute, max_spend, max_retry_attempts, voicemail_action,
+        max_concurrent_calls, calls_per_minute, max_spend, max_retry_attempts, voicemail_action, recording_disclosure,
         created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, 'draft', ?, 0, 0, 0, 0, 0, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`,
+      ) VALUES (?, ?, ?, ?, ?, 'draft', ?, 0, 0, 0, 0, 0, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`,
       [
         client_id, data.name, data.description || null, data.agent_id ? String(data.agent_id) : null, data.phone_number_id || null,
         data.contact_list ? JSON.stringify(data.contact_list) : '[]',
@@ -114,7 +115,8 @@ router.post('/', requireRole('manager'), async (req, res) => {
         data.calls_per_minute !== undefined ? data.calls_per_minute : 5,
         data.max_spend !== undefined ? data.max_spend : null,
         data.max_retry_attempts !== undefined ? data.max_retry_attempts : 3,
-        data.voicemail_action || 'hangup'
+        data.voicemail_action || 'hangup',
+        data.recording_disclosure || null
       ]
     );
 
@@ -192,6 +194,7 @@ router.put('/:id', requireRole('manager'), async (req, res) => {
         max_spend = coalesce(?, max_spend),
         max_retry_attempts = coalesce(?, max_retry_attempts),
         voicemail_action = coalesce(?, voicemail_action),
+        recording_disclosure = coalesce(?, recording_disclosure),
         updated_at = datetime('now')
       WHERE id = ? AND client_id = ?`,
       [
@@ -202,6 +205,7 @@ router.put('/:id', requireRole('manager'), async (req, res) => {
         data.max_concurrent, data.max_calls_per_hour, data.max_retries, data.retry_delay_minutes,
         data.goal,
         data.max_concurrent_calls, data.calls_per_minute, data.max_spend, data.max_retry_attempts, data.voicemail_action,
+        data.recording_disclosure,
         campaignId, client_id
       ]
     );
@@ -281,11 +285,11 @@ router.post('/:id/start', actionLimiter, requireRole('manager'), async (req, res
     const isNumericAgent = /^\d+$/.test(String(campaign.agent_id));
     let agent = isNumericAgent
       ? await get(
-          'SELECT agent_name as name FROM client_agents WHERE (agent_id = ? OR id = ?) AND client_id = ?',
+          'SELECT agent_name as name, recording_disclosure, disclosure_enabled FROM client_agents WHERE (agent_id = ? OR id = ?) AND client_id = ?',
           [String(campaign.agent_id), parseInt(campaign.agent_id), client_id]
         )
       : await get(
-          'SELECT agent_name as name FROM client_agents WHERE agent_id = ? AND client_id = ?',
+          'SELECT agent_name as name, recording_disclosure, disclosure_enabled FROM client_agents WHERE agent_id = ? AND client_id = ?',
           [String(campaign.agent_id), client_id]
         );
 
@@ -356,16 +360,19 @@ router.post('/:id/start', actionLimiter, requireRole('manager'), async (req, res
 
     const newStatus = 'running';
 
+    const activeDisclosure = campaign.recording_disclosure || (agent.disclosure_enabled ? agent.recording_disclosure : null);
+
     await run(
       `UPDATE campaigns SET 
         status = ?, 
         total_contacts = ?, 
         valid_contacts = ?, 
         dnc_excluded = ?,
+        recording_disclosure = ?,
         started_at = coalesce(started_at, datetime('now')),
         updated_at = datetime('now')
        WHERE id = ?`,
-      [newStatus, contactIds.length, validCount, dncExcluded, campaignId]
+      [newStatus, contactIds.length, validCount, dncExcluded, activeDisclosure, campaignId]
     );
 
     res.json({ 
@@ -466,9 +473,9 @@ router.post('/:id/duplicate', actionLimiter, requireRole('manager'), async (req,
         total_contacts, valid_contacts, dnc_excluded, calls_completed, calls_answered, calls_failed, 
         schedule_start, schedule_end, calling_days, calling_start_time, calling_end_time, calling_timezone, 
         max_concurrent, max_calls_per_hour, max_retries, retry_delay_minutes, goal,
-        max_concurrent_calls, calls_per_minute, max_spend, max_retry_attempts, voicemail_action,
+        max_concurrent_calls, calls_per_minute, max_spend, max_retry_attempts, voicemail_action, recording_disclosure,
         created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, 'draft', ?, 0, 0, 0, 0, 0, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`,
+      ) VALUES (?, ?, ?, ?, ?, 'draft', ?, 0, 0, 0, 0, 0, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`,
       [
         client_id, newName, campaign.description, campaign.agent_id, campaign.phone_number_id,
         campaign.contact_list || '[]',
@@ -476,7 +483,8 @@ router.post('/:id/duplicate', actionLimiter, requireRole('manager'), async (req,
         campaign.calling_start_time, campaign.calling_end_time, campaign.calling_timezone,
         campaign.max_concurrent, campaign.max_calls_per_hour, campaign.max_retries, campaign.retry_delay_minutes,
         campaign.goal,
-        campaign.max_concurrent_calls, campaign.calls_per_minute, campaign.max_spend, campaign.max_retry_attempts, campaign.voicemail_action
+        campaign.max_concurrent_calls, campaign.calls_per_minute, campaign.max_spend, campaign.max_retry_attempts, campaign.voicemail_action,
+        campaign.recording_disclosure || null
       ]
     );
 

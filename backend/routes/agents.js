@@ -1625,6 +1625,8 @@ router.patch('/:agent_id', authenticate, async (req, res) => {
     if (body.transfer_number !== undefined) { caUpdates.push('transfer_number = ?'); caParams.push(body.transfer_number); }
     if (body.transfer_conditions !== undefined) { caUpdates.push('transfer_conditions = ?'); caParams.push(typeof body.transfer_conditions === 'string' ? body.transfer_conditions : JSON.stringify(body.transfer_conditions)); }
     if (body.transfer_fallback !== undefined) { caUpdates.push('transfer_fallback = ?'); caParams.push(body.transfer_fallback); }
+    if (body.recording_disclosure !== undefined) { caUpdates.push('recording_disclosure = ?'); caParams.push(body.recording_disclosure); }
+    if (body.disclosure_enabled !== undefined) { caUpdates.push('disclosure_enabled = ?'); caParams.push(body.disclosure_enabled ? 1 : 0); }
     
     if (caUpdates.length > 0) {
       caParams.push(agent_id);
