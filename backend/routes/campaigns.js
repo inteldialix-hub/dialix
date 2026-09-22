@@ -4,6 +4,7 @@ const { all, get, run } = require('../db');
 const { authenticate, requireRole } = require('../middleware/auth');
 const { z } = require('zod');
 const rateLimit = require('express-rate-limit');
+const { enforceLimit } = require('../services/entitlements');
 
 // Rate limiter for action routes
 const actionLimiter = rateLimit({
@@ -78,6 +79,11 @@ router.get('/', async (req, res) => {
 router.post('/', requireRole('manager'), async (req, res) => {
   try {
     const { client_id } = req.user;
+    
+    // Check if client exceeds campaigns limit
+    if (req.user.is_admin !== 1) {
+      await enforceLimit(client_id, 'campaigns');
+    }
     const parsed = campaignSchema.safeParse(req.body);
     if (!parsed.success) {
       return res.status(400).json({ error: 'Invalid input', details: parsed.error.issues });
@@ -241,6 +247,10 @@ router.delete('/:id', requireRole('manager'), async (req, res) => {
 router.post('/:id/start', actionLimiter, requireRole('manager'), async (req, res) => {
   try {
     const { client_id } = req.user;
+    
+    if (req.user.is_admin !== 1) {
+      await enforceLimit(client_id, 'concurrent_calls');
+    }
     const campaignId = req.params.id;
 
     const campaign = await get('SELECT * FROM campaigns WHERE id = ? AND client_id = ?', [campaignId, client_id]);
@@ -455,15 +465,18 @@ router.post('/:id/duplicate', actionLimiter, requireRole('manager'), async (req,
         client_id, name, description, agent_id, phone_number_id, status, contact_list, 
         total_contacts, valid_contacts, dnc_excluded, calls_completed, calls_answered, calls_failed, 
         schedule_start, schedule_end, calling_days, calling_start_time, calling_end_time, calling_timezone, 
-        max_concurrent, max_calls_per_hour, max_retries, retry_delay_minutes, goal, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, 'draft', ?, 0, 0, 0, 0, 0, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`,
+        max_concurrent, max_calls_per_hour, max_retries, retry_delay_minutes, goal,
+        max_concurrent_calls, calls_per_minute, max_spend, max_retry_attempts, voicemail_action,
+        created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, 'draft', ?, 0, 0, 0, 0, 0, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`,
       [
         client_id, newName, campaign.description, campaign.agent_id, campaign.phone_number_id,
         campaign.contact_list || '[]',
         campaign.schedule_start, campaign.schedule_end, campaign.calling_days,
         campaign.calling_start_time, campaign.calling_end_time, campaign.calling_timezone,
         campaign.max_concurrent, campaign.max_calls_per_hour, campaign.max_retries, campaign.retry_delay_minutes,
-        campaign.goal
+        campaign.goal,
+        campaign.max_concurrent_calls, campaign.calls_per_minute, campaign.max_spend, campaign.max_retry_attempts, campaign.voicemail_action
       ]
     );
 

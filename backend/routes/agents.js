@@ -4,7 +4,7 @@ const { all, get, run } = require('../db');
 const { authenticate, requireAdmin } = require('../middleware/auth');
 const { validateSchema } = require('../middleware/validate');
 const { addSharedVoiceSchema, createAgentSchema } = require('../lib/schemas');
-const { checkAgentLimit } = require('../lib/plan-limits');
+const { enforceLimit } = require('../services/entitlements');
 const elevenlabs = require('../services/elevenlabs');
 const vapi = require('../services/vapi');
 const gemini = require('../services/gemini');
@@ -827,10 +827,7 @@ router.post('/', authenticate, validateSchema(createAgentSchema), async (req, re
   try {
     // Enforce plan limit for non-admin clients
     if (req.client.is_admin !== 1) {
-      const limit = await checkAgentLimit(req.client.id);
-      if (!limit.allowed) {
-        return res.status(403).json({ error: limit.reason });
-      }
+      await enforceLimit(req.client.id, 'agents');
     }
 
     // Merge template defaults (if specified) with request body — request body wins

@@ -327,7 +327,7 @@ export default function AnalysisPage() {
   return (
     <div className="flex h-[calc(100vh-64px)] w-full">
       {/* ═══ LEFT PANEL — Conversation List ═══ */}
-      <div className="w-[340px] flex flex-col border-r border-border bg-background">
+      <div className={cn("w-full md:w-[340px] flex-shrink-0 flex flex-col border-r border-border bg-background transition-all", selectedConvId ? "hidden md:flex" : "flex")}>
         <div className="p-4 border-b border-border">
           <h2 className="text-lg font-semibold tracking-tight mb-4">Analysis</h2>
           <div className="flex flex-col gap-3">
@@ -422,7 +422,7 @@ export default function AnalysisPage() {
       </div>
 
       {/* ═══ CENTER PANEL — Conversation Detail ═══ */}
-      <div className="flex-1 flex flex-col overflow-hidden bg-background">
+      <div className={cn("flex-1 flex flex-col overflow-hidden bg-background", selectedConvId ? "flex" : "hidden md:flex")}>
         {!selectedConvId ? (
           <div className="h-full flex items-center justify-center p-8">
             <EmptyState
@@ -436,11 +436,19 @@ export default function AnalysisPage() {
             <span className="text-sm text-muted-foreground">Loading conversation...</span>
           </div>
         ) : convDetail ? (
-          <div className="flex h-full">
+          <div className="flex flex-col lg:flex-row h-full">
             <div className="flex-1 flex flex-col overflow-y-auto">
-              <div className="p-6 border-b border-border">
+              <div className="p-4 md:p-6 border-b border-border">
+                <div className="flex items-center gap-3 mb-4 md:hidden">
+                  <button 
+                    onClick={() => { setSelectedConvId(null); setConvDetail(null); }}
+                    className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+                  >
+                    <span className="font-medium">← Back to list</span>
+                  </button>
+                </div>
                 <h3 className="text-xl font-semibold tracking-tight mb-1">Conversation with {agentName}</h3>
-                <span className="text-sm text-muted-foreground font-mono">{convDetail.conversation_id}</span>
+                <span className="text-sm text-muted-foreground font-mono truncate block max-w-full">{convDetail.conversation_id}</span>
                 
                 <div className="mt-6">
                   <AudioPlayer
@@ -454,8 +462,8 @@ export default function AnalysisPage() {
                   />
                 </div>
 
-                <div className="border-b border-border mt-8">
-                  <nav className="flex gap-6">
+                <div className="border-b border-border mt-8 overflow-x-auto">
+                  <nav className="flex gap-6 min-w-max">
                     {(['overview', 'transcription', 'client_data'] as const).map(tab => (
                       <button
                         key={tab}
@@ -474,7 +482,7 @@ export default function AnalysisPage() {
                 </div>
               </div>
 
-              <div className="p-6 flex-1 overflow-y-auto">
+              <div className="p-4 md:p-6 flex-1 overflow-y-auto">
                 {activeTab === 'overview' && <OverviewTab detail={convDetail} onRunAnalysis={runAnalysis} isAnalyzing={isAnalyzing} />}
                 {activeTab === 'transcription' && <TranscriptionTab detail={convDetail} agentName={agentName} />}
                 {activeTab === 'client_data' && <ClientDataTab detail={convDetail} />}
@@ -482,10 +490,10 @@ export default function AnalysisPage() {
             </div>
 
             {/* Right Panel Metadata */}
-            <div className="w-[300px] border-l border-border bg-card overflow-y-auto flex-shrink-0">
+            <div className="w-full lg:w-[300px] border-t lg:border-t-0 lg:border-l border-border bg-card overflow-y-auto flex-shrink-0">
               <div className="p-4 border-b border-border flex items-center justify-between">
                 <span className="font-semibold text-sm">Metadata</span>
-                <button className="text-muted-foreground hover:text-foreground" onClick={() => { setSelectedConvId(null); setConvDetail(null); }}>
+                <button className="text-muted-foreground hover:text-foreground hidden lg:block" onClick={() => { setSelectedConvId(null); setConvDetail(null); }}>
                   <X size={16} />
                 </button>
               </div>

@@ -8,6 +8,7 @@ import { useToast } from '@/components/dashboard/shared/ToastProvider';
 import { Search, Plus, Upload, Download, Trash2, Edit2, X, PhoneOff, Phone, Loader2, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useTopBar } from '@/components/dashboard/TopBarContext';
+import { CsvImportModal } from '@/components/dashboard/CsvImportModal';
 
 interface Contact {
   id: number;
@@ -29,6 +30,7 @@ export default function ContactsPage() {
   const { setTopBar } = useTopBar();
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
@@ -68,6 +70,7 @@ export default function ContactsPage() {
   const fetchContacts = async () => {
     try {
       setLoading(true);
+      setError(null);
       const query = new URLSearchParams({
         page: page.toString(),
         limit: limit.toString(),
@@ -88,8 +91,9 @@ export default function ContactsPage() {
         setContacts(Array.isArray(contactList) ? contactList : []);
         setTotal(Number(totalCount) || 0);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to load contacts', err);
+      setError(err?.message || 'Failed to load contacts. Please verify your connection.');
       setContacts([]);
       setTotal(0);
     } finally {
@@ -226,94 +230,7 @@ export default function ContactsPage() {
     }
   };
 
-  const parseCsvLine = (line: string): string[] => {
-    const values: string[] = [];
-    let current = '';
-    let inQuotes = false;
-    for (let i = 0; i < line.length; i++) {
-      const char = line[i];
-      if (char === '"') {
-        if (inQuotes && line[i + 1] === '"') {
-          current += '"';
-          i++;
-        } else {
-          inQuotes = !inQuotes;
-        }
-      } else if (char === ',' && !inQuotes) {
-        values.push(current.trim());
-        current = '';
-      } else {
-        current += char;
-      }
-    }
-    values.push(current.trim());
-    return values;
-  };
 
-  const normalizeHeader = (header: string): string => {
-    const h = header.toLowerCase().replace(/[\s_-]+/g, '');
-    if (h === 'firstname' || h === 'first' || h === 'givenname') return 'first_name';
-    if (h === 'lastname' || h === 'last' || h === 'surname') return 'last_name';
-    if (h === 'phone' || h === 'phonenumber' || h === 'telephone' || h === 'mobile' || h === 'cell') return 'phone';
-    if (h === 'email' || h === 'emailaddress') return 'email';
-    if (h === 'company' || h === 'organization' || h === 'org' || h === 'business') return 'company';
-    if (h === 'status') return 'status';
-    return header.trim();
-  };
-
-  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setImporting(true);
-    const reader = new FileReader();
-    reader.onload = async (event) => {
-      try {
-        const text = event.target?.result as string;
-        const rawLines = text.split(/\r?\n/).filter(l => l.trim().length > 0);
-        if (rawLines.length < 2) {
-          addToast('Invalid CSV format: requires header and at least one data row', 'error');
-          setImporting(false);
-          return;
-        }
-
-        const rawHeaders = parseCsvLine(rawLines[0]);
-        const headers = rawHeaders.map(h => normalizeHeader(h));
-        const rows = [];
-
-        for (let i = 1; i < rawLines.length; i++) {
-          const values = parseCsvLine(rawLines[i]);
-          const row: any = {};
-          headers.forEach((h, index) => {
-            if (values[index] !== undefined) {
-              row[h] = values[index];
-            }
-          });
-          if (row.first_name || row.phone) {
-            rows.push(row);
-          }
-        }
-
-        if (rows.length === 0) {
-          addToast('No valid contact records found in CSV file', 'error');
-          setImporting(false);
-          return;
-        }
-
-        const res = await api('/contacts/import', { method: 'POST', body: { rows }, token });
-        addToast(`Imported: ${res.imported || 0}, Updated: ${res.updated || 0}, Skipped: ${res.skipped || 0}`, 'success');
-        fetchContacts();
-        setIsImportModalOpen(false);
-      } catch (err: any) {
-        console.error('Import failed', err);
-        addToast(err?.message || 'Failed to import contacts', 'error');
-      } finally {
-        setImporting(false);
-        e.target.value = '';
-      }
-    };
-    reader.readAsText(file);
-  };
 
   const isAllCurrentPageSelected = contacts.length > 0 && contacts.every(c => selectedIds.has(c.id));
 
@@ -445,6 +362,24 @@ export default function ContactsPage() {
                   <div className="flex items-center justify-center gap-2">
                     <Loader2 size={18} className="animate-spin" />
                     <span className="text-sm">Loading contacts...</span>
+                  </div>
+                </td>
+              </tr>
+            ) : error ? (
+              <tr>
+                <td colSpan={6} className="py-12 px-4">
+                  <div className="flex flex-col items-center justify-center text-center">
+                    <div className="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center mb-3">
+                      <span className="text-red-500 font-bold text-xl">!</span>
+                    </div>
+                    <h3 className="text-lg font-medium text-red-500 mb-1">Failed to load contacts</h3>
+                    <p className="text-sm text-muted-foreground mb-4 max-w-md">{error}</p>
+                    <button 
+                      onClick={fetchContacts}
+                      className="bg-accent text-foreground hover:bg-accent/80 rounded-md px-4 py-2 text-sm font-medium border border-border"
+                    >
+                      Try again
+                    </button>
                   </div>
                 </td>
               </tr>

@@ -7,6 +7,7 @@
 const { all, get, run } = require('../db');
 const elevenlabs = require('./elevenlabs');
 const vapi = require('./vapi');
+const { detectDncOptOut } = require('./dnc-keywords');
 
 let intervalId = null;
 let isProcessing = false;
@@ -14,6 +15,8 @@ let isShuttingDown = false;
 let lastTickTime = null;
 let processedCount = 0;
 let errorCount = 0;
+
+const minuteRateLimits = new Map();
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -118,6 +121,15 @@ async function processCampaign(campaign) {
     return;
   }
 
+  // Spend limit check
+  const spendRow = await get(`SELECT SUM(cost) as total_spend FROM call_history WHERE campaign_id = ?`, [campaign.id]);
+  const estimatedSpend = spendRow?.total_spend || 0;
+  if (campaign.max_spend && estimatedSpend >= campaign.max_spend) {
+    console.log(`[CampaignWorker] Campaign #${campaign.id} budget exhausted. Estimated spend: ${estimatedSpend}`);
+    await run("UPDATE campaigns SET status = 'budget_exhausted', updated_at = datetime('now') WHERE id = ?", [campaign.id]);
+    return;
+  }
+
   // Parse contact IDs
   let contactIds = [];
   if (campaign.contact_list) {
@@ -139,18 +151,31 @@ async function processCampaign(campaign) {
   }
 
   // Check concurrency
-  const maxConcurrent = campaign.max_concurrent || 1;
+  const maxConcurrent = campaign.max_concurrent_calls || campaign.max_concurrent || 1;
   const activeRow = await get(
     `SELECT COUNT(*) as active FROM call_history 
      WHERE client_id = ? AND agent_id = ? AND status IN ('initiated', 'ringing', 'in-progress')`,
     [campaign.client_id, campaign.agent_id]
   );
   const activeCalls = activeRow?.active || 0;
-  const availableSlots = maxConcurrent - activeCalls;
+  let availableSlots = maxConcurrent - activeCalls;
 
   if (availableSlots <= 0) {
     return; // Concurrency limit reached
   }
+
+  // Rate limiting check
+  const callsPerMinute = campaign.calls_per_minute || 5;
+  const currentMinute = Math.floor(Date.now() / 60000);
+  const rateKey = `${campaign.id}_${currentMinute}`;
+  const callsThisMinute = minuteRateLimits.get(rateKey) || 0;
+  
+  if (callsThisMinute >= callsPerMinute) {
+    return; // Throttle limit reached for this minute
+  }
+  
+  const throttleAvailable = callsPerMinute - callsThisMinute;
+  availableSlots = Math.min(availableSlots, throttleAvailable);
 
   // Check and update status of initiated calls for this campaign (calls_answered tracking)
   try {
@@ -196,10 +221,12 @@ async function processCampaign(campaign) {
 
   // Find contacts already called by THIS campaign
   const calledRows = await all(
-    'SELECT to_number FROM call_history WHERE client_id = ? AND (campaign_id = ? OR (campaign_id IS NULL AND agent_id = ? AND created_at >= ?))',
+    'SELECT to_number, status, created_at FROM call_history WHERE client_id = ? AND (campaign_id = ? OR (campaign_id IS NULL AND agent_id = ? AND created_at >= ?))',
     [campaign.client_id, String(campaign.id), campaign.agent_id, campaign.started_at || campaign.created_at || '1970-01-01']
   );
-  const calledNumbers = new Set((calledRows || []).map(r => r.to_number));
+  
+  // Track numbers that shouldn't be retried anymore
+  const calledNumbers = new Set((calledRows || []).filter(r => r.status !== 'failed').map(r => r.to_number));
 
   // Get DNC list for this client
   const dncRows = await all(
@@ -217,11 +244,32 @@ async function processCampaign(campaign) {
     [...contactIds, campaign.client_id]
   );
 
+  const maxRetryAttempts = campaign.max_retry_attempts !== undefined ? campaign.max_retry_attempts : 3;
+  const retryDelayMs = (campaign.retry_delay_minutes !== undefined ? campaign.retry_delay_minutes : 30) * 60000;
+
   const pendingContacts = (candidateContacts || []).filter(c => {
     const rawNumber = c.phone_e164 || c.phone;
     if (!rawNumber) return false;
     if (dncSet.has(rawNumber) || dncSet.has(c.phone)) return false;
     if (calledNumbers.has(rawNumber) || calledNumbers.has(c.phone)) return false;
+    if ((c.retry_count || 0) >= maxRetryAttempts) return false;
+    
+    // Enforce retry delay if there are prior failures
+    const priorFailures = (calledRows || []).filter(r => r.to_number === rawNumber && r.status === 'failed');
+    if (priorFailures.length > 0) {
+      // Find latest failure
+      let latestTime = 0;
+      for (const failure of priorFailures) {
+        if (failure.created_at) {
+          const t = new Date(failure.created_at + 'Z').getTime();
+          if (t > latestTime) latestTime = t;
+        }
+      }
+      if (latestTime > 0 && (Date.now() - latestTime) < retryDelayMs) {
+        return false;
+      }
+    }
+    
     return true;
   });
 

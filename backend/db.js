@@ -490,6 +490,9 @@ async function initSqliteDb() {
     )
   `);
 
+  try { db.run("ALTER TABLE contacts ADD COLUMN retry_count INTEGER DEFAULT 0"); persistSync(); } catch (e) {}
+  try { db.run("ALTER TABLE call_history ADD COLUMN failure_reason TEXT"); persistSync(); } catch (e) {}
+
   // ─── DNC (Do Not Call) Suppression List ──────────────────────
   db.run(`
     CREATE TABLE IF NOT EXISTS dnc_list (
