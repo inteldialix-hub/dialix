@@ -912,8 +912,8 @@ router.post('/', authenticate, validateSchema(createAgentSchema), async (req, re
 
       // Link to client
       await run(
-        'INSERT OR IGNORE INTO client_agents (client_id, agent_id, agent_name, can_edit, provider, transfer_enabled, transfer_number, transfer_conditions, transfer_fallback) VALUES (?, ?, ?, 1, ?, ?, ?, ?, ?)',
-        [req.client.id, agentId || created?.id || created?.agent_id, name, provider || 'elevenlabs', transfer_enabled ? 1 : 0, transfer_number, typeof transfer_conditions === 'string' ? transfer_conditions : JSON.stringify(transfer_conditions), transfer_fallback]
+        'INSERT OR IGNORE INTO client_agents (client_id, agent_id, agent_name, can_edit, provider, transfer_enabled, transfer_number, transfer_conditions, transfer_fallback, recording_disclosure, disclosure_enabled) VALUES (?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?)',
+        [req.client.id, agentId, name, 'gemini', transfer_enabled ? 1 : 0, transfer_number, typeof transfer_conditions === 'string' ? transfer_conditions : JSON.stringify(transfer_conditions), transfer_fallback, recording_disclosure, disclosure_enabled ? 1 : 0]
       );
 
       return res.status(201).json({
@@ -968,8 +968,8 @@ router.post('/', authenticate, validateSchema(createAgentSchema), async (req, re
       const created = await vapi.createAssistant(vapiBody);
 
       await run(
-        'INSERT OR IGNORE INTO client_agents (client_id, agent_id, agent_name, can_edit, provider, transfer_enabled, transfer_number, transfer_conditions, transfer_fallback) VALUES (?, ?, ?, 1, ?, ?, ?, ?, ?)',
-        [req.client.id, created.id, name, 'vapi', transfer_enabled ? 1 : 0, transfer_number, typeof transfer_conditions === 'string' ? transfer_conditions : JSON.stringify(transfer_conditions), transfer_fallback]
+        'INSERT OR IGNORE INTO client_agents (client_id, agent_id, agent_name, can_edit, provider, transfer_enabled, transfer_number, transfer_conditions, transfer_fallback, recording_disclosure, disclosure_enabled) VALUES (?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?)',
+        [req.client.id, created.id, name, 'vapi', transfer_enabled ? 1 : 0, transfer_number, typeof transfer_conditions === 'string' ? transfer_conditions : JSON.stringify(transfer_conditions), transfer_fallback, recording_disclosure, disclosure_enabled ? 1 : 0]
       );
 
       return res.status(201).json({
@@ -1022,8 +1022,8 @@ router.post('/', authenticate, validateSchema(createAgentSchema), async (req, re
     const created = await elevenlabs.createAgent(agentBody);
 
     await run(
-      'INSERT OR IGNORE INTO client_agents (client_id, agent_id, agent_name, can_edit, provider, transfer_enabled, transfer_number, transfer_conditions, transfer_fallback) VALUES (?, ?, ?, 1, ?, ?, ?, ?, ?)',
-      [req.client.id, created.agent_id, name, 'elevenlabs', transfer_enabled ? 1 : 0, transfer_number, typeof transfer_conditions === 'string' ? transfer_conditions : JSON.stringify(transfer_conditions), transfer_fallback]
+      'INSERT OR IGNORE INTO client_agents (client_id, agent_id, agent_name, can_edit, provider, transfer_enabled, transfer_number, transfer_conditions, transfer_fallback, recording_disclosure, disclosure_enabled) VALUES (?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?)',
+      [req.client.id, created.agent_id, name, 'elevenlabs', transfer_enabled ? 1 : 0, transfer_number, typeof transfer_conditions === 'string' ? transfer_conditions : JSON.stringify(transfer_conditions), transfer_fallback, recording_disclosure, disclosure_enabled ? 1 : 0]
     );
 
     res.status(201).json({

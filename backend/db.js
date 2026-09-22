@@ -278,6 +278,13 @@ async function initSqliteDb() {
   // ── agent_settings migrations ──
   try { db.run("ALTER TABLE agent_settings ADD COLUMN status TEXT DEFAULT 'active'"); persistSync(); } catch (e) {}
   try { db.run("ALTER TABLE agent_settings ADD COLUMN tts_model_id TEXT"); persistSync(); } catch (e) {}
+
+    try { db.run("ALTER TABLE campaigns ADD COLUMN max_concurrent_calls INTEGER DEFAULT 1"); persistSync(); } catch(e){}
+    try { db.run("ALTER TABLE campaigns ADD COLUMN calls_per_minute INTEGER DEFAULT 5"); persistSync(); } catch(e){}
+    try { db.run("ALTER TABLE campaigns ADD COLUMN max_spend REAL"); persistSync(); } catch(e){}
+    try { db.run("ALTER TABLE campaigns ADD COLUMN max_retry_attempts INTEGER DEFAULT 3"); persistSync(); } catch(e){}
+    try { db.run("ALTER TABLE campaigns ADD COLUMN voicemail_action TEXT DEFAULT 'hang_up'"); persistSync(); } catch(e){}
+
   try { db.run("ALTER TABLE agent_settings ADD COLUMN stability REAL DEFAULT 0.5"); persistSync(); } catch (e) {}
   try { db.run("ALTER TABLE agent_settings ADD COLUMN similarity_boost REAL DEFAULT 0.75"); persistSync(); } catch (e) {}
   try { db.run("ALTER TABLE agent_settings ADD COLUMN speed REAL DEFAULT 1.0"); persistSync(); } catch (e) {}
@@ -541,6 +548,11 @@ async function initSqliteDb() {
       max_retries INTEGER DEFAULT 2,
       retry_delay_minutes INTEGER DEFAULT 60,
       goal TEXT,
+        max_concurrent_calls INTEGER DEFAULT 1,
+        calls_per_minute INTEGER DEFAULT 5,
+        max_spend REAL,
+        max_retry_attempts INTEGER DEFAULT 3,
+        voicemail_action TEXT DEFAULT 'hang_up',
       estimated_cost REAL,
       actual_cost REAL DEFAULT 0,
       started_at TEXT,
@@ -974,6 +986,12 @@ async function initPostgresDb() {
   // ── agent_settings PG migrations ──
   await pool.query(`ALTER TABLE agent_settings ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'active'`);
   await pool.query(`ALTER TABLE agent_settings ADD COLUMN IF NOT EXISTS tts_model_id TEXT`);
+    await pool.query("ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS max_concurrent_calls INTEGER DEFAULT 1");
+    await pool.query("ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS calls_per_minute INTEGER DEFAULT 5");
+    await pool.query("ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS max_spend REAL");
+    await pool.query("ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS max_retry_attempts INTEGER DEFAULT 3");
+    await pool.query("ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS voicemail_action TEXT DEFAULT 'hang_up'");
+
   await pool.query(`ALTER TABLE agent_settings ADD COLUMN IF NOT EXISTS stability REAL DEFAULT 0.5`);
   await pool.query(`ALTER TABLE agent_settings ADD COLUMN IF NOT EXISTS similarity_boost REAL DEFAULT 0.75`);
   await pool.query(`ALTER TABLE agent_settings ADD COLUMN IF NOT EXISTS speed REAL DEFAULT 1.0`);
@@ -1217,6 +1235,11 @@ async function initPostgresDb() {
       max_retries INTEGER DEFAULT 2,
       retry_delay_minutes INTEGER DEFAULT 60,
       goal TEXT,
+        max_concurrent_calls INTEGER DEFAULT 1,
+        calls_per_minute INTEGER DEFAULT 5,
+        max_spend REAL,
+        max_retry_attempts INTEGER DEFAULT 3,
+        voicemail_action TEXT DEFAULT 'hang_up',
       estimated_cost REAL,
       actual_cost REAL DEFAULT 0,
       started_at TIMESTAMPTZ,

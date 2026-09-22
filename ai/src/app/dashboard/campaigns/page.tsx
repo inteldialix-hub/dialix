@@ -542,7 +542,7 @@ export default function CampaignsPage() {
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold flex items-center gap-2">
                 <Megaphone size={18} />
-                New Campaign — Step {wizardStep} of 6
+                New Campaign — Step {wizardStep} of 7
               </h2>
               <button onClick={closeWizard} className="text-muted-foreground hover:text-foreground">
                 <X size={20} />
@@ -550,7 +550,7 @@ export default function CampaignsPage() {
             </div>
 
             <div className="flex gap-1 mb-6">
-              {[1, 2, 3, 4, 5, 6].map((st) => (
+              {[1, 2, 3, 4, 5, 6, 7].map((st) => (
                 <div
                   key={st}
                   className={cn(
@@ -921,7 +921,7 @@ export default function CampaignsPage() {
                 {wizardStep === 1 ? 'Cancel' : 'Back'}
               </button>
 
-              {wizardStep < 6 ? (
+              {wizardStep < 7 ? (
                 <button
                   type="button"
                   className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md px-4 py-2 text-sm font-medium"

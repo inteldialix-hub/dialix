@@ -1,0 +1,10 @@
+const fs = require('fs');
+let db = fs.readFileSync('c:/Users/ITASH/OneDrive/Desktop/dialix 3/backend/db.js', 'utf8');
+const pgMig = `    await pool.query("ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS max_concurrent_calls INTEGER DEFAULT 1");
+    await pool.query("ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS calls_per_minute INTEGER DEFAULT 5");
+    await pool.query("ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS max_spend REAL");
+    await pool.query("ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS max_retry_attempts INTEGER DEFAULT 3");
+    await pool.query("ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS voicemail_action TEXT DEFAULT 'hang_up'");
+`;
+db = db.replace('await pool.query(`ALTER TABLE agent_settings ADD COLUMN IF NOT EXISTS tts_model_id TEXT`);', 'await pool.query(`ALTER TABLE agent_settings ADD COLUMN IF NOT EXISTS tts_model_id TEXT`);\n' + pgMig);
+fs.writeFileSync('c:/Users/ITASH/OneDrive/Desktop/dialix 3/backend/db.js', db);
