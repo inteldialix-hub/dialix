@@ -390,7 +390,7 @@ router.post('/voices/add-shared', authenticate, validateSchema(addSharedVoiceSch
     res.json({ success: true, voice_id, ...result });
   } catch (err) {
     console.error('POST /api/agents/voices/add-shared error:', err);
-    res.status(500).json({ error: err.message || 'Failed to add shared voice' });
+    res.status(500).json({ error: 'Failed to add shared voice' });
   }
 });
 
@@ -406,12 +406,15 @@ router.get('/:agent_id/test-call/signed-url', authenticate, async (req, res) => 
   try {
     const { agent_id } = req.params;
 
-    // Check provider — ElevenLabs vs Vapi
+    // Check provider — verify agent belongs to this client (IDOR protection)
     let provider = 'elevenlabs';
     const assignment = await get(
-      "SELECT COALESCE(provider, 'elevenlabs') as provider FROM client_agents WHERE agent_id = ? LIMIT 1",
-      [agent_id]
+      "SELECT COALESCE(provider, 'elevenlabs') as provider FROM client_agents WHERE agent_id = ? AND client_id = ? LIMIT 1",
+      [agent_id, req.client.id]
     );
+    if (!assignment) {
+      return res.status(404).json({ error: 'Agent not found' });
+    }
     if (assignment) provider = assignment.provider || 'elevenlabs';
     if (provider === 'elevenlabs' && !agent_id.startsWith('agent_')) provider = 'vapi';
 
@@ -455,7 +458,7 @@ router.get('/:agent_id/test-call/signed-url', authenticate, async (req, res) => 
     console.error('GET test-call/signed-url error:', err.message);
     if (err.body) console.error('  Vapi error body:', err.body);
     const status = err.statusCode || 500;
-    res.status(status).json({ error: err.message || 'Failed to get test call URL', details: err.body || null });
+    res.status(status).json({ error: 'Failed to get test call URL' });
   }
 });
 
@@ -1060,12 +1063,15 @@ router.delete('/:agent_id', authenticate, async (req, res) => {
 
     const { agent_id } = req.params;
 
-    // Check which provider this agent belongs to
+    // Verify agent belongs to this client (IDOR protection)
     const assignment = await get(
-      "SELECT COALESCE(provider, 'elevenlabs') as provider FROM client_agents WHERE agent_id = ? LIMIT 1",
-      [agent_id]
+      "SELECT COALESCE(provider, 'elevenlabs') as provider FROM client_agents WHERE agent_id = ? AND client_id = ? LIMIT 1",
+      [agent_id, req.client.id]
     );
-    let provider = assignment?.provider || 'elevenlabs';
+    if (!assignment) {
+      return res.status(404).json({ error: 'Agent not found' });
+    }
+    let provider = assignment.provider || 'elevenlabs';
 
     // Auto-detect: if agent_id is NOT ElevenLabs format, assume Vapi
     if (provider === 'elevenlabs' && !agent_id.startsWith('agent_')) {
@@ -1081,14 +1087,14 @@ router.delete('/:agent_id', authenticate, async (req, res) => {
       await elevenlabs.deleteAgent(agent_id);
     }
 
-    // Remove all DB assignments for this agent
-    const result = await run('DELETE FROM client_agents WHERE agent_id = ?', [agent_id]);
+    // Remove all DB assignments for this agent (scoped to client)
+    const result = await run('DELETE FROM client_agents WHERE agent_id = ? AND client_id = ?', [agent_id, req.client.id]);
     console.log(`Deleted ${provider} agent ${agent_id}, removed ${result.changes} DB assignments`);
 
     res.json({ success: true, assignments_removed: result.changes });
   } catch (err) {
     console.error('DELETE /api/agents/:id error:', err);
-    res.status(500).json({ error: err.body || 'Failed to delete agent' });
+    res.status(500).json({ error: 'Failed to delete agent' });
   }
 });
 
@@ -1229,7 +1235,7 @@ router.get('/:agent_id/raw', authenticate, async (req, res) => {
     const raw = await vapi.getAssistant(req.params.agent_id);
     res.json(raw);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Failed to perform agent operation' });
   }
 });
 
@@ -2352,7 +2358,7 @@ router.post('/:agent_id/sync', authenticate, async (req, res) => {
     });
   } catch (err) {
     console.error('POST /api/agents/:id/sync error:', err);
-    res.status(500).json({ error: err.body || err.message || 'Failed to sync with provider' });
+    res.status(500).json({ error: 'Failed to sync with provider' });
   }
 });
 

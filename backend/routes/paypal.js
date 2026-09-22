@@ -74,7 +74,7 @@ router.post('/create-subscription', authenticate, createSubLimiter, async (req, 
     });
   } catch (error) {
     console.error('Error creating PayPal subscription:', error);
-    res.status(500).json({ error: 'Failed to create subscription', details: error.message });
+    res.status(500).json({ error: 'Failed to create subscription' });
   }
 });
 
@@ -141,7 +141,7 @@ router.post('/cancel-subscription', authenticate, cancelSubLimiter, async (req, 
     res.json({ data: { success: true, message: 'Subscription cancelled successfully' } });
   } catch (error) {
     console.error('Error cancelling subscription:', error);
-    res.status(500).json({ error: 'Failed to cancel subscription', details: error.message });
+    res.status(500).json({ error: 'Failed to cancel subscription' });
   }
 });
 
@@ -193,7 +193,7 @@ router.post('/subscription-success', authenticate, async (req, res) => {
     res.json({ data: { success: true, status } });
   } catch (error) {
     console.error('Error in subscription success:', error);
-    res.status(500).json({ error: 'Failed to process subscription success', details: error.message });
+    res.status(500).json({ error: 'Failed to process subscription' });
   }
 });
 
@@ -309,7 +309,7 @@ router.post('/webhooks/paypal', express.raw({ type: 'application/json' }), async
     res.status(200).send('OK');
   } catch (err) {
     console.error('Webhook error:', err);
-    res.status(400).send(`Webhook Error: ${err.message}`);
+    res.status(400).send('Webhook processing failed');
   }
 });
 

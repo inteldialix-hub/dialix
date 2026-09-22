@@ -27,7 +27,7 @@ router.post('/:id/analyze', authenticate, async (req, res) => {
     
     res.json(result);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Analysis failed' });
   }
 });
 
@@ -54,7 +54,7 @@ router.get('/:id/analysis', authenticate, async (req, res) => {
       analyzed_at: call.analyzed_at
     });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Analysis failed' });
   }
 });
 
@@ -68,7 +68,7 @@ router.post('/analyze-recent', authenticate, async (req, res) => {
     const result = await analyzeRecentCalls();
     res.json(result);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Analysis failed' });
   }
 });
 
