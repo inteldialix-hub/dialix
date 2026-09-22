@@ -26,6 +26,14 @@ jest.mock('../middleware/auth', () => ({
   requireRole: () => (req, res, next) => next(),
 }));
 
+jest.mock('libphonenumber-js', () => ({
+  parsePhoneNumber: jest.fn(() => ({ number: '+1234567890' }))
+}), { virtual: true });
+
+jest.mock('../services/entitlements', () => ({
+  enforceLimit: jest.fn().mockResolvedValue(true)
+}), { virtual: true });
+
 const contactsRouter = require('../routes/contacts');
 const campaignsRouter = require('../routes/campaigns');
 const callsRouter = require('../routes/calls');

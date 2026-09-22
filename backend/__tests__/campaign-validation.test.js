@@ -16,6 +16,10 @@ jest.mock('../middleware/auth', () => ({
   requireRole: () => (req, res, next) => next(),
 }));
 
+jest.mock('../services/entitlements', () => ({
+  enforceLimit: jest.fn().mockResolvedValue(true)
+}), { virtual: true });
+
 // Mock express-rate-limit to pass through
 jest.mock('express-rate-limit', () => () => (req, res, next) => next());
 
