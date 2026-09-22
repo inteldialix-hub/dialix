@@ -113,8 +113,16 @@ app.get('/api/health/worker', (req, res) => {
 });
 
 // ─── Health check ───────────────────────────────────────────────
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+app.get('/api/health', async (req, res) => {
+  let dbStatus = 'error';
+  try {
+    const { get } = require('./db');
+    await get('SELECT 1');
+    dbStatus = 'ok';
+  } catch (err) {
+    console.error('Health check DB error:', err);
+  }
+  res.json({ status: 'ok', db: dbStatus, timestamp: new Date().toISOString() });
 });
 
 // ─── Serve frontend in production ───────────────────────────────

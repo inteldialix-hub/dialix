@@ -30,7 +30,12 @@ const campaignSchema = z.object({
   max_calls_per_hour: z.number().int().min(1).max(3600).optional().nullable(),
   max_retries: z.number().int().min(0).max(10).optional().nullable(),
   retry_delay_minutes: z.number().int().min(0).max(1440).optional().nullable(),
-  goal: z.string().max(2000).optional().nullable()
+  goal: z.string().max(2000).optional().nullable(),
+  max_concurrent_calls: z.number().int().min(1).max(100).optional().nullable(),
+  calls_per_minute: z.number().int().min(1).max(1000).optional().nullable(),
+  max_spend: z.number().optional().nullable(),
+  max_retry_attempts: z.number().int().min(0).max(10).optional().nullable(),
+  voicemail_action: z.enum(['hangup', 'retry', 'leave_message']).optional().nullable()
 });
 
 // GET / - List campaigns
@@ -88,15 +93,22 @@ router.post('/', requireRole('manager'), async (req, res) => {
         client_id, name, description, agent_id, phone_number_id, status, contact_list, 
         total_contacts, valid_contacts, dnc_excluded, calls_completed, calls_answered, calls_failed, 
         schedule_start, schedule_end, calling_days, calling_start_time, calling_end_time, calling_timezone, 
-        max_concurrent, max_calls_per_hour, max_retries, retry_delay_minutes, goal, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, 'draft', ?, 0, 0, 0, 0, 0, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`,
+        max_concurrent, max_calls_per_hour, max_retries, retry_delay_minutes, goal,
+        max_concurrent_calls, calls_per_minute, max_spend, max_retry_attempts, voicemail_action,
+        created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, 'draft', ?, 0, 0, 0, 0, 0, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`,
       [
         client_id, data.name, data.description || null, data.agent_id ? String(data.agent_id) : null, data.phone_number_id || null,
         data.contact_list ? JSON.stringify(data.contact_list) : '[]',
         data.schedule_start || null, data.schedule_end || null, callingDaysStr,
         data.calling_start_time || '09:00', data.calling_end_time || '18:00', data.calling_timezone || 'UTC',
         data.max_concurrent || 1, data.max_calls_per_hour || null, data.max_retries || 0, data.retry_delay_minutes || 0,
-        data.goal || null
+        data.goal || null,
+        data.max_concurrent_calls !== undefined ? data.max_concurrent_calls : 1,
+        data.calls_per_minute !== undefined ? data.calls_per_minute : 5,
+        data.max_spend !== undefined ? data.max_spend : null,
+        data.max_retry_attempts !== undefined ? data.max_retry_attempts : 3,
+        data.voicemail_action || 'hangup'
       ]
     );
 
@@ -169,6 +181,11 @@ router.put('/:id', requireRole('manager'), async (req, res) => {
         max_retries = coalesce(?, max_retries),
         retry_delay_minutes = coalesce(?, retry_delay_minutes),
         goal = coalesce(?, goal),
+        max_concurrent_calls = coalesce(?, max_concurrent_calls),
+        calls_per_minute = coalesce(?, calls_per_minute),
+        max_spend = coalesce(?, max_spend),
+        max_retry_attempts = coalesce(?, max_retry_attempts),
+        voicemail_action = coalesce(?, voicemail_action),
         updated_at = datetime('now')
       WHERE id = ? AND client_id = ?`,
       [
@@ -177,7 +194,9 @@ router.put('/:id', requireRole('manager'), async (req, res) => {
         data.schedule_start, data.schedule_end, callingDaysStr,
         data.calling_start_time, data.calling_end_time, data.calling_timezone,
         data.max_concurrent, data.max_calls_per_hour, data.max_retries, data.retry_delay_minutes,
-        data.goal, campaignId, client_id
+        data.goal,
+        data.max_concurrent_calls, data.calls_per_minute, data.max_spend, data.max_retry_attempts, data.voicemail_action,
+        campaignId, client_id
       ]
     );
 

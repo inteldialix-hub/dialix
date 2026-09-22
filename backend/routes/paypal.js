@@ -269,6 +269,12 @@ router.post('/webhooks/paypal', express.raw({ type: 'application/json' }), async
             await run("UPDATE payments SET status = 'refunded' WHERE paypal_payment_id = ?", [resource.parent_payment]);
           }
           break;
+          
+        case 'PAYMENT.SALE.REVERSED':
+          if (resource.parent_payment) {
+            await run("UPDATE payments SET status = 'reversed' WHERE paypal_payment_id = ?", [resource.parent_payment]);
+          }
+          break;
       }
     } catch (procErr) {
       error = procErr.message;

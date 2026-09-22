@@ -409,13 +409,13 @@ async function initSqliteDb() {
   const planCount = existingPlans[0]?.values[0]?.[0] || 0;
   if (planCount === 0) {
     db.run(`INSERT INTO pricing_plans (name, slug, price, billing_period, max_agents, max_calls_per_month, max_phone_numbers, features, is_default, sort_order)
-      VALUES ('Starter', 'starter', 0, 'monthly', 1, 100, 1, '{"dashboard":true,"basic_analytics":true}', 1, 0)`);
+      VALUES ('Free', 'free', 0, 'monthly', 1, 100, 1, '{"dashboard":true,"basic_analytics":true}', 1, 0)`);
     db.run(`INSERT INTO pricing_plans (name, slug, price, billing_period, max_agents, max_calls_per_month, max_phone_numbers, features, sort_order)
-      VALUES ('Professional', 'professional', 49, 'monthly', 5, 1000, 5, '{"dashboard":true,"basic_analytics":true,"advanced_analytics":true,"webhooks":true,"call_recording":true}', 1)`);
+      VALUES ('Starter', 'starter', 49, 'monthly', 5, 500, 2, '{"dashboard":true,"basic_analytics":true,"webhooks":true}', 1)`);
     db.run(`INSERT INTO pricing_plans (name, slug, price, billing_period, max_agents, max_calls_per_month, max_phone_numbers, features, sort_order)
-      VALUES ('Business', 'business', 149, 'monthly', 20, 5000, 20, '{"dashboard":true,"basic_analytics":true,"advanced_analytics":true,"webhooks":true,"call_recording":true,"priority_support":true,"api_access":true}', 2)`);
+      VALUES ('Professional', 'professional', 149, 'monthly', 20, 2500, 5, '{"dashboard":true,"basic_analytics":true,"advanced_analytics":true,"webhooks":true,"call_recording":true}', 2)`);
     db.run(`INSERT INTO pricing_plans (name, slug, price, billing_period, max_agents, max_calls_per_month, max_phone_numbers, features, sort_order)
-      VALUES ('Enterprise', 'enterprise', 499, 'monthly', -1, -1, -1, '{"dashboard":true,"basic_analytics":true,"advanced_analytics":true,"webhooks":true,"call_recording":true,"priority_support":true,"api_access":true,"custom_integrations":true,"sla":true}', 3)`);
+      VALUES ('Enterprise', 'enterprise', 0, 'monthly', -1, -1, -1, '{"dashboard":true,"basic_analytics":true,"advanced_analytics":true,"webhooks":true,"call_recording":true,"priority_support":true,"api_access":true,"custom_integrations":true,"sla":true}', 3)`);
     persistSync();
     console.log('✓ Seeded default pricing plans');
   }
@@ -542,6 +542,13 @@ async function initSqliteDb() {
       updated_at TEXT DEFAULT (datetime('now'))
     )
   `);
+
+  try { db.run("ALTER TABLE campaigns ADD COLUMN max_concurrent_calls INTEGER DEFAULT 1"); persistSync(); } catch (e) {}
+  try { db.run("ALTER TABLE campaigns ADD COLUMN calls_per_minute INTEGER DEFAULT 5"); persistSync(); } catch (e) {}
+  try { db.run("ALTER TABLE campaigns ADD COLUMN max_spend REAL"); persistSync(); } catch (e) {}
+  try { db.run("ALTER TABLE campaigns ADD COLUMN max_retry_attempts INTEGER DEFAULT 3"); persistSync(); } catch (e) {}
+  try { db.run("ALTER TABLE campaigns ADD COLUMN voicemail_action TEXT DEFAULT 'hangup'"); persistSync(); } catch (e) {}
+
 
   // ─── Subscriptions ──────────────────────────────────────────
   db.run(`
@@ -1048,9 +1055,9 @@ async function initPostgresDb() {
         INSERT INTO pricing_plans (id, name, slug, price, billing_period, max_agents, max_calls_per_month, max_phone_numbers, features, is_default, is_active, sort_order)
         VALUES 
           (1, 'Free', 'free', 0, 'monthly', 1, 100, 1, '{"dashboard":true,"basic_analytics":true}', 1, 1, 0),
-          (2, 'Starter', 'starter', 29, 'monthly', 3, 500, 2, '{"dashboard":true,"basic_analytics":true,"webhooks":true}', 0, 1, 1),
-          (3, 'Growth', 'growth', 99, 'monthly', 10, 2500, 5, '{"dashboard":true,"basic_analytics":true,"advanced_analytics":true,"webhooks":true,"call_recording":true}', 0, 1, 2),
-          (4, 'Enterprise', 'enterprise', 299, 'monthly', -1, -1, -1, '{"dashboard":true,"basic_analytics":true,"advanced_analytics":true,"webhooks":true,"call_recording":true,"priority_support":true,"api_access":true,"custom_integrations":true,"sla":true}', 0, 1, 3)
+          (2, 'Starter', 'starter', 49, 'monthly', 5, 500, 2, '{"dashboard":true,"basic_analytics":true,"webhooks":true}', 0, 1, 1),
+          (3, 'Professional', 'professional', 149, 'monthly', 20, 2500, 5, '{"dashboard":true,"basic_analytics":true,"advanced_analytics":true,"webhooks":true,"call_recording":true}', 0, 1, 2),
+          (4, 'Enterprise', 'enterprise', 0, 'monthly', -1, -1, -1, '{"dashboard":true,"basic_analytics":true,"advanced_analytics":true,"webhooks":true,"call_recording":true,"priority_support":true,"api_access":true,"custom_integrations":true,"sla":true}', 0, 1, 3)
         ON CONFLICT (id) DO NOTHING
       `);
       await pool.query(`SELECT setval(pg_get_serial_sequence('pricing_plans', 'id'), (SELECT COALESCE(MAX(id), 1) FROM pricing_plans))`);

@@ -650,67 +650,15 @@ export default function ContactsPage() {
         </div>
       )}
 
-      {/* Import Modal */}
-      {isImportModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => !importing && setIsImportModalOpen(false)}>
-          <div className="w-full max-w-md rounded-lg border border-border bg-card p-6" onClick={(e) => e.stopPropagation()}>
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-lg font-medium">Import contacts from CSV</h2>
-              <button 
-                onClick={() => !importing && setIsImportModalOpen(false)} 
-                className="text-muted-foreground hover:text-foreground transition-colors"
-                disabled={importing}
-              >
-                <X size={18} />
-              </button>
-            </div>
-            
-            <div className="mb-6">
-              <div className="border-2 border-dashed border-border rounded-lg p-8 text-center bg-muted/20 hover:bg-muted/40 transition-colors relative cursor-pointer">
-                <input 
-                  type="file" 
-                  accept=".csv"
-                  disabled={importing}
-                  onChange={handleImport}
-                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                />
-                {importing ? (
-                  <div className="flex flex-col items-center">
-                    <Loader2 className="mx-auto mb-3 animate-spin text-muted-foreground" size={32} />
-                    <p className="font-medium text-sm">Processing and uploading contacts...</p>
-                  </div>
-                ) : (
-                  <>
-                    <Upload className="mx-auto mb-3 text-muted-foreground" size={30} />
-                    <p className="font-medium text-sm mb-1">Click to browse or drop CSV file here</p>
-                    <p className="text-xs text-muted-foreground">Requires header with first_name and phone</p>
-                  </>
-                )}
-              </div>
-              
-              <div className="mt-5 text-xs text-muted-foreground">
-                <p className="font-medium text-foreground mb-2">Supported CSV columns:</p>
-                <div className="bg-muted p-3 rounded-lg border border-border font-mono text-[11px] leading-relaxed">
-                  first_name,last_name,phone,email,company<br/>
-                  Sarah,Connor,+14155552671,sarah@example.com,Cyberdyne<br/>
-                  John,Doe,+12125550199,john@example.com,Acme
-                </div>
-              </div>
-            </div>
-
-            <div className="flex justify-end">
-              <button 
-                type="button" 
-                className="text-muted-foreground hover:text-foreground hover:bg-accent rounded-md px-4 py-2 text-sm font-medium border border-border" 
-                onClick={() => setIsImportModalOpen(false)}
-                disabled={importing}
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <CsvImportModal 
+        token={token || ''}
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+        onSuccess={() => {
+          setIsImportModalOpen(false);
+          fetchContacts();
+        }}
+      />
 
       {/* Delete Single Contact Confirm */}
       {deleteTarget && (

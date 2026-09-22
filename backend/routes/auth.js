@@ -7,7 +7,7 @@ const { authenticate } = require('../middleware/auth');
 const { validateSchema } = require('../middleware/validate');
 const { loginSchema, registerSchema, changePasswordSchema, forgotPasswordSchema, resetPasswordSchema, otpSchema } = require('../lib/schemas');
 const securityLogger = require('../lib/security-logger');
-const { sendVerificationEmail, sendPasswordResetEmail } = require('../lib/email');
+const { sendVerificationEmail, sendPasswordResetEmail } = require('../services/email');
 
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) {
