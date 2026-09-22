@@ -13,9 +13,9 @@ jest.mock('../middleware/auth', () => ({
   authenticate: (req, res, next) => {
     const token = req.headers.authorization;
     if (token === 'Bearer token1') {
-      req.user = { client_id: 1, is_admin: 0 };
+      req.user = { client_id: 1, clientId: 1, id: 1, is_admin: 0 };
     } else if (token === 'Bearer token2') {
-      req.user = { client_id: 2, is_admin: 0 };
+      req.user = { client_id: 2, clientId: 2, id: 2, is_admin: 0 };
     } else {
       return res.status(401).json({ error: 'Unauthorized' });
     }

@@ -323,9 +323,13 @@ async function processCampaign(campaign) {
   for (const contact of batch) {
     const targetNumber = contact.phone_e164 || contact.phone;
     const leadName = `${contact.first_name || ''} ${contact.last_name || ''}`.trim() || 'Valued Customer';
+    
+    // Increment rate limit counter in memory
+    minuteRateLimits.set(rateKey, (minuteRateLimits.get(rateKey) || 0) + 1);
 
     const delays = [5000, 15000, 45000];
     let success = false;
+    let finalFailureReason = 'provider_error';
 
     for (let attempt = 0; attempt <= 3; attempt++) {
       if (isShuttingDown) break;
@@ -383,13 +387,25 @@ async function processCampaign(campaign) {
           [campaign.id]
         );
 
+        // Increment retry count on success as it is an attempt
+        await run('UPDATE contacts SET retry_count = retry_count + 1 WHERE id = ?', [contact.id]);
+
         console.log(`[CampaignWorker] Successfully dialed ${targetNumber} for campaign #${campaign.id} (${leadName})`);
         success = true;
         break; // exit retry loop on success
       } catch (err) {
         console.error(`[CampaignWorker] Call failure for ${targetNumber} in campaign #${campaign.id} (Attempt ${attempt + 1}):`, err.message || err);
-        if (err.message && err.message.includes('hosted on ElevenLabs')) {
-          break; // Don't retry incompatible provider
+        
+        const msg = (err.message || '').toLowerCase();
+        if (msg.includes('insufficient balance') || msg.includes('funds')) finalFailureReason = 'insufficient_balance';
+        else if (msg.includes('invalid number') || msg.includes('not a valid phone number')) finalFailureReason = 'invalid_number';
+        else if (msg.includes('concurrency') || msg.includes('rate limit') || msg.includes('too many')) finalFailureReason = 'concurrency_limit';
+        else if (msg.includes('hosted on elevenlabs')) finalFailureReason = 'agent_error';
+        else if (msg.includes('outside calling hours')) finalFailureReason = 'outside_calling_hours';
+        else finalFailureReason = 'provider_error';
+
+        if (finalFailureReason === 'agent_error' || finalFailureReason === 'invalid_number' || finalFailureReason === 'insufficient_balance') {
+          break; // Don't retry incompatible provider or invalid details
         }
         if (attempt < 3) {
           console.log(`[CampaignWorker] Waiting ${delays[attempt]}ms before retrying...`);
@@ -410,12 +426,25 @@ async function processCampaign(campaign) {
       try {
         await run(
           `INSERT INTO call_history (
-            client_id, campaign_id, agent_id, conversation_id, to_number, lead_name, status, started_at, created_at
-          ) VALUES (?, ?, ?, ?, ?, ?, 'failed', datetime('now'), datetime('now'))`,
-          [campaign.client_id, String(campaign.id), campaign.agent_id, `fail_${Date.now()}`, targetNumber, leadName]
+            client_id, campaign_id, agent_id, conversation_id, to_number, lead_name, status, failure_reason, started_at, created_at
+          ) VALUES (?, ?, ?, ?, ?, ?, 'failed', ?, datetime('now'), datetime('now'))`,
+          [campaign.client_id, String(campaign.id), campaign.agent_id, `fail_${Date.now()}`, targetNumber, leadName, finalFailureReason]
         );
+        // Increment retry count on failure
+        await run('UPDATE contacts SET retry_count = retry_count + 1 WHERE id = ?', [contact.id]);
       } catch(e) {}
     }
+  }
+}
+
+async function recoverStuckCalls() {
+  try {
+    const stuckCalls = await all("SELECT id, conversation_id, status FROM call_history WHERE status IN ('initiated', 'ringing', 'dialing', 'in-progress') AND created_at < datetime('now', '-5 minutes')");
+    for (const call of (stuckCalls || [])) {
+      await run("UPDATE call_history SET status = 'failed', failure_reason = 'system_timeout', updated_at = datetime('now') WHERE id = ?", [call.id]);
+    }
+  } catch (err) {
+    console.error('[CampaignWorker] Error recovering stuck calls:', err);
   }
 }
 
@@ -445,6 +474,7 @@ async function tick() {
 
   try {
     await detectStuckCampaigns();
+    await recoverStuckCalls();
     const runningCampaigns = await all("SELECT * FROM campaigns WHERE status = 'running'");
     if (runningCampaigns && runningCampaigns.length > 0) {
       for (const campaign of runningCampaigns) {
@@ -456,6 +486,13 @@ async function tick() {
     errorCount++;
   } finally {
     processedCount++;
+    if (Math.random() < 0.05) {
+      const cutoff = Math.floor(Date.now() / 60000) - 2;
+      for (const k of minuteRateLimits.keys()) {
+        const minute = parseInt(k.split('_')[1]);
+        if (minute < cutoff) minuteRateLimits.delete(k);
+      }
+    }
     isProcessing = false;
   }
 }
@@ -504,6 +541,9 @@ function getStats() {
     errorCount
   };
 }
+
+process.on('SIGTERM', gracefulShutdown);
+process.on('SIGINT', gracefulShutdown);
 
 module.exports = {
   start,

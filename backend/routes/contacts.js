@@ -94,6 +94,9 @@ router.get('/', authenticate, async (req, res) => {
 router.post('/', authenticate, validateSchema(createContactSchema), async (req, res) => {
   try {
     const clientId = req.user?.client_id || req.client?.id;
+    if (req.user?.is_admin !== 1) {
+      await enforceLimit(clientId, 'contacts');
+    }
     const data = req.body;
     const e164 = normalizePhone(data.phone);
 
@@ -237,6 +240,9 @@ router.delete('/:id', authenticate, async (req, res) => {
 router.post('/import', authenticate, validateSchema(importContactsSchema), async (req, res) => {
   try {
     const clientId = req.user?.client_id || req.client?.id;
+    if (req.user?.is_admin !== 1) {
+      await enforceLimit(clientId, 'contacts');
+    }
     const { rows, column_mapping } = req.body;
     let imported = 0;
     let updated = 0;
