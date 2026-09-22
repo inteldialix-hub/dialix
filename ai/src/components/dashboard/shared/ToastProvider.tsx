@@ -52,7 +52,11 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       {children}
 
       {/* Toast container */}
-      <div className="fixed bottom-6 right-6 z-[99999] flex flex-col gap-2.5 max-w-md w-full pointer-events-none px-4">
+      <div 
+        aria-live="polite"
+        role="status"
+        className="fixed bottom-6 right-6 z-[99999] flex flex-col gap-2.5 max-w-md w-full pointer-events-none px-4"
+      >
         {toasts.map(toast => (
           <div
             key={toast.id}

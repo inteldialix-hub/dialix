@@ -264,14 +264,14 @@ export default function AgentsPage() {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full text-sm min-w-[640px]">
               <thead>
                 <tr className="border-b border-border bg-muted/50">
-                  <th className="text-left text-muted-foreground font-medium px-4 py-3">Name</th>
-                  <th className="text-left text-muted-foreground font-medium px-4 py-3">Provider</th>
-                  <th className="text-left text-muted-foreground font-medium px-4 py-3">Language</th>
-                  <th className="text-left text-muted-foreground font-medium px-4 py-3">Model</th>
-                  <th className="text-right text-muted-foreground font-medium px-4 py-3">Actions</th>
+                  <th scope="col" className="text-left text-muted-foreground font-medium px-4 py-3">Name</th>
+                  <th scope="col" className="text-left text-muted-foreground font-medium px-4 py-3">Provider</th>
+                  <th scope="col" className="text-left text-muted-foreground font-medium px-4 py-3">Language</th>
+                  <th scope="col" className="text-left text-muted-foreground font-medium px-4 py-3">Model</th>
+                  <th scope="col" className="text-right text-muted-foreground font-medium px-4 py-3">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">

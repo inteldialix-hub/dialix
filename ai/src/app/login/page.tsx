@@ -50,7 +50,7 @@ export default function LoginPage() {
 
         {/* Error */}
         {error && (
-          <div className="rounded-md bg-red-500/10 border border-red-500/20 px-4 py-3 text-sm text-red-400 mb-4 mt-6">
+          <div id="login-error" className="rounded-md bg-red-500/10 border border-red-500/20 px-4 py-3 text-sm text-red-400 mb-4 mt-6">
             {error}
           </div>
         )}
@@ -58,30 +58,36 @@ export default function LoginPage() {
         {/* Form */}
         <form onSubmit={handleSubmit} className={error ? "space-y-4" : "mt-6 space-y-4"}>
           <div>
-            <label className="block text-sm font-medium text-foreground mb-1.5">
+            <label htmlFor="email-input" className="block text-sm font-medium text-foreground mb-1.5">
               Email
             </label>
             <input
+              id="email-input"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="you@company.com"
               required
               autoFocus
+              aria-invalid={!!error}
+              aria-describedby={error ? "login-error" : undefined}
               className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-foreground mb-1.5">
+            <label htmlFor="password-input" className="block text-sm font-medium text-foreground mb-1.5">
               Password
             </label>
             <input
+              id="password-input"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
               required
+              aria-invalid={!!error}
+              aria-describedby={error ? "login-error" : undefined}
               className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
             />
           </div>

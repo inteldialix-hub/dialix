@@ -737,7 +737,7 @@ export default function AgentDetailPage() {
   return (
     <div className="max-w-7xl mx-auto px-6 py-6">
       <div className="border-b border-border">
-        <nav className="flex gap-6 overflow-x-auto pb-[2px]">
+        <nav className="flex gap-6 overflow-x-auto flex-nowrap pb-[2px] w-full">
           {['Configuration', 'Voice', 'Knowledge', 'Tools', 'Analytics'].map(tab => (
             <button
               key={tab}
@@ -1059,7 +1059,7 @@ export default function AgentDetailPage() {
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 max-h-[400px] overflow-y-auto">
                     {voices.filter(v => !voiceFilter || v.name.toLowerCase().includes(voiceFilter.toLowerCase()) || (v.labels && Object.values(v.labels).some(l => l.toLowerCase().includes(voiceFilter.toLowerCase())))).map(v => (
-                      <div key={v.voice_id} onClick={() => set(setVoiceId)(v.voice_id)} className={cn("p-4 rounded-lg border cursor-pointer transition-all flex flex-col gap-2", voiceId === v.voice_id ? "border-foreground bg-foreground/5" : "border-border bg-background hover:border-muted-foreground/50")}>
+                      <div role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); set(setVoiceId)(v.voice_id); } }} key={v.voice_id} onClick={() => set(setVoiceId)(v.voice_id)} className={cn("p-4 rounded-lg border cursor-pointer transition-all flex flex-col gap-2", voiceId === v.voice_id ? "border-foreground bg-foreground/5" : "border-border bg-background hover:border-muted-foreground/50")}>
                         <div className="flex items-center justify-between">
                           <span className="font-medium text-sm">{v.name}</span>
                           <button className="p-1.5 rounded-md hover:bg-accent text-muted-foreground" onClick={e => { e.stopPropagation(); playVoicePreview(v.voice_id); }}>

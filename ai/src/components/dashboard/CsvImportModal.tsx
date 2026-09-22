@@ -265,12 +265,12 @@ export function CsvImportModal({ token, isOpen, onClose, onSuccess }: CsvImportM
               </div>
 
               <div className="border border-border rounded-lg overflow-hidden">
-                <table className="w-full text-left text-sm">
+                <table className="w-full text-left text-sm min-w-[640px]">
                   <thead className="bg-muted">
                     <tr>
-                      <th className="px-4 py-3 font-medium text-foreground w-1/3">CSV Column Header</th>
-                      <th className="px-4 py-3 font-medium text-foreground w-1/3">Map to Field</th>
-                      <th className="px-4 py-3 font-medium text-muted-foreground w-1/3">Preview (First Row)</th>
+                      <th scope="col" className="px-4 py-3 font-medium text-foreground w-1/3">CSV Column Header</th>
+                      <th scope="col" className="px-4 py-3 font-medium text-foreground w-1/3">Map to Field</th>
+                      <th scope="col" className="px-4 py-3 font-medium text-muted-foreground w-1/3">Preview (First Row)</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">

@@ -369,15 +369,15 @@ export default function BillingPage() {
         <div>
           <h2 className="text-lg font-medium tracking-tight mb-4">Monthly Usage History</h2>
           <div className="rounded-lg border border-border bg-card overflow-x-auto">
-            <table className="w-full text-left divide-y divide-border">
+            <table className="w-full text-left divide-y divide-border min-w-[640px]">
               <thead>
                 <tr>
-                  <th className="text-left font-medium text-muted-foreground px-4 py-3 text-sm">Period</th>
-                  <th className="text-left font-medium text-muted-foreground px-4 py-3 text-sm">Calls</th>
-                  <th className="text-left font-medium text-muted-foreground px-4 py-3 text-sm">Minutes</th>
-                  <th className="text-left font-medium text-muted-foreground px-4 py-3 text-sm">AI Cost</th>
-                  <th className="text-left font-medium text-muted-foreground px-4 py-3 text-sm">Telephony Cost</th>
-                  <th className="text-left font-medium text-muted-foreground px-4 py-3 text-sm">Total Cost</th>
+                  <th scope="col" className="text-left font-medium text-muted-foreground px-4 py-3 text-sm">Period</th>
+                  <th scope="col" className="text-left font-medium text-muted-foreground px-4 py-3 text-sm">Calls</th>
+                  <th scope="col" className="text-left font-medium text-muted-foreground px-4 py-3 text-sm">Minutes</th>
+                  <th scope="col" className="text-left font-medium text-muted-foreground px-4 py-3 text-sm">AI Cost</th>
+                  <th scope="col" className="text-left font-medium text-muted-foreground px-4 py-3 text-sm">Telephony Cost</th>
+                  <th scope="col" className="text-left font-medium text-muted-foreground px-4 py-3 text-sm">Total Cost</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -492,13 +492,13 @@ export default function BillingPage() {
           </div>
         ) : (
           <div className="rounded-lg border border-border bg-card overflow-x-auto">
-            <table className="w-full text-left divide-y divide-border">
+            <table className="w-full text-left divide-y divide-border min-w-[640px]">
               <thead>
                 <tr>
-                  <th className="text-left font-medium text-muted-foreground px-4 py-3 text-sm">Date</th>
-                  <th className="text-left font-medium text-muted-foreground px-4 py-3 text-sm">Amount</th>
-                  <th className="text-left font-medium text-muted-foreground px-4 py-3 text-sm">Status</th>
-                  <th className="text-left font-medium text-muted-foreground px-4 py-3 text-sm">Reference ID</th>
+                  <th scope="col" className="text-left font-medium text-muted-foreground px-4 py-3 text-sm">Date</th>
+                  <th scope="col" className="text-left font-medium text-muted-foreground px-4 py-3 text-sm">Amount</th>
+                  <th scope="col" className="text-left font-medium text-muted-foreground px-4 py-3 text-sm">Status</th>
+                  <th scope="col" className="text-left font-medium text-muted-foreground px-4 py-3 text-sm">Reference ID</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">

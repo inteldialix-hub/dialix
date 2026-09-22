@@ -773,6 +773,12 @@ async function initSqliteDb() {
     console.log('✓ Migrated: added reset_token_expires to clients');
   } catch (e) {}
 
+  try {
+    db.run('ALTER TABLE clients ADD COLUMN notification_preferences TEXT DEFAULT \'{}\'');
+    persistSync();
+    console.log('✓ Migrated: added notification_preferences to clients');
+  } catch (e) {}
+
   // Performance indexes
   try {
     db.run('CREATE INDEX IF NOT EXISTS idx_clients_email ON clients(email)');

@@ -238,6 +238,75 @@ router.get('/me', authenticate, async (req, res) => {
 });
 
 /**
+ * PATCH /api/auth/profile
+ * Update user profile including notification preferences and retention days
+ */
+router.patch('/profile', authenticate, async (req, res) => {
+  try {
+    const { name, notification_preferences, recording_retention_days } = req.body;
+    let updateFields = [];
+    let updateValues = [];
+
+    if (name) {
+      updateFields.push('name = ?');
+      updateValues.push(name);
+    }
+    
+    if (notification_preferences) {
+      updateFields.push('notification_preferences = ?');
+      updateValues.push(typeof notification_preferences === 'string' ? notification_preferences : JSON.stringify(notification_preferences));
+    }
+    
+    if (recording_retention_days !== undefined) {
+      updateFields.push('recording_retention_days = ?');
+      updateValues.push(recording_retention_days);
+    }
+
+    if (updateFields.length > 0) {
+      updateValues.push(req.client.id);
+      await run(`UPDATE clients SET ${updateFields.join(', ')} WHERE id = ?`, updateValues);
+    }
+
+    const updatedClient = await get('SELECT * FROM clients WHERE id = ?', [req.client.id]);
+    res.json({ success: true, client: updatedClient });
+  } catch (err) {
+    console.error('Update profile error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/**
+ * GET /api/auth/export
+ * GDPR Data Export
+ */
+router.get('/export', authenticate, async (req, res) => {
+  try {
+    const clientId = req.client.id;
+    const { all } = require('../db');
+    
+    const client = await get('SELECT * FROM clients WHERE id = ?', [clientId]);
+    const calls = await all('SELECT * FROM call_history WHERE client_id = ? LIMIT 1000', [clientId]);
+    const agents = await all('SELECT * FROM client_agents WHERE client_id = ?', [clientId]);
+    const contacts = await all('SELECT * FROM contacts WHERE client_id = ?', [clientId]);
+    
+    const exportData = {
+      user: client,
+      calls: calls || [],
+      agents: agents || [],
+      contacts: contacts || [],
+      export_date: new Date().toISOString()
+    };
+    
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Content-Disposition', 'attachment; filename="dialix_data_export.json"');
+    res.send(JSON.stringify(exportData, null, 2));
+  } catch (err) {
+    console.error('Data export error:', err);
+    res.status(500).json({ error: 'Failed to export data' });
+  }
+});
+
+/**
  * POST /api/auth/change-password
  * Body: { current_password, new_password }
  * Requires authentication. Clears must_change_password flag.

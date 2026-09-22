@@ -882,7 +882,7 @@ export default function TestCallView({ agentId, agentName, leadName, token, prov
                 <div className="text-sm text-muted-foreground text-center py-8">No past calls yet</div>
               ) : (
                 callHistory.map((call) => (
-                  <div key={call.id} className="px-4 py-3 border-b border-border cursor-pointer hover:bg-accent transition-colors" onClick={() => { setViewingCall(call); setShowHistory(false); }}>
+                  <div role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setViewingCall(call); setShowHistory(false); } }} key={call.id} className="px-4 py-3 border-b border-border cursor-pointer hover:bg-accent transition-colors" onClick={() => { setViewingCall(call); setShowHistory(false); }}>
                     <div className="flex items-center gap-2">
                       <Phone className="size-3 text-muted-foreground" />
                       <span className="text-sm font-medium text-foreground">{call.agentName}</span>

@@ -758,11 +758,11 @@ function ClientDataTab({ detail }: { detail: ConversationDetail }) {
           />
         ) : (
           <div className="rounded-lg border border-border bg-card">
-            <table className="w-full text-left">
+            <table className="w-full text-left min-w-[640px]">
               <thead className="border-b border-border bg-muted/50">
                 <tr>
-                  <th className="px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">Variable Key</th>
-                  <th className="px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">Value</th>
+                  <th scope="col" className="px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">Variable Key</th>
+                  <th scope="col" className="px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">Value</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">

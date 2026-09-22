@@ -407,7 +407,7 @@ export default function PricingPageClient() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-zinc-200 dark:border-zinc-800">
-                    <th className="text-left py-4 px-6 font-semibold text-zinc-500 dark:text-zinc-400 w-[220px]">
+                    <th scope="col" className="text-left py-4 px-6 font-semibold text-zinc-500 dark:text-zinc-400 w-[220px]">
                       Feature
                     </th>
                     {plans.map((p) => (

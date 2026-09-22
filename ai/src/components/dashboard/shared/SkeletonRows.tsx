@@ -8,7 +8,7 @@ interface SkeletonRowsProps {
 
 export function SkeletonRows({ count = 3 }: SkeletonRowsProps) {
   return (
-    <div className="w-full space-y-4 py-4">
+    <div className="w-full space-y-4 py-4" role="status" aria-live="polite" aria-label="Loading">
       {Array.from({ length: count }).map((_, i) => (
         <div 
           key={i} 

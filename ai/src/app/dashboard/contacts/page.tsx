@@ -337,10 +337,10 @@ export default function ContactsPage() {
       </div>
 
       <div className="rounded-lg border border-border bg-card overflow-x-auto">
-        <table className="w-full text-left divide-y divide-border">
+        <table className="w-full text-left divide-y divide-border min-w-[640px]">
           <thead>
             <tr>
-              <th className="px-4 py-3 w-[48px]">
+              <th scope="col" className="px-4 py-3 w-[48px]">
                 <input 
                   type="checkbox" 
                   checked={isAllCurrentPageSelected}
@@ -348,11 +348,11 @@ export default function ContactsPage() {
                   className="rounded border-muted-foreground/30 bg-background focus:ring-ring cursor-pointer"
                 />
               </th>
-              <th className="text-left font-medium text-muted-foreground px-4 py-3 text-sm">Name</th>
-              <th className="text-left font-medium text-muted-foreground px-4 py-3 text-sm">Phone & email</th>
-              <th className="text-left font-medium text-muted-foreground px-4 py-3 text-sm">Company</th>
-              <th className="text-left font-medium text-muted-foreground px-4 py-3 text-sm">Status</th>
-              <th className="text-right font-medium text-muted-foreground px-4 py-3 text-sm">Actions</th>
+              <th scope="col" className="text-left font-medium text-muted-foreground px-4 py-3 text-sm">Name</th>
+              <th scope="col" className="text-left font-medium text-muted-foreground px-4 py-3 text-sm">Phone & email</th>
+              <th scope="col" className="text-left font-medium text-muted-foreground px-4 py-3 text-sm">Company</th>
+              <th scope="col" className="text-left font-medium text-muted-foreground px-4 py-3 text-sm">Status</th>
+              <th scope="col" className="text-right font-medium text-muted-foreground px-4 py-3 text-sm">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border">

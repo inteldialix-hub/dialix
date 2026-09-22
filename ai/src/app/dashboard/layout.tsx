@@ -35,7 +35,7 @@ export default function DashboardLayout({
         {!isLoading && !isAuthenticated && (
           <head><meta httpEquiv="refresh" content="1;url=/login" /></head>
         )}
-        <div className="flex flex-col items-center justify-center min-h-screen gap-4 bg-background text-muted-foreground">
+        <div className="flex flex-col items-center justify-center min-h-screen gap-4 bg-background text-muted-foreground" role="status" aria-live="polite" aria-label="Loading dashboard">
           <div className="size-8 rounded-full border-2 border-muted-foreground border-t-transparent animate-spin" />
           {!isLoading && !isAuthenticated && (
             <a href="/login" className="text-sm text-muted-foreground hover:text-foreground transition-colors">

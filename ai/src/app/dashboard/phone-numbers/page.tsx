@@ -138,14 +138,14 @@ export default function PhoneNumbersPage() {
         </div>
       ) : (
         <div className="rounded-lg border border-border bg-card overflow-x-auto">
-          <table className="w-full text-left divide-y divide-border">
+          <table className="w-full text-left divide-y divide-border min-w-[640px]">
             <thead>
               <tr>
-                <th className="text-left font-medium text-muted-foreground px-4 py-3 text-sm">Label</th>
-                <th className="text-left font-medium text-muted-foreground px-4 py-3 text-sm">Phone number</th>
-                <th className="text-left font-medium text-muted-foreground px-4 py-3 text-sm">Provider</th>
-                <th className="text-left font-medium text-muted-foreground px-4 py-3 text-sm">Assigned agent</th>
-                <th className="text-right font-medium text-muted-foreground px-4 py-3 text-sm">Actions</th>
+                <th scope="col" className="text-left font-medium text-muted-foreground px-4 py-3 text-sm">Label</th>
+                <th scope="col" className="text-left font-medium text-muted-foreground px-4 py-3 text-sm">Phone number</th>
+                <th scope="col" className="text-left font-medium text-muted-foreground px-4 py-3 text-sm">Provider</th>
+                <th scope="col" className="text-left font-medium text-muted-foreground px-4 py-3 text-sm">Assigned agent</th>
+                <th scope="col" className="text-right font-medium text-muted-foreground px-4 py-3 text-sm">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">

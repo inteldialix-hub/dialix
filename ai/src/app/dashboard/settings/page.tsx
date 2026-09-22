@@ -11,11 +11,11 @@ import { cn } from '@/lib/utils';
 import { 
   Shield, Users, Key, Webhook, Activity, Server, User as UserIcon, Sun, Lock, 
   Info, UserPlus, Trash2, Mail, Copy, Plus, Globe, Radio, Send, AlertTriangle, 
-  CheckCircle, Cpu, Check, ChevronDown, ChevronUp, RefreshCw, X
+  CheckCircle, Cpu, Check, ChevronDown, ChevronUp, RefreshCw, X, Bell, EyeOff
 } from 'lucide-react';
 import { useTopBar } from '@/components/dashboard/TopBarContext';
 
-type SettingsTab = 'account' | 'team' | 'api-keys' | 'webhooks' | 'telemetry';
+type SettingsTab = 'account' | 'notifications' | 'privacy' | 'team' | 'api-keys' | 'webhooks' | 'telemetry';
 
 // ── Data Interfaces ──
 interface TeamMember {
@@ -100,6 +100,20 @@ export default function SettingsPage() {
   const [passwordError, setPasswordError] = useState('');
   const [passwordSuccess, setPasswordSuccess] = useState('');
   const [passwordLoading, setPasswordLoading] = useState(false);
+
+  // ── Notification State ──
+  const [notificationPrefs, setNotificationPrefs] = useState({
+    call_failure: true,
+    daily_digest: false,
+    campaign_completion: true,
+    payment_alerts: true,
+  });
+  const [savingNotifications, setSavingNotifications] = useState(false);
+
+  // ── Privacy State ──
+  const [retentionDays, setRetentionDays] = useState('90');
+  const [savingRetention, setSavingRetention] = useState(false);
+  const [exportingData, setExportingData] = useState(false);
 
   // ── Team Management State ──
   const [members, setMembers] = useState<TeamMember[]>([]);
@@ -263,6 +277,77 @@ export default function SettingsPage() {
       setPasswordError(err instanceof Error ? err.message : 'Failed to change password');
     } finally {
       setPasswordLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (client) {
+      if ((client as any).notification_preferences) {
+        try {
+          const prefs = typeof (client as any).notification_preferences === 'string' 
+            ? JSON.parse((client as any).notification_preferences) 
+            : (client as any).notification_preferences;
+          setNotificationPrefs(prev => ({ ...prev, ...prefs }));
+        } catch(e) {}
+      }
+      if ((client as any).recording_retention_days) {
+        setRetentionDays((client as any).recording_retention_days.toString());
+      }
+    }
+  }, [client]);
+
+  const handleSaveNotifications = async () => {
+    setSavingNotifications(true);
+    try {
+      await api('/auth/profile', {
+        method: 'PATCH',
+        token: token!,
+        body: { notification_preferences: notificationPrefs }
+      });
+      addToast('Notification preferences saved', 'success');
+    } catch (err) {
+      addToast(err instanceof Error ? err.message : 'Failed to save preferences', 'error');
+    } finally {
+      setSavingNotifications(false);
+    }
+  };
+
+  const handleSaveRetention = async (days: string) => {
+    setRetentionDays(days);
+    setSavingRetention(true);
+    try {
+      await api('/auth/profile', {
+        method: 'PATCH',
+        token: token!,
+        body: { recording_retention_days: parseInt(days, 10) }
+      });
+      addToast('Retention period updated', 'success');
+    } catch (err) {
+      addToast(err instanceof Error ? err.message : 'Failed to update retention', 'error');
+    } finally {
+      setSavingRetention(false);
+    }
+  };
+
+  const handleExportData = async () => {
+    setExportingData(true);
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || ''}/api/auth/export`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (!res.ok) throw new Error('Failed to export data');
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'dialix_data_export.json';
+      a.click();
+      window.URL.revokeObjectURL(url);
+      addToast('Data export complete', 'success');
+    } catch (err) {
+      addToast(err instanceof Error ? err.message : 'Failed to export data', 'error');
+    } finally {
+      setExportingData(false);
     }
   };
 
@@ -496,6 +581,8 @@ export default function SettingsPage() {
 
   const tabs = [
     { id: 'account' as const, label: 'Account & Security', icon: Shield },
+    { id: 'notifications' as const, label: 'Notifications', icon: Bell },
+    { id: 'privacy' as const, label: 'Privacy & Data', icon: EyeOff },
     { id: 'team' as const, label: 'Team Management', icon: Users },
     { id: 'api-keys' as const, label: 'API Keys', icon: Key },
     { id: 'webhooks' as const, label: 'Webhooks', icon: Webhook },
@@ -731,6 +818,117 @@ export default function SettingsPage() {
                   className="bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/30 rounded-md px-4 py-2 text-sm font-medium transition-colors flex-shrink-0"
                 >
                   Delete Account
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'notifications' && (
+        <div className="flex flex-col gap-6 max-w-4xl">
+          <div className="rounded-lg border border-border bg-card">
+            <div className="px-6 py-4 border-b border-border flex items-center gap-2">
+              <Bell size={16} className="text-muted-foreground" />
+              <h3 className="font-medium text-sm">Notification Preferences</h3>
+            </div>
+            <div className="p-6 flex flex-col gap-6">
+              {[
+                { id: 'call_failure', label: 'Email on call failure', desc: 'Get notified immediately if a call fails unexpectedly' },
+                { id: 'daily_digest', label: 'Daily digest', desc: 'Receive a daily summary of all call and campaign activity' },
+                { id: 'campaign_completion', label: 'Campaign completion', desc: 'Get notified when an outbound campaign finishes' },
+                { id: 'payment_alerts', label: 'Payment alerts', desc: 'Receive updates about billing and subscription renewals' }
+              ].map(opt => (
+                <div key={opt.id} className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium">{opt.label}</p>
+                    <p className="text-sm text-muted-foreground">{opt.desc}</p>
+                  </div>
+                  <button
+                    onClick={() => setNotificationPrefs(p => ({ ...p, [opt.id]: !p[opt.id as keyof typeof p] }))}
+                    className={cn(
+                      "w-11 h-6 rounded-full transition-colors relative flex items-center px-1",
+                      notificationPrefs[opt.id as keyof typeof notificationPrefs] ? "bg-foreground" : "bg-muted"
+                    )}
+                  >
+                    <span className={cn(
+                      "w-4 h-4 rounded-full bg-background transition-transform",
+                      notificationPrefs[opt.id as keyof typeof notificationPrefs] ? "translate-x-5" : "translate-x-0"
+                    )} />
+                  </button>
+                </div>
+              ))}
+              <div className="pt-4 border-t border-border">
+                <button
+                  onClick={handleSaveNotifications}
+                  disabled={savingNotifications}
+                  className="bg-foreground text-background hover:bg-foreground/90 rounded-md px-4 py-2 text-sm font-medium"
+                >
+                  {savingNotifications ? 'Saving...' : 'Save Preferences'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'privacy' && (
+        <div className="flex flex-col gap-6 max-w-4xl">
+          <div className="rounded-lg border border-border bg-card">
+            <div className="px-6 py-4 border-b border-border flex items-center gap-2">
+              <EyeOff size={16} className="text-muted-foreground" />
+              <h3 className="font-medium text-sm">Data Retention Policy</h3>
+            </div>
+            <div className="p-6">
+              <div className="flex flex-col gap-4">
+                <div>
+                  <p className="text-sm font-medium mb-1">Call Recording & Transcript Retention</p>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Choose how long we should store your call recordings and transcripts. 
+                    Data older than this period will be automatically and permanently deleted.
+                  </p>
+                  <select
+                    value={retentionDays}
+                    onChange={(e) => setRetentionDays(e.target.value)}
+                    className="rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring w-64"
+                  >
+                    <option value="30">30 days</option>
+                    <option value="60">60 days</option>
+                    <option value="90">90 days (Default)</option>
+                    <option value="180">180 days</option>
+                    <option value="365">365 days</option>
+                  </select>
+                </div>
+                <div className="pt-2">
+                  <button
+                    onClick={() => handleSaveRetention(retentionDays)}
+                    disabled={savingRetention}
+                    className="bg-foreground text-background hover:bg-foreground/90 rounded-md px-4 py-2 text-sm font-medium"
+                  >
+                    {savingRetention ? 'Saving...' : 'Update Retention'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-lg border border-border bg-card">
+            <div className="px-6 py-4 border-b border-border flex items-center gap-2">
+              <Globe size={16} className="text-muted-foreground" />
+              <h3 className="font-medium text-sm">GDPR Data Rights</h3>
+            </div>
+            <div className="p-6 flex flex-col gap-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium">Export Your Data</p>
+                  <p className="text-sm text-muted-foreground">Download a machine-readable JSON file containing all your account data, contacts, and call logs.</p>
+                </div>
+                <button
+                  onClick={handleExportData}
+                  disabled={exportingData}
+                  className="bg-primary/10 text-primary hover:bg-primary/20 border border-primary/20 rounded-md px-4 py-2 text-sm font-medium transition-colors flex-shrink-0"
+                >
+                  {exportingData ? 'Preparing...' : 'Export Data'}
                 </button>
               </div>
             </div>

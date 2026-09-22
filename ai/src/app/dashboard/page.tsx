@@ -370,21 +370,27 @@ export default function DashboardPage() {
   };
 
   const statCards = [
-    { label: 'Total agents', value: stats?.totalAgents || 0, icon: Bot },
-    { label: 'Total calls', value: analytics?.stats?.total_calls || stats?.totalCalls || 0, icon: Phone },
-    { label: 'Answered calls', value: stats?.answeredCalls || 0, icon: CheckCircle },
-    { label: 'Failed calls', value: stats?.failedCalls || 0, icon: MicOff },
+    { label: 'Total agents', raw: stats?.totalAgents || 0, icon: Bot },
+    { label: 'Total calls', raw: analytics?.stats?.total_calls || stats?.totalCalls || 0, icon: Phone },
+    { label: 'Answered calls', raw: stats?.answeredCalls || 0, icon: CheckCircle },
+    { label: 'Failed calls', raw: stats?.failedCalls || 0, icon: MicOff },
     { 
       label: 'Success rate', 
-      value: analytics?.stats?.successful_calls && analytics?.stats?.total_calls 
-        ? `${Math.round(((analytics.stats.successful_calls) / (analytics.stats.total_calls)) * 100) || 0}%` 
-        : `${stats?.successRate || 0}%` 
+      raw: analytics?.stats?.successful_calls && analytics?.stats?.total_calls 
+        ? Math.round(((analytics.stats.successful_calls) / (analytics.stats.total_calls)) * 100) || 0
+        : stats?.successRate || 0,
+      suffix: '%'
     },
-    { label: 'Avg duration', value: formatDuration(analytics?.stats?.avg_duration || stats?.avgDuration || 0) },
-    { label: 'Total minutes', value: stats?.totalMinutes || 0, icon: Timer },
+    { 
+      label: 'Avg duration', 
+      raw: analytics?.stats?.avg_duration || stats?.avgDuration || 0, 
+      formatter: formatDuration 
+    },
+    { label: 'Total minutes', raw: stats?.totalMinutes || 0, icon: Timer },
     { 
       label: 'Avg quality', 
-      value: analytics?.stats?.avg_quality ? (analytics.stats.avg_quality).toFixed(1) : 'N/A' 
+      raw: analytics?.stats?.avg_quality || 0,
+      isNA: !analytics?.stats?.avg_quality
     },
   ];
 
@@ -590,12 +596,12 @@ export default function DashboardPage() {
             </h3>
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full text-sm min-w-[640px]">
               <thead>
                 <tr className="border-b border-border bg-muted/20">
-                  <th className="text-left text-muted-foreground font-medium px-4 py-3">Agent</th>
-                  <th className="text-left text-muted-foreground font-medium px-4 py-3">Total calls</th>
-                  <th className="text-left text-muted-foreground font-medium px-4 py-3">Status</th>
+                  <th scope="col" className="text-left text-muted-foreground font-medium px-4 py-3">Agent</th>
+                  <th scope="col" className="text-left text-muted-foreground font-medium px-4 py-3">Total calls</th>
+                  <th scope="col" className="text-left text-muted-foreground font-medium px-4 py-3">Status</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -733,13 +739,13 @@ export default function DashboardPage() {
             </h3>
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full text-sm min-w-[640px]">
               <thead>
                 <tr className="border-b border-border bg-muted/20">
-                  <th className="text-left text-muted-foreground font-medium px-4 py-3">Destination</th>
-                  <th className="text-left text-muted-foreground font-medium px-4 py-3">Status</th>
-                  <th className="text-left text-muted-foreground font-medium px-4 py-3">Duration</th>
-                  <th className="text-left text-muted-foreground font-medium px-4 py-3">Date</th>
+                  <th scope="col" className="text-left text-muted-foreground font-medium px-4 py-3">Destination</th>
+                  <th scope="col" className="text-left text-muted-foreground font-medium px-4 py-3">Status</th>
+                  <th scope="col" className="text-left text-muted-foreground font-medium px-4 py-3">Duration</th>
+                  <th scope="col" className="text-left text-muted-foreground font-medium px-4 py-3">Date</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -798,13 +804,13 @@ export default function DashboardPage() {
           </button>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full text-sm min-w-[640px]">
             <thead>
               <tr className="border-b border-border bg-muted/20">
-                <th className="text-left text-muted-foreground font-medium px-4 py-3">Event</th>
-                <th className="text-left text-muted-foreground font-medium px-4 py-3">URL</th>
-                <th className="text-left text-muted-foreground font-medium px-4 py-3">Created</th>
-                <th className="text-right text-muted-foreground font-medium px-4 py-3">Actions</th>
+                <th scope="col" className="text-left text-muted-foreground font-medium px-4 py-3">Event</th>
+                <th scope="col" className="text-left text-muted-foreground font-medium px-4 py-3">URL</th>
+                <th scope="col" className="text-left text-muted-foreground font-medium px-4 py-3">Created</th>
+                <th scope="col" className="text-right text-muted-foreground font-medium px-4 py-3">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">

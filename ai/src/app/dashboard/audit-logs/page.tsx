@@ -199,14 +199,14 @@ export default function AuditLogsPage() {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left divide-y divide-border">
+            <table className="w-full text-left divide-y divide-border min-w-[640px]">
               <thead>
                 <tr>
-                  <th className="text-left font-medium text-muted-foreground px-4 py-3 text-sm">Timestamp</th>
-                  <th className="text-left font-medium text-muted-foreground px-4 py-3 text-sm">Actor</th>
-                  <th className="text-left font-medium text-muted-foreground px-4 py-3 text-sm">Action</th>
-                  <th className="text-left font-medium text-muted-foreground px-4 py-3 text-sm">Resource</th>
-                  <th className="text-left font-medium text-muted-foreground px-4 py-3 text-sm">Event details</th>
+                  <th scope="col" className="text-left font-medium text-muted-foreground px-4 py-3 text-sm">Timestamp</th>
+                  <th scope="col" className="text-left font-medium text-muted-foreground px-4 py-3 text-sm">Actor</th>
+                  <th scope="col" className="text-left font-medium text-muted-foreground px-4 py-3 text-sm">Action</th>
+                  <th scope="col" className="text-left font-medium text-muted-foreground px-4 py-3 text-sm">Resource</th>
+                  <th scope="col" className="text-left font-medium text-muted-foreground px-4 py-3 text-sm">Event details</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">

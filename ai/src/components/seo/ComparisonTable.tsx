@@ -37,17 +37,17 @@ export function ComparisonTable({ matrix }: ComparisonTableProps) {
       </div>
 
       <div className="overflow-x-auto rounded-xl border border-white/[0.08] bg-[#111317] shadow-xl">
-        <table className="w-full text-left border-collapse text-xs">
+        <table className="w-full text-left border-collapse text-xs min-w-[640px]">
           <thead>
             <tr className="border-b border-white/[0.08] bg-white/[0.02]">
-              <th className="py-3.5 px-4 font-semibold text-zinc-300 w-1/4">Capability / Feature</th>
-              <th className="py-3.5 px-4 font-semibold text-emerald-400 bg-emerald-500/[0.04] w-1/4">
+              <th scope="col" className="py-3.5 px-4 font-semibold text-zinc-300 w-1/4">Capability / Feature</th>
+              <th scope="col" className="py-3.5 px-4 font-semibold text-emerald-400 bg-emerald-500/[0.04] w-1/4">
                 Dialix Voice AI
               </th>
-              <th className="py-3.5 px-4 font-semibold text-zinc-400 w-1/4">
+              <th scope="col" className="py-3.5 px-4 font-semibold text-zinc-400 w-1/4">
                 {matrix.competitorName}
               </th>
-              <th className="py-3.5 px-4 font-semibold text-zinc-400 w-1/4">Architectural Impact</th>
+              <th scope="col" className="py-3.5 px-4 font-semibold text-zinc-400 w-1/4">Architectural Impact</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-white/[0.04]">

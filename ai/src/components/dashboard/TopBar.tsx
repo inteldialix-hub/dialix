@@ -238,12 +238,13 @@ export function TopBar() {
 
         {/* Center: ElevenLabs-style Search Bar */}
         <div ref={searchContainerRef} className="relative flex-1 max-w-sm sm:max-w-md mx-2">
-          <form onSubmit={handleSearchSubmit}>
+          <form onSubmit={handleSearchSubmit} aria-label="Search agents">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
               <input
                 ref={searchInputRef}
                 type="text"
+                aria-label="Search query"
                 placeholder="Search agents..."
                 value={searchQuery}
                 onFocus={() => {
