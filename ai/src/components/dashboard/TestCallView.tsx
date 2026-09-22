@@ -385,6 +385,13 @@ export default function TestCallView({ agentId, agentName, leadName, token, prov
     nextPlayTimeRef.current = 0;
   }, [stopAgentPlayback]);
 
+  // Ensure resources are cleaned up on unmount
+  useEffect(() => {
+    return () => {
+      doCleanup();
+    };
+  }, [doCleanup]);
+
   /* ── Start the call on mount ── */
   useEffect(() => {
     let cancelled = false;

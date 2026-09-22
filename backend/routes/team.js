@@ -158,6 +158,15 @@ router.post('/invite', async (req, res) => {
       inviteId = result.lastInsertRowid;
     }
 
+    try {
+      const client = await get('SELECT name FROM clients WHERE id = ?', [clientId]);
+      const orgName = client?.name || 'Dialix Organization';
+      const { sendTeamInviteEmail } = require('../services/email');
+      await sendTeamInviteEmail(cleanEmail, orgName, orgName, inviteUrl);
+    } catch (e) {
+      console.error('Failed to send invite email:', e);
+    }
+
     res.status(201).json({
       success: true,
       invite_url: inviteUrl,

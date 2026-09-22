@@ -31,6 +31,15 @@ const AuthContext = createContext<AuthContextType | null>(null);
 const TOKEN_KEY = 'dialix_token';
 const CLIENT_KEY = 'dialix_client';
 
+function isTokenExpired(token: string): boolean {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    return payload.exp * 1000 < Date.now();
+  } catch {
+    return true;
+  }
+}
+
 // ── Provider ─────────────────────────────────────────────────
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AuthState>({
@@ -48,6 +57,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const savedClient = localStorage.getItem(CLIENT_KEY);
 
         if (savedToken && savedClient) {
+          if (isTokenExpired(savedToken)) {
+            localStorage.removeItem(TOKEN_KEY);
+            localStorage.removeItem(CLIENT_KEY);
+            setState(prev => ({ ...prev, isLoading: false }));
+            window.location.href = '/login';
+            return;
+          }
+
           // Validate the token is still valid with a lightweight API call
           try {
             const data = await api<{ client: Client }>('/auth/me', { token: savedToken });

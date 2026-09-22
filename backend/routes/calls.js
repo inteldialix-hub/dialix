@@ -1,6 +1,6 @@
 const express = require('express');
 const { get } = require('../db');
-const { authenticate } = require('../middleware/auth');
+const { authenticate, requireRole } = require('../middleware/auth');
 const { validateSchema } = require('../middleware/validate');
 const { callOutboundSchema } = require('../lib/schemas');
 const elevenlabs = require('../services/elevenlabs');
@@ -853,6 +853,140 @@ router.post('/status-webhook', async (req, res) => {
   } catch (err) {
     console.error('POST /api/calls/status-webhook error:', err);
     res.status(500).json({ error: 'Failed to process call status' });
+  }
+});
+
+/**
+ * GET /api/calls/:id/recording
+ * Securely proxy or return call recording.
+ * Requires manager for listen, admin for download.
+ */
+router.get('/:id/recording', authenticate, requireRole('manager'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const isDownload = req.query.download === 'true' || req.query.download === '1';
+
+    // Verify role for download
+    if (isDownload) {
+      const { ROLE_HIERARCHY } = require('../middleware/auth');
+      const userRole = req.client._teamRole || 'owner';
+      const userLevel = ROLE_HIERARCHY[userRole] || 0;
+      const adminLevel = ROLE_HIERARCHY['admin'];
+      if (req.client.is_admin !== 1 && userLevel < adminLevel) {
+        return res.status(403).json({ error: 'Admin access required to download recordings' });
+      }
+    }
+
+    const callRecord = await get(
+      'SELECT conversation_id, status FROM call_history WHERE id = ? AND client_id = ?',
+      [id, req.client.id]
+    );
+
+    if (!callRecord) {
+      return res.status(404).json({ error: 'Call not found' });
+    }
+    if (callRecord.status === 'deleted') {
+      return res.status(404).json({ error: 'Recording has been deleted' });
+    }
+
+    const conversation_id = callRecord.conversation_id;
+    const provider = (conversation_id.includes('-') && !conversation_id.startsWith('agent_')) ? 'vapi' : 'elevenlabs';
+
+    if (provider === 'vapi') {
+      try {
+        const call = await vapi.getCall(conversation_id);
+        const recordingUrl = call.artifact?.recordingUrl || call.recordingUrl;
+        if (recordingUrl) {
+          const vapiAudioResp = await fetch(recordingUrl);
+          if (!vapiAudioResp.ok) throw new Error(`Vapi storage responded with ${vapiAudioResp.status}`);
+          
+          const arrayBuf = await vapiAudioResp.arrayBuffer();
+          const buffer = Buffer.from(arrayBuf);
+          
+          if (buffer.length === 0) return res.status(404).json({ error: 'Empty recording from Vapi' });
+          
+          const contentType = vapiAudioResp.headers.get('content-type') || 'audio/wav';
+          res.setHeader('Content-Type', contentType);
+          res.setHeader('Content-Length', buffer.length);
+          res.setHeader('Accept-Ranges', 'bytes');
+          res.setHeader('Cache-Control', 'private, max-age=3600');
+          if (isDownload) {
+            res.setHeader('Content-Disposition', `attachment; filename="recording_${id}.wav"`);
+          }
+          return res.send(buffer);
+        }
+      } catch (e) {
+        console.error('[Audio] Vapi audio proxy error:', e);
+      }
+      return res.status(404).json({ error: 'No audio recording available for this Vapi call' });
+    }
+
+    // ElevenLabs flow
+    const audioResp = await elevenlabs.getConversationAudio(conversation_id);
+    const arrayBuf = await audioResp.arrayBuffer();
+    const buffer = Buffer.from(arrayBuf);
+    
+    if (buffer.length === 0) {
+      return res.status(404).json({ error: 'No audio recording available' });
+    }
+    
+    const contentType = audioResp.headers.get('content-type') || 'audio/mpeg';
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Content-Length', buffer.length);
+    res.setHeader('Accept-Ranges', 'bytes');
+    res.setHeader('Cache-Control', 'private, max-age=3600');
+    if (isDownload) {
+      res.setHeader('Content-Disposition', `attachment; filename="recording_${id}.mp3"`);
+    }
+    res.send(buffer);
+  } catch (err) {
+    console.error('GET /api/calls/:id/recording error:', err);
+    if (err.statusCode === 404 || err.statusCode === 422) {
+      return res.status(404).json({ error: 'Audio not available' });
+    }
+    res.status(500).json({ error: 'Failed to access recording' });
+  }
+});
+
+/**
+ * DELETE /api/calls/:id/recording
+ * Mark recording as deleted (owner/admin only)
+ */
+router.delete('/:id/recording', authenticate, requireRole('admin'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Check owner vs admin
+    const { ROLE_HIERARCHY } = require('../middleware/auth');
+    const userRole = req.client._teamRole || 'owner';
+    const userLevel = ROLE_HIERARCHY[userRole] || 0;
+    const ownerLevel = ROLE_HIERARCHY['owner'];
+    if (req.client.is_admin !== 1 && userLevel < ownerLevel) {
+      return res.status(403).json({ error: 'Owner access required to delete recordings' });
+    }
+
+    const callRecord = await get(
+      'SELECT conversation_id FROM call_history WHERE id = ? AND client_id = ?',
+      [id, req.client.id]
+    );
+
+    if (!callRecord) {
+      return res.status(404).json({ error: 'Call not found' });
+    }
+
+    const { run: dbRun } = require('../db');
+    await dbRun("UPDATE call_history SET recording_url = NULL, transcript = NULL, status = 'deleted' WHERE id = ?", [id]);
+
+    await dbRun(
+      `INSERT INTO audit_logs (client_id, actor_email, action, resource_type, resource_id, details)
+       VALUES (?, ?, 'DELETE', 'recording', ?, ?)`,
+      [req.client.id, req.user.email || 'system', id, JSON.stringify({ conversation_id: callRecord.conversation_id })]
+    );
+
+    res.json({ success: true, message: 'Recording marked as deleted' });
+  } catch (err) {
+    console.error('DELETE /api/calls/:id/recording error:', err);
+    res.status(500).json({ error: 'Failed to delete recording' });
   }
 });
 

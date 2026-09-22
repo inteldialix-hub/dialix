@@ -229,6 +229,11 @@ async function initSqliteDb() {
     console.log('✓ Migrated: added provider column to client_agents');
   } catch (e) {}
 
+  try { db.run("ALTER TABLE client_agents ADD COLUMN recording_disclosure TEXT"); persistSync(); console.log('✓ Migrated: added recording_disclosure to client_agents'); } catch (e) {}
+  try { db.run("ALTER TABLE client_agents ADD COLUMN disclosure_enabled BOOLEAN DEFAULT true"); persistSync(); console.log('✓ Migrated: added disclosure_enabled to client_agents'); } catch (e) {}
+  try { db.run("ALTER TABLE campaigns ADD COLUMN recording_disclosure TEXT"); persistSync(); console.log('✓ Migrated: added recording_disclosure to campaigns'); } catch (e) {}
+  try { db.run("ALTER TABLE clients ADD COLUMN recording_retention_days INTEGER DEFAULT 90"); persistSync(); console.log('✓ Migrated: added recording_retention_days to clients'); } catch (e) {}
+
   db.run(`
     CREATE TABLE IF NOT EXISTS phone_numbers (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -919,6 +924,11 @@ async function initPostgresDb() {
   await pool.query(`
     ALTER TABLE client_agents ADD COLUMN IF NOT EXISTS provider TEXT DEFAULT 'elevenlabs'
   `);
+  
+  await pool.query(`ALTER TABLE client_agents ADD COLUMN IF NOT EXISTS transfer_enabled BOOLEAN DEFAULT false`);
+  await pool.query(`ALTER TABLE client_agents ADD COLUMN IF NOT EXISTS transfer_number TEXT`);
+  await pool.query(`ALTER TABLE client_agents ADD COLUMN IF NOT EXISTS transfer_conditions TEXT`);
+  await pool.query(`ALTER TABLE client_agents ADD COLUMN IF NOT EXISTS transfer_fallback TEXT DEFAULT 'voicemail'`);
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS phone_numbers (
@@ -1011,6 +1021,11 @@ async function initPostgresDb() {
   await pool.query(`ALTER TABLE call_history ADD COLUMN IF NOT EXISTS cost REAL`);
   await pool.query(`ALTER TABLE call_history ADD COLUMN IF NOT EXISTS transcript TEXT`);
   await pool.query(`ALTER TABLE call_history ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ`);
+
+  await pool.query(`ALTER TABLE call_history ADD COLUMN IF NOT EXISTS transfer_attempted BOOLEAN DEFAULT false`);
+  await pool.query(`ALTER TABLE call_history ADD COLUMN IF NOT EXISTS transfer_success BOOLEAN`);
+  await pool.query(`ALTER TABLE call_history ADD COLUMN IF NOT EXISTS transfer_target TEXT`);
+  await pool.query(`ALTER TABLE call_history ADD COLUMN IF NOT EXISTS transfer_reason TEXT`);
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS call_metrics (
@@ -1215,6 +1230,7 @@ async function initPostgresDb() {
   await pool.query(`ALTER TABLE campaigns ALTER COLUMN agent_id TYPE TEXT USING agent_id::TEXT`);
   await pool.query(`ALTER TABLE campaigns DROP CONSTRAINT IF EXISTS campaigns_phone_number_id_fkey`);
   await pool.query(`ALTER TABLE campaigns ALTER COLUMN phone_number_id TYPE TEXT USING phone_number_id::TEXT`);
+  await pool.query(`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS voicemail_action TEXT DEFAULT 'hangup'`);
 
   // ─── Subscriptions ──────────────────────────────────────────
   await pool.query(`

@@ -860,6 +860,10 @@ router.post('/', authenticate, validateSchema(createAgentSchema), async (req, re
       grounding_google_search,
       affective_dialog,
       proactive_audio,
+      transfer_enabled = false,
+      transfer_number = null,
+      transfer_conditions = null,
+      transfer_fallback = 'voicemail',
     } = merged;
 
     // ── Gemini creation ──
@@ -906,8 +910,8 @@ router.post('/', authenticate, validateSchema(createAgentSchema), async (req, re
 
       // Link to client
       await run(
-        'INSERT OR IGNORE INTO client_agents (client_id, agent_id, agent_name, can_edit, provider) VALUES (?, ?, ?, 1, ?)',
-        [req.client.id, agentId, name, 'gemini']
+        'INSERT OR IGNORE INTO client_agents (client_id, agent_id, agent_name, can_edit, provider, transfer_enabled, transfer_number, transfer_conditions, transfer_fallback) VALUES (?, ?, ?, 1, ?, ?, ?, ?, ?)',
+        [req.client.id, agentId || created?.id || created?.agent_id, name, provider || 'elevenlabs', transfer_enabled ? 1 : 0, transfer_number, typeof transfer_conditions === 'string' ? transfer_conditions : JSON.stringify(transfer_conditions), transfer_fallback]
       );
 
       return res.status(201).json({
@@ -962,8 +966,8 @@ router.post('/', authenticate, validateSchema(createAgentSchema), async (req, re
       const created = await vapi.createAssistant(vapiBody);
 
       await run(
-        'INSERT OR IGNORE INTO client_agents (client_id, agent_id, agent_name, can_edit, provider) VALUES (?, ?, ?, 1, ?)',
-        [req.client.id, created.id, name, 'vapi']
+        'INSERT OR IGNORE INTO client_agents (client_id, agent_id, agent_name, can_edit, provider, transfer_enabled, transfer_number, transfer_conditions, transfer_fallback) VALUES (?, ?, ?, 1, ?, ?, ?, ?, ?)',
+        [req.client.id, created.id, name, 'vapi', transfer_enabled ? 1 : 0, transfer_number, typeof transfer_conditions === 'string' ? transfer_conditions : JSON.stringify(transfer_conditions), transfer_fallback]
       );
 
       return res.status(201).json({
@@ -1016,8 +1020,8 @@ router.post('/', authenticate, validateSchema(createAgentSchema), async (req, re
     const created = await elevenlabs.createAgent(agentBody);
 
     await run(
-      'INSERT OR IGNORE INTO client_agents (client_id, agent_id, agent_name, can_edit, provider) VALUES (?, ?, ?, 1, ?)',
-      [req.client.id, created.agent_id, name, 'elevenlabs']
+      'INSERT OR IGNORE INTO client_agents (client_id, agent_id, agent_name, can_edit, provider, transfer_enabled, transfer_number, transfer_conditions, transfer_fallback) VALUES (?, ?, ?, 1, ?, ?, ?, ?, ?)',
+      [req.client.id, created.agent_id, name, 'elevenlabs', transfer_enabled ? 1 : 0, transfer_number, typeof transfer_conditions === 'string' ? transfer_conditions : JSON.stringify(transfer_conditions), transfer_fallback]
     );
 
     res.status(201).json({
@@ -1610,6 +1614,19 @@ router.patch('/:agent_id', authenticate, async (req, res) => {
         `UPDATE agent_settings SET ${asUpdates.join(', ')} WHERE agent_id = ?`,
         asParams
       );
+    }
+    
+    // Update transfer settings in client_agents
+    const caUpdates = [];
+    const caParams = [];
+    if (body.transfer_enabled !== undefined) { caUpdates.push('transfer_enabled = ?'); caParams.push(body.transfer_enabled ? 1 : 0); }
+    if (body.transfer_number !== undefined) { caUpdates.push('transfer_number = ?'); caParams.push(body.transfer_number); }
+    if (body.transfer_conditions !== undefined) { caUpdates.push('transfer_conditions = ?'); caParams.push(typeof body.transfer_conditions === 'string' ? body.transfer_conditions : JSON.stringify(body.transfer_conditions)); }
+    if (body.transfer_fallback !== undefined) { caUpdates.push('transfer_fallback = ?'); caParams.push(body.transfer_fallback); }
+    
+    if (caUpdates.length > 0) {
+      caParams.push(agent_id);
+      await run(`UPDATE client_agents SET ${caUpdates.join(', ')} WHERE agent_id = ?`, caParams);
     }
 
     // ════════════════════════════════════════════════

@@ -8,6 +8,7 @@ const { all, get, run } = require('../db');
 const elevenlabs = require('./elevenlabs');
 const vapi = require('./vapi');
 const { detectDncOptOut } = require('./dnc-keywords');
+const { sendCampaignCompletedEmail } = require('./email');
 
 let intervalId = null;
 let isProcessing = false;
@@ -98,6 +99,27 @@ async function getAgentProvider(clientId, agentId) {
   return agentId.startsWith('agent_') ? 'elevenlabs' : 'vapi';
 }
 
+async function markCampaignCompleted(campaign) {
+  await run(
+    "UPDATE campaigns SET status = 'completed', completed_at = datetime('now'), updated_at = datetime('now') WHERE id = ?",
+    [campaign.id]
+  );
+  try {
+    const client = await get('SELECT email FROM clients WHERE id = ?', [campaign.client_id]);
+    if (client && client.email) {
+      const stats = {
+        total_calls: campaign.total_contacts || 0,
+        successful: campaign.calls_completed || 0,
+        failed: campaign.calls_failed || 0,
+        duration: 'N/A'
+      };
+      await sendCampaignCompletedEmail(client.email, campaign.name, stats);
+    }
+  } catch (err) {
+    console.error(`[CampaignWorker] Failed to send completion email for campaign #${campaign.id}`, err);
+  }
+}
+
 /**
  * Process a single campaign
  */
@@ -105,10 +127,7 @@ async function processCampaign(campaign) {
   const windowStatus = isWithinCallingWindow(campaign);
   if (windowStatus === 'expired') {
     console.log(`[CampaignWorker] Campaign #${campaign.id} "${campaign.name}" schedule expired. Marking completed.`);
-    await run(
-      "UPDATE campaigns SET status = 'completed', completed_at = datetime('now'), updated_at = datetime('now') WHERE id = ?",
-      [campaign.id]
-    );
+    await markCampaignCompleted(campaign);
     return;
   }
 
@@ -143,10 +162,7 @@ async function processCampaign(campaign) {
   }
 
   if (!Array.isArray(contactIds) || contactIds.length === 0) {
-    await run(
-      "UPDATE campaigns SET status = 'completed', completed_at = datetime('now'), updated_at = datetime('now') WHERE id = ?",
-      [campaign.id]
-    );
+    await markCampaignCompleted(campaign);
     return;
   }
 
@@ -276,10 +292,7 @@ async function processCampaign(campaign) {
   if (pendingContacts.length === 0) {
     // All contacts called or excluded
     console.log(`[CampaignWorker] Campaign #${campaign.id} "${campaign.name}" finished dialing all contacts.`);
-    await run(
-      "UPDATE campaigns SET status = 'completed', completed_at = datetime('now'), updated_at = datetime('now') WHERE id = ?",
-      [campaign.id]
-    );
+    await markCampaignCompleted(campaign);
     return;
   }
 

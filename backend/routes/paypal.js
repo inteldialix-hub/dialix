@@ -250,6 +250,26 @@ router.post('/webhooks/paypal', express.raw({ type: 'application/json' }), async
           await run("UPDATE subscriptions SET status = 'expired', updated_at = ? WHERE paypal_subscription_id = ?", [now, subId]);
           break;
           
+        case 'BILLING.SUBSCRIPTION.PAYMENT.FAILED':
+        case 'PAYMENT.SALE.DENIED':
+          {
+            const failSubId = resource.billing_agreement_id || resource.id;
+            if (failSubId) {
+              const failSub = await get(`
+                SELECT s.client_id, p.name as plan_name, c.email 
+                FROM subscriptions s 
+                JOIN pricing_plans p ON s.plan_id = p.id 
+                JOIN clients c ON s.client_id = c.id
+                WHERE s.paypal_subscription_id = ?
+              `, [failSubId]);
+              if (failSub && failSub.email) {
+                const { sendPaymentFailedEmail } = require('../services/email');
+                await sendPaymentFailedEmail(failSub.email, failSub.plan_name, 'Valued Customer');
+              }
+            }
+          }
+          break;
+          
         case 'PAYMENT.SALE.COMPLETED':
           const billingAgreementId = resource.billing_agreement_id;
           if (billingAgreementId) {
