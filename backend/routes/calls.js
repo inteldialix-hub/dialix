@@ -765,6 +765,9 @@ router.post('/status-webhook', async (req, res) => {
       recording_url,
       cost,
       provider: callProvider,
+      agent_id,
+      to_number,
+      from_number,
     } = req.body;
 
     if (!conversation_id) {
@@ -789,6 +792,21 @@ router.post('/status-webhook', async (req, res) => {
 
     const normalizedStatus = statusMap[status] || status;
     const isCompleted = ['completed', 'failed'].includes(normalizedStatus);
+
+    // Check if the call exists
+    const existingCall = await get('SELECT id FROM call_history WHERE conversation_id = ?', [conversation_id]);
+    
+    if (!existingCall && agent_id) {
+      // Find the client for this agent
+      const agentRecord = await get('SELECT client_id FROM client_agents WHERE agent_id = ?', [agent_id]);
+      if (agentRecord) {
+        await dbRun(
+          `INSERT INTO call_history (client_id, agent_id, to_number, from_number, conversation_id, direction, status, created_at)
+           VALUES (?, ?, ?, ?, ?, 'inbound', ?, datetime('now'))`,
+          [agentRecord.client_id, agent_id, to_number || 'Unknown', from_number || 'Unknown', conversation_id, normalizedStatus]
+        );
+      }
+    }
 
     // Update the call history record
     const updateFields = ['status = ?', "updated_at = datetime('now')"];

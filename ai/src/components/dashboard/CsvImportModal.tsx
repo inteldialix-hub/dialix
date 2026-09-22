@@ -185,14 +185,34 @@ export function CsvImportModal({ token, isOpen, onClose, onSuccess }: CsvImportM
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && step !== 'importing') {
+        onClose();
+      }
+    };
+    if (isOpen) {
+      document.addEventListener('keydown', handleKeyDown);
+    }
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, step, onClose]);
+
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => step !== 'importing' && onClose()}>
-      <div className="w-full max-w-2xl rounded-lg border border-border bg-card shadow-lg flex flex-col max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
+      <div 
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="csv-modal-title"
+        className="w-full max-w-2xl rounded-lg border border-border bg-card shadow-lg flex flex-col max-h-[90vh]" 
+        onClick={(e) => e.stopPropagation()}
+        tabIndex={-1}
+        ref={(el) => { if (el) el.focus(); }}
+      >
         {/* Header */}
         <div className="flex justify-between items-center px-6 py-4 border-b border-border">
-          <h2 className="text-lg font-medium">Import Contacts</h2>
+          <h2 id="csv-modal-title" className="text-lg font-medium">Import Contacts</h2>
           <button 
             onClick={() => step !== 'importing' && onClose()} 
             className="text-muted-foreground hover:text-foreground transition-colors"

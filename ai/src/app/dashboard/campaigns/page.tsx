@@ -374,7 +374,7 @@ export default function CampaignsPage() {
 
   return (
     <div className="max-w-7xl mx-auto px-6 py-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         {summaryCards.map((card, i) => {
           const IconComponent = card.icon;
           return (
@@ -451,7 +451,7 @@ export default function CampaignsPage() {
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                    <div className="grid grid-cols-1 md:grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                       <div className="rounded-lg border border-border bg-background p-4">
                         <div className="text-xs text-muted-foreground uppercase tracking-wider font-medium mb-1">Progress</div>
                         <div className="text-xl font-semibold font-mono tabular-nums">
@@ -682,7 +682,7 @@ export default function CampaignsPage() {
 
               {wizardStep === 5 && (
                 <div className="flex flex-col gap-6">
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium mb-1.5 text-foreground">Start date</label>
                       <input
@@ -713,7 +713,7 @@ export default function CampaignsPage() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium mb-1.5 text-foreground">Daily window start</label>
                       <input
@@ -780,7 +780,7 @@ export default function CampaignsPage() {
 
               {wizardStep === 6 && (
                 <div className="flex flex-col gap-6">
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium mb-1.5 text-foreground">Concurrent call lines</label>
                       <input
@@ -814,7 +814,7 @@ export default function CampaignsPage() {
                     </div>
                   </div>
                   
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium mb-1.5 text-foreground">Max Spend ($)</label>
                       <input

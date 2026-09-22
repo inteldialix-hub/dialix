@@ -27,13 +27,28 @@ export function ConfirmModal({
   const canConfirm = requireType ? typed === requireType : true;
   const Icon = danger ? AlertTriangle : Info;
 
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onCancel();
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [onCancel]);
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onCancel}>
       <div 
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="confirm-modal-title"
         className="w-full max-w-md rounded-lg border border-border bg-card p-6 shadow-lg"
         onClick={e => e.stopPropagation()}
+        tabIndex={-1}
+        ref={(el) => { if (el && !requireType) el.focus(); }}
       >
-        <div className="mb-4 flex items-center gap-3 text-lg font-semibold tracking-tight text-foreground">
+        <div id="confirm-modal-title" className="mb-4 flex items-center gap-3 text-lg font-semibold tracking-tight text-foreground">
           <Icon className={cn("size-5", danger ? "text-red-500" : "text-blue-500")} />
           <span>{title}</span>
         </div>

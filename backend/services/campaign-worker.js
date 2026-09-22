@@ -9,6 +9,10 @@ const elevenlabs = require('./elevenlabs');
 const vapi = require('./vapi');
 const { detectDncOptOut } = require('./dnc-keywords');
 const { sendCampaignCompletedEmail } = require('./email');
+const { createLogger } = require('../lib/logger');
+const { withRetry } = require('../lib/provider-retry');
+
+const logger = createLogger({ component: 'CampaignWorker' });
 
 let intervalId = null;
 let isProcessing = false;
@@ -395,21 +399,61 @@ async function processCampaign(campaign) {
               },
             },
           };
-          const elRes = await elevenlabs.makeOutboundCall(phoneRow.provider || 'twilio', callPayload);
+          const elRes = await withRetry(
+            () => elevenlabs.makeOutboundCall(phoneRow.provider || 'twilio', callPayload),
+            {
+              label: 'ElevenLabs Outbound Call',
+              maxRetries: 2,
+              shouldRetry: (err) => {
+                const msg = (err.message || '').toLowerCase();
+                return !(msg.includes('insufficient balance') || msg.includes('funds') || msg.includes('invalid number') || msg.includes('not a valid phone number'));
+              }
+            }
+          ).catch(err => {
+            logger.error('Provider call failed', {
+              provider: 'elevenlabs',
+              errorCode: err.code || 'UNKNOWN',
+              errorMessage: err.message,
+              campaignId: campaign.id,
+              contactId: contact.id,
+              correlationId: `cmp_${campaign.id}_${contact.id}`
+            });
+            throw err;
+          });
           conversationId = elRes?.conversation_id || elRes?.id || `el_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
         } else if (provider === 'vapi') {
           // If phone is an ElevenLabs phone, Vapi cannot dial out with it
           if (phoneRow.elevenlabs_phone_number_id && !phoneRow.provider_id) {
             throw new Error(`Agent is managed by Vapi, but phone line ${phoneRow.phone_number} is hosted on ElevenLabs. Please assign an ElevenLabs agent to this campaign.`);
           }
-          const vapiRes = await vapi.createCall({
-            assistantId: campaign.agent_id,
-            phoneNumberId: phoneRow.provider_id || undefined,
-            customerNumber: targetNumber,
-            customer: {
-              number: targetNumber,
-              name: leadName,
-            },
+          const vapiRes = await withRetry(
+            () => vapi.createCall({
+              assistantId: campaign.agent_id,
+              phoneNumberId: phoneRow.provider_id || undefined,
+              customerNumber: targetNumber,
+              customer: {
+                number: targetNumber,
+                name: leadName,
+              },
+            }),
+            {
+              label: 'Vapi Outbound Call',
+              maxRetries: 2,
+              shouldRetry: (err) => {
+                const msg = (err.message || '').toLowerCase();
+                return !(msg.includes('insufficient balance') || msg.includes('funds') || msg.includes('invalid number') || msg.includes('not a valid phone number'));
+              }
+            }
+          ).catch(err => {
+            logger.error('Provider call failed', {
+              provider: 'vapi',
+              errorCode: err.code || 'UNKNOWN',
+              errorMessage: err.message,
+              campaignId: campaign.id,
+              contactId: contact.id,
+              correlationId: `cmp_${campaign.id}_${contact.id}`
+            });
+            throw err;
           });
           conversationId = vapiRes?.id || `vapi_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
         } else {
