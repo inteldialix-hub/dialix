@@ -29,6 +29,7 @@ router.get('/plans', async (req, res) => {
     // Parse the features JSON string
     const parsed = plans.map(p => ({
       ...p,
+      price: p.slug === 'enterprise' ? 'Custom' : p.price,
       features: typeof p.features === 'string' ? JSON.parse(p.features) : p.features,
     }));
 

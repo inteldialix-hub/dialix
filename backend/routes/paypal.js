@@ -329,9 +329,9 @@ router.post('/admin/sync-plans', authenticate, requireAdmin, async (req, res) =>
 
     for (const plan of plans) {
       let amount = 0;
-      if (plan.slug === 'professional') amount = 49;
-      else if (plan.slug === 'business') amount = 149;
-      else if (plan.slug === 'enterprise') amount = 499;
+      if (plan.slug === 'starter') amount = 49;
+      else if (plan.slug === 'professional') amount = 149;
+      else if (plan.slug === 'enterprise') amount = 0; // Custom pricing
 
       if (amount === 0) continue;
 

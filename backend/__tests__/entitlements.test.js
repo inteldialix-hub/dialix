@@ -60,14 +60,14 @@ describe('Entitlements and Plan Limits', () => {
 
   describe('checkAgentLimit', () => {
     it('should allow if max_agents is -1 (unlimited)', async () => {
-      get.mockResolvedValueOnce({ max_agents: -1 });
+      get.mockResolvedValueOnce({ max_agents: -1, plan_name: 'Pro' });
       const result = await checkAgentLimit(1);
       expect(result.allowed).toBe(true);
     });
 
     it('should allow if current agents < max_agents', async () => {
       get
-        .mockResolvedValueOnce({ max_agents: 5 }) // limits
+        .mockResolvedValueOnce({ max_agents: 5, plan_name: 'Pro' }) // limits
         .mockResolvedValueOnce({ count: 2 }); // current agent count
 
       const result = await checkAgentLimit(1);
@@ -88,7 +88,7 @@ describe('Entitlements and Plan Limits', () => {
 
   describe('checkPhoneNumberLimit', () => {
     it('should allow if max_phone_numbers is -1 (unlimited)', async () => {
-      get.mockResolvedValueOnce({ max_phone_numbers: -1 });
+      get.mockResolvedValueOnce({ max_phone_numbers: -1, plan_name: 'Pro' });
       const result = await checkPhoneNumberLimit(1);
       expect(result.allowed).toBe(true);
     });
@@ -106,7 +106,7 @@ describe('Entitlements and Plan Limits', () => {
 
   describe('checkCallLimit', () => {
     it('should allow if max_calls_per_month is -1 (unlimited)', async () => {
-      get.mockResolvedValueOnce({ max_calls_per_month: -1 });
+      get.mockResolvedValueOnce({ max_calls_per_month: -1, plan_name: 'Pro' });
       const result = await checkCallLimit(1);
       expect(result.allowed).toBe(true);
     });

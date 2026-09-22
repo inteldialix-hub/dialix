@@ -14,8 +14,10 @@ jest.mock('../middleware/auth', () => ({
     const token = req.headers.authorization;
     if (token === 'Bearer token1') {
       req.user = { client_id: 1, clientId: 1, id: 1, is_admin: 0 };
+      req.client = { id: 1, is_admin: 0 };
     } else if (token === 'Bearer token2') {
       req.user = { client_id: 2, clientId: 2, id: 2, is_admin: 0 };
+      req.client = { id: 2, is_admin: 0 };
     } else {
       return res.status(401).json({ error: 'Unauthorized' });
     }
@@ -69,9 +71,9 @@ describe('Tenant Isolation', () => {
     });
   });
 
-  describe('GET /api/calls', () => {
+  describe('GET /api/calls/list', () => {
     it('should only query calls for client 1', async () => {
-      await request(app).get('/api/calls').set('Authorization', 'Bearer token1');
+      await request(app).get('/api/calls/list').set('Authorization', 'Bearer token1');
       expect(all).toHaveBeenCalledWith(
         expect.stringContaining('client_id = ?'),
         expect.arrayContaining([1])
