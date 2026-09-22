@@ -279,7 +279,7 @@ export default function AgentsPage() {
                   const p = (agent.provider || 'elevenlabs').toLowerCase();
                   const isActive = agent.status !== 'unavailable' && agent.status !== 'inactive';
                   return (
-                    <tr key={agent.agent_id} className="hover:bg-accent/50 transition-colors group">
+                    <tr key={agent.agent_id} className="hover:bg-accent/50 transition-all hover:scale-[1.005] group">
                       <td className="px-4 py-3">
                         <Link href={`/dashboard/agents/${agent.agent_id}`} className="flex items-center gap-3">
                           <div className="flex h-8 w-8 items-center justify-center rounded-md bg-muted text-muted-foreground">

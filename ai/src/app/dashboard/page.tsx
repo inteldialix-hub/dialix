@@ -78,6 +78,48 @@ interface ActiveCall {
   startedAt: string;
 }
 
+function CountUpStat({ 
+  value, 
+  suffix = '', 
+  formatter,
+  isNA
+}: { 
+  value: number; 
+  suffix?: string; 
+  formatter?: (val: number) => string;
+  isNA?: boolean;
+}) {
+  const [count, setCount] = useState(0);
+
+  useEffect(() => {
+    if (isNA) return;
+    let startTimestamp: number | null = null;
+    const duration = 1000;
+
+    const step = (timestamp: number) => {
+      if (!startTimestamp) startTimestamp = timestamp;
+      const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+      const ease = 1 - Math.pow(1 - progress, 4);
+      setCount(ease * value);
+
+      if (progress < 1) {
+        requestAnimationFrame(step);
+      } else {
+        setCount(value);
+      }
+    };
+
+    requestAnimationFrame(step);
+  }, [value, isNA]);
+
+  if (isNA) return <>N/A</>;
+  if (formatter) return <>{formatter(count)}</>;
+  
+  const isFloat = value % 1 !== 0;
+  const displayVal = isFloat ? count.toFixed(1) : Math.round(count).toString();
+  return <>{displayVal}{suffix}</>;
+}
+
 export default function DashboardPage() {
   const { token, client } = useAuth();
   const { addToast } = useToast();
@@ -487,7 +529,9 @@ export default function DashboardPage() {
         {statCards.map((card, i) => (
           <div key={i} className="rounded-lg border border-border bg-card p-6">
             <p className="text-sm text-muted-foreground">{card.label}</p>
-            <p className="text-2xl font-semibold mt-1 font-mono tabular-nums">{card.value}</p>
+            <p className="text-2xl font-semibold mt-1 font-mono tabular-nums">
+              <CountUpStat value={card.raw} suffix={card.suffix} formatter={card.formatter} isNA={card.isNA} />
+            </p>
           </div>
         ))}
       </div>
