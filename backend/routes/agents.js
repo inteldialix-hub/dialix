@@ -864,6 +864,8 @@ router.post('/', authenticate, validateSchema(createAgentSchema), async (req, re
       transfer_number = null,
       transfer_conditions = null,
       transfer_fallback = 'voicemail',
+      recording_disclosure = null,
+      disclosure_enabled = true,
     } = merged;
 
     // ── Gemini creation ──

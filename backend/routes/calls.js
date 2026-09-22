@@ -260,6 +260,12 @@ router.get('/conversation/:conversation_id', authenticate, async (req, res) => {
             phone_number: localCall.to_number,
           },
         },
+        transfer_attempted: localCall.transfer_attempted ? true : false,
+        ...(localCall.transfer_attempted && {
+          transfer_success: localCall.transfer_success ? true : false,
+          transfer_target: localCall.transfer_target,
+          transfer_reason: localCall.transfer_reason
+        })
       });
     }
 

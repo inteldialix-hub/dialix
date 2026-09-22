@@ -338,6 +338,15 @@ async function start() {
     processRetries().catch(console.error);
   }, 60000);
 
+  // Run retention cleanup daily at startup + every 24 hours
+  const retention = require('./services/retention');
+  setTimeout(() => {
+    retention.runRetentionCleanup().catch(err => console.error('[Retention] Cleanup error:', err));
+  }, 60000); // 1 min after startup
+  setInterval(() => {
+    retention.runRetentionCleanup().catch(err => console.error('[Retention] Cleanup error:', err));
+  }, 24 * 60 * 60 * 1000); // Every 24 hours
+
   server.listen(PORT, '0.0.0.0', () => {
     console.log('');
     console.log('  ╔═══════════════════════════════════════╗');

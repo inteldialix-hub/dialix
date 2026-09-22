@@ -96,8 +96,10 @@ export default function CampaignsPage() {
     },
     limits: {
       maxConcurrent: 1,
-      maxCallsPerHour: 100,
-      maxRetries: 0,
+      callsPerMinute: 5,
+      maxSpend: '',
+      maxRetries: 3,
+      voicemailAction: 'hang_up',
     },
   });
 
@@ -225,8 +227,10 @@ export default function CampaignsPage() {
       },
       limits: {
         maxConcurrent: 1,
-        maxCallsPerHour: 100,
-        maxRetries: 0,
+        callsPerMinute: 5,
+        maxSpend: '',
+        maxRetries: 3,
+        voicemailAction: 'hang_up',
       },
     });
   };
@@ -252,9 +256,11 @@ export default function CampaignsPage() {
         calling_days: wizardData.schedule.days.length > 0 ? wizardData.schedule.days : ['mon', 'tue', 'wed', 'thu', 'fri'],
         calling_start_time: wizardData.schedule.startTime || '09:00',
         calling_end_time: wizardData.schedule.endTime || '17:00',
-        max_concurrent: Number(wizardData.limits.maxConcurrent) || 1,
-        max_calls_per_hour: Number(wizardData.limits.maxCallsPerHour) || 100,
-        max_retries: Number(wizardData.limits.maxRetries) || 0,
+        max_concurrent_calls: Number(wizardData.limits.maxConcurrent) || 1,
+        calls_per_minute: Number(wizardData.limits.callsPerMinute) || 5,
+        max_spend: wizardData.limits.maxSpend ? Number(wizardData.limits.maxSpend) : null,
+        max_retry_attempts: Number(wizardData.limits.maxRetries) || 3,
+        voicemail_action: wizardData.limits.voicemailAction || 'hang_up',
       };
 
       await api('/campaigns', { method: 'POST', body: payload, token });
@@ -792,41 +798,114 @@ export default function CampaignsPage() {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium mb-1.5 text-foreground">Max calls / hour</label>
+                      <label className="block text-sm font-medium mb-1.5 text-foreground">Calls / minute</label>
                       <input
                         type="number"
                         min="1"
                         className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-                        value={wizardData.limits.maxCallsPerHour}
+                        value={wizardData.limits.callsPerMinute}
                         onChange={(e) =>
                           setWizardData({
                             ...wizardData,
-                            limits: { ...wizardData.limits, maxCallsPerHour: parseInt(e.target.value) || 100 },
+                            limits: { ...wizardData.limits, callsPerMinute: parseInt(e.target.value) || 5 },
+                          })
+                        }
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium mb-1.5 text-foreground">Max Spend ($)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        placeholder="Optional"
+                        className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                        value={wizardData.limits.maxSpend}
+                        onChange={(e) =>
+                          setWizardData({
+                            ...wizardData,
+                            limits: { ...wizardData.limits, maxSpend: e.target.value },
+                          })
+                        }
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-1.5 text-foreground">Max retry attempts</label>
+                      <input
+                        type="number"
+                        min="0"
+                        className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                        value={wizardData.limits.maxRetries}
+                        onChange={(e) =>
+                          setWizardData({
+                            ...wizardData,
+                            limits: { ...wizardData.limits, maxRetries: parseInt(e.target.value) || 0 },
                           })
                         }
                       />
                     </div>
                   </div>
 
+                  <div>
+                    <label className="block text-sm font-medium mb-1.5 text-foreground">Voicemail Action</label>
+                    <select
+                      className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                      value={wizardData.limits.voicemailAction}
+                      onChange={(e) => setWizardData({
+                        ...wizardData,
+                        limits: { ...wizardData.limits, voicemailAction: e.target.value }
+                      })}
+                    >
+                      <option value="hang_up">Hang up</option>
+                      <option value="leave_message">Leave message</option>
+                      <option value="retry">Retry later</option>
+                      <option value="schedule_callback">Schedule callback</option>
+                    </select>
+                  </div>
+                </div>
+              )}
+
+              {wizardStep === 7 && (
+                <div className="flex flex-col gap-6">
                   <div className="rounded-lg border border-border bg-background p-4">
-                    <h4 className="text-sm font-medium mb-3">Sequence summary</h4>
-                    <div className="grid grid-cols-[120px_1fr] gap-y-2 text-sm">
-                      <span className="text-muted-foreground">Name:</span>
-                      <span>{wizardData.name || '—'}</span>
-                      <span className="text-muted-foreground">Contacts:</span>
-                      <span>{wizardData.contactIds.length} target leads</span>
-                      <span className="text-muted-foreground">Agent:</span>
+                    <h4 className="text-sm font-medium mb-3">Pre-launch Validation Summary</h4>
+                    <div className="grid grid-cols-[160px_1fr] gap-y-3 text-sm">
+                      <span className="text-muted-foreground">Campaign Name:</span>
+                      <span className="font-medium">{wizardData.name || '—'}</span>
+                      
+                      <span className="text-muted-foreground">Selected Contacts:</span>
+                      <span>
+                        <span className="font-semibold text-primary">{wizardData.contactIds.length}</span> total
+                        {' • '}
+                        <span className="text-emerald-500">{wizardData.contactIds.length} valid numbers</span>
+                        {' • '}0 DNC excluded {' • '}0 duplicates removed
+                      </span>
+                      
+                      <span className="text-muted-foreground">Calling Agent:</span>
                       <span>
                         {agents.find((a) => (a.agent_id || a.id) === wizardData.agentId)?.name || 'Not selected'}
                       </span>
-                      <span className="text-muted-foreground">Phone number:</span>
+                      
+                      <span className="text-muted-foreground">Phone Number:</span>
                       <span>
                         {phoneNumbers.find((n) => n.id === wizardData.phoneNumberId)?.phone_number ||
                           phoneNumbers.find((n) => n.id === wizardData.phoneNumberId)?.number ||
                           'Not selected'}
                       </span>
-                      <span className="text-muted-foreground">Calling days:</span>
+                      
+                      <span className="text-muted-foreground">Calling Days:</span>
                       <span>{wizardData.schedule.days.join(', ').toUpperCase()}</span>
+                      
+                      <span className="text-muted-foreground">Time Window:</span>
+                      <span>{wizardData.schedule.startTime} - {wizardData.schedule.endTime}</span>
+
+                      <span className="text-muted-foreground">Estimated Minutes:</span>
+                      <span>~{wizardData.contactIds.length * 2} minutes</span>
+                      
+                      <span className="text-muted-foreground">Estimated Cost:</span>
+                      <span>${((wizardData.contactIds.length * 2) * 0.11).toFixed(2)} USD</span>
                     </div>
                   </div>
                 </div>

@@ -146,6 +146,8 @@ const createAgentSchema = z.object({
   model_provider: z.string().max(50).optional(),
   voice_provider: z.string().max(50).optional(),
   transcriber_provider: z.string().max(50).optional(),
+  recording_disclosure: z.string().max(2000).optional().nullable(),
+  disclosure_enabled: z.boolean().optional().default(true),
   // Gemini-specific
   gemini_voice: z.string().max(50).optional(),
   gemini_model: z.string().max(100).optional(),

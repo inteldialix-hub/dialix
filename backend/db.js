@@ -929,6 +929,8 @@ async function initPostgresDb() {
   await pool.query(`ALTER TABLE client_agents ADD COLUMN IF NOT EXISTS transfer_number TEXT`);
   await pool.query(`ALTER TABLE client_agents ADD COLUMN IF NOT EXISTS transfer_conditions TEXT`);
   await pool.query(`ALTER TABLE client_agents ADD COLUMN IF NOT EXISTS transfer_fallback TEXT DEFAULT 'voicemail'`);
+  await pool.query(`ALTER TABLE client_agents ADD COLUMN IF NOT EXISTS recording_disclosure TEXT`);
+  await pool.query(`ALTER TABLE client_agents ADD COLUMN IF NOT EXISTS disclosure_enabled BOOLEAN DEFAULT true`);
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS phone_numbers (
@@ -1231,6 +1233,8 @@ async function initPostgresDb() {
   await pool.query(`ALTER TABLE campaigns DROP CONSTRAINT IF EXISTS campaigns_phone_number_id_fkey`);
   await pool.query(`ALTER TABLE campaigns ALTER COLUMN phone_number_id TYPE TEXT USING phone_number_id::TEXT`);
   await pool.query(`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS voicemail_action TEXT DEFAULT 'hangup'`);
+  await pool.query(`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS recording_disclosure TEXT`);
+  await pool.query(`ALTER TABLE clients ADD COLUMN IF NOT EXISTS recording_retention_days INTEGER DEFAULT 90`);
 
   // ─── Subscriptions ──────────────────────────────────────────
   await pool.query(`

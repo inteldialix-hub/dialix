@@ -202,11 +202,15 @@ async function processCampaign(campaign) {
     for (const call of (pendingCalls || [])) {
       let isAnswered = false;
       let newStatus = call.status;
+      let handleVoicemail = false;
 
       if (campaign.agent_id?.startsWith('agent_') && process.env.ELEVENLABS_API_KEY) {
         try {
           const conv = await elevenlabs.getConversation(call.conversation_id);
-          if (conv?.status === 'in-call' || conv?.status === 'done') {
+          const isVoicemail = conv?.status === 'voicemail' || conv?.amd === 'machine' || conv?.metadata?.amd_status === 'machine' || conv?.status === 'machine';
+          if (isVoicemail) {
+            handleVoicemail = true;
+          } else if (conv?.status === 'in-call' || conv?.status === 'done') {
             isAnswered = true;
             newStatus = conv.status === 'done' ? 'completed' : 'in-progress';
           }
@@ -214,11 +218,40 @@ async function processCampaign(campaign) {
       } else if (process.env.VAPI_API_KEY && !campaign.agent_id?.startsWith('gemini_')) {
         try {
           const vCall = await vapi.getCall(call.conversation_id);
-          if (vCall?.status === 'in-progress' || vCall?.status === 'ended') {
+          const isVoicemail = vCall?.status === 'voicemail' || vCall?.machineDetection === 'machine' || vCall?.endedReason === 'voicemail';
+          if (isVoicemail) {
+            handleVoicemail = true;
+          } else if (vCall?.status === 'in-progress' || vCall?.status === 'ended') {
             isAnswered = true;
             newStatus = vCall.status === 'ended' ? 'completed' : 'in-progress';
           }
         } catch {}
+      }
+
+      if (handleVoicemail) {
+        const vAction = campaign.voicemail_action || 'hangup';
+        if (vAction === 'leave_message') {
+          // Let AI continue, just mark in-progress
+          isAnswered = true;
+          newStatus = 'in-progress';
+        } else {
+          // hangup, retry, callback -> end call
+          newStatus = 'failed';
+          const reason = 'voicemail';
+          
+          await run('UPDATE call_history SET status = ?, failure_reason = ? WHERE id = ?', [newStatus, reason, call.id]);
+          
+          if (vAction === 'retry') {
+            // Increment retry_count, it will be retried
+            await run('UPDATE contacts SET retry_count = retry_count - 1 WHERE phone_e164 = (SELECT to_number FROM call_history WHERE id = ?)', [call.id]); // Subtract 1 so it doesn't count against max retries immediately, or maybe we do count it.
+          } else if (vAction === 'callback') {
+            // Schedule callback
+            await run("UPDATE contacts SET next_callback_at = datetime('now', '+1 hour') WHERE phone_e164 = (SELECT to_number FROM call_history WHERE id = ?)", [call.id]);
+          }
+          
+          // Optionally call provider API to actually terminate the call here if known, but DB update ensures we stop tracking it as active
+          continue;
+        }
       }
 
       if (isAnswered) {
